@@ -84,7 +84,8 @@ cd ~/PowerTerminal && ./tests/run.sh
 │       ├── node.sh           # nvm OU n (escolha) + Node LTS
 │       ├── helpers.sh        # link de myastro / mykitty / myyazi
 │       ├── extras.sh         # btop, ranger, yazi, picom, flameshot, …
-│       └── notiont.sh        # notion-t (CLI Notion via pipx)
+│       ├── notiont.sh        # notion-t (CLI Notion via pipx)
+│       └── container.sh      # Docker OU Podman (escolha) + grupo/rootless
 ├── home/                     # estado canônico das configs
 │   ├── .zshrc                # template comum (sourceia .zshrc.local)
 │   ├── .p10k.zsh
@@ -158,8 +159,8 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 | Profile   | Inclui                                                                 |
 |-----------|------------------------------------------------------------------------|
 | `minimal` | apt + fonts + zsh + helpers                                            |
-| `dev`     | minimal + nvim + astronvim + kitty + tools + node                      |
-| `full`    | tudo (= dev + extras)                                                  |
+| `dev`     | minimal + nvim + astronvim + kitty + tools + node + container          |
+| `full`    | tudo (= dev + extras + notiont)                                        |
 
 ## Comandos
 
@@ -198,6 +199,40 @@ ou `n lts`) e o `~/.zshrc` do PowerTerminal já tem o auto-detect — basta
 
 > **Idempotente.** Reexecutar `powerterminal install --module node` é seguro:
 > se o gerenciador já existe, ele só garante o Node LTS e os PATHs.
+
+## Módulo `container` (Docker ou Podman)
+
+Instala **um** runtime de container e o deixa pronto para usar sem `sudo`.
+
+**Quem é escolhido?** A precedência (de cima pra baixo):
+
+1. `POWERTERMINAL_CONTAINER_RUNTIME=docker|podman` (env) → respeita o pedido,
+   mesmo que o outro runtime já esteja instalado (avisa sobre o conflito).
+2. Se já existe um runtime → reusa o que está lá (Docker ganha se ambos).
+3. Modo não-interativo (`--yes` / sem TTY) → default `docker`.
+4. Modo interativo → menu perguntando.
+
+**O que cada caminho faz:**
+
+| Runtime  | Origem                                      | Configuração aplicada                                     |
+|----------|---------------------------------------------|-----------------------------------------------------------|
+| `docker` | repo oficial `download.docker.com`, com keyring em `/etc/apt/keyrings/docker.asc` | `docker-ce`, `docker-ce-cli`, `containerd.io`, `buildx` e **Compose v2**; habilita `docker.service`; adiciona seu usuário ao grupo `docker` |
+| `podman` | pacotes da distro (o repo Kubic foi arquivado) | `podman` + `podman-docker` (comando `docker`) + `podman-compose`; garante `subuid`/`subgid`; habilita `podman.socket` do usuário |
+
+Escolhendo Podman, o `~/.zshrc` do PowerTerminal exporta `DOCKER_HOST` apontando
+para o socket rootless **só quando ele existe** — ferramentas que falam a API do
+Docker (Compose, testcontainers) funcionam sem daemon root.
+
+> **O grupo `docker` só vale no próximo login.** Grupos são fixados no login e
+> nenhum comando muda isso de fora. Reinicie a máquina (ou saia da sessão e entre
+> de novo). Para testar na sessão atual: `newgrp docker`.
+
+> **Dentro de um container o módulo se pula de propósito.** Instalar um runtime
+> dentro de outro não produz ambiente utilizável, então rodar o instalador na
+> imagem de teste do repo deixa o passo como tarefa manual em vez de falhar.
+
+> **Idempotente.** Reexecutar é seguro: o keyring e a lista são reescritos, e o
+> `usermod` só roda se você ainda não estiver no grupo.
 
 ## Personalização (`~/.zshrc.local`)
 
@@ -299,6 +334,10 @@ myyazi files       # filtra uma seção (nav, files, find, tabs, cli, …)
 | Quero voltar à config anterior                | `powerterminal unlink` — restaura os `.pnbak.<timestamp>` mais recentes.            |
 | `node`/`npm` não aparecem após install        | Reabra o terminal ou rode `exec zsh` — o `~/.zshrc` carrega `nvm`/`n` no startup. |
 | Quero forçar `nvm` (ou `n`) num install `--yes` | `POWERTERMINAL_NODE_MANAGER=nvm powerterminal install --module node --yes`.         |
+| Quero forçar Podman (ou Docker) num install `--yes` | `POWERTERMINAL_CONTAINER_RUNTIME=podman powerterminal install --module container --yes`. |
+| `docker` responde `permission denied` no socket | Você não está no grupo `docker`, ou entrou nele nesta sessão. Confira com `id -nG`; se aparecer, reinicie a sessão (ou `newgrp docker`). |
+| Instalei Podman e `docker compose` não acha o daemon | O socket rootless não subiu: `systemctl --user enable --now podman.socket`. O `DOCKER_HOST` do `~/.zshrc` só é exportado quando o socket existe, então reabra o terminal depois. |
+| O módulo `container` foi pulado no install | A instalação rodou dentro de um container (detectado por `/.dockerenv` ou `/run/.containerenv`). Rode `powerterminal install --module container` na máquina real. |
 | Erro `unknown style 'zdiff3'` no `git`        | Git < 2.35; use `merge.conflictstyle=diff3` ou atualize via `ppa:git-core/ppa`. |
 | Shader `paper` do picom não aplica            | O picom < v10 exige caminho absoluto em `glx-fshader`. Descomente a linha em `home/.config/picom/picom.conf` trocando `SEU_USUARIO`. |
 

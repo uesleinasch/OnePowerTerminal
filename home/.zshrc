@@ -43,6 +43,13 @@ export NVM_DIR="$HOME/.nvm"
 
 [[ -d "$HOME/n/bin" ]] && export PATH="$HOME/n/bin:$PATH"
 
+# ── Container (módulo `container` instala Docker OU Podman) ──────────────────
+# Só o Podman rootless expõe esse socket. A guarda mantém a linha inerte para
+# quem escolheu Docker, onde um DOCKER_HOST definido apontaria para o lugar
+# errado e quebraria o cliente que já fala com /var/run/docker.sock.
+[[ -S "${XDG_RUNTIME_DIR:-/run/user/$UID}/podman/podman.sock" ]] \
+  && export DOCKER_HOST="unix://${XDG_RUNTIME_DIR:-/run/user/$UID}/podman/podman.sock"
+
 # ── fzf ──────────────────────────────────────────────────────────────────────
 [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
 

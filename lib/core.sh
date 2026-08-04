@@ -94,6 +94,14 @@ as_sudo() {
   fi
 }
 
+# sudo_ready — sucesso quando dá para escalar sem prompt: já somos root, ou o
+# timestamp do sudo está válido. Dentro do wizard a saída dos módulos vai para o
+# log, então um prompt de senha ficaria invisível e travaria a instalação; quem
+# chama usa isto para degradar para tarefa manual em vez de pendurar.
+sudo_ready() {
+  [[ "$(id -u)" -eq 0 ]] || sudo -n true 2>/dev/null
+}
+
 # ---- Apt ---------------------------------------------------------------------
 apt_install() {
   require_supported_distro
@@ -112,6 +120,49 @@ apt_update_once() {
     sudo env DEBIAN_FRONTEND=noninteractive apt-get update -y
   fi
   _PN_APT_UPDATED=1
+}
+
+# apt_add_repo NOME CHAVE_URL REPO_URL SUITE COMPONENTE — registra um repositório
+# apt externo com keyring próprio em /etc/apt/keyrings/NOME.asc e lista em
+# /etc/apt/sources.list.d/NOME.list. Usa o padrão signed-by porque `apt-key` está
+# depreciado e uma chave no chaveiro global assinaria por qualquer repositório.
+# Reescreve keyring e lista a cada chamada: é barato e é o que mantém a coisa
+# correta quando a chave upstream rotaciona.
+apt_add_repo() {
+  local nome="$1" chave_url="$2" repo_url="$3" suite="$4" componente="$5"
+  local keyring="/etc/apt/keyrings/${nome}.asc"
+  local lista="/etc/apt/sources.list.d/${nome}.list"
+  local arch linha tmp
+
+  arch="$(dpkg --print-architecture)"
+  linha="deb [arch=${arch} signed-by=${keyring}] ${repo_url} ${suite} ${componente}"
+
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log_dry "install -m 0755 -d /etc/apt/keyrings"
+    log_dry "curl -fsSL $chave_url → $keyring (modo 0644)"
+    log_dry "echo '$linha' > $lista"
+    log_dry "apt-get update"
+    return 0
+  fi
+
+  as_sudo install -m 0755 -d /etc/apt/keyrings
+
+  # A chave tem de terminar legível por _apt (0644). Rodar o curl como root para
+  # escrever direto em /etc daria a um download remoto privilégio que ele não
+  # precisa: baixa como usuário, instala com o modo certo.
+  tmp="$(mktemp)"
+  if ! download_to "$chave_url" "$tmp"; then
+    rm -f "$tmp"
+    die "Falha ao baixar a chave GPG de '$nome' ($chave_url)."
+  fi
+  as_sudo install -m 0644 "$tmp" "$keyring"
+  rm -f "$tmp"
+
+  printf '%s\n' "$linha" | as_sudo tee "$lista" >/dev/null
+
+  # A lista de fontes mudou: o cache do apt_update_once ficou obsoleto.
+  _PN_APT_UPDATED=""
+  apt_update_once
 }
 
 # ---- Sudo keepalive ----------------------------------------------------------

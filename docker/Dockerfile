@@ -2,6 +2,9 @@
 # Build:  docker build -t powerterminal-test -f docker/Dockerfile .
 # Run:    docker run -it --rm powerterminal-test
 # Dentro: ~/PowerTerminal/bin/powerterminal install --profile full --yes
+#
+# O módulo `container` se pula sozinho aqui: instalar Docker/Podman dentro de um
+# container não produz ambiente utilizável. Para exercitá-lo, use a máquina real.
 
 FROM ubuntu:22.04
 
