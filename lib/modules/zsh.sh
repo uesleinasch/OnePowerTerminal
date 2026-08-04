@@ -60,9 +60,7 @@ _vf_nota_shell_padrao() {
   post_install_note "Definir zsh como shell padrão: chsh -s $1 — depois reinicie a máquina (ou saia da sessão e entre de novo), porque o shell novo só passa a valer no próximo login."
 }
 
-_vf_sudo_pronto() {
-  [[ "$(id -u)" -eq 0 ]] || sudo -n true 2>/dev/null
-}
+_vf_sudo_pronto() { sudo_ready; }
 
 # `chsh` direto pede a senha do usuário e trava sem TTY — no wizard, onde a
 # saída dos módulos vai para o log, o prompt seria invisível. O install já

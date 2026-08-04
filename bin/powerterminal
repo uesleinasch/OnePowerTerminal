@@ -21,12 +21,12 @@ done
 trap pn_cleanup EXIT
 
 # Lista canônica e ordenada
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container)
 
 _vf_profile_modules() {
   case "$1" in
     minimal) echo "apt fonts zsh helpers" ;;
-    dev)     echo "apt fonts zsh nvim astronvim kitty tools node helpers" ;;
+    dev)     echo "apt fonts zsh nvim astronvim kitty tools node helpers container" ;;
     full)    echo "${_PN_ALL_MODULES[*]}" ;;
     *) return 1 ;;
   esac
