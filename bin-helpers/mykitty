@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+# mykitty — guia rápido de atalhos e recursos do Kitty (com config local)
+# Uso: mykitty [seção]
+# Seções: tabs, splits, scrollback, search, copy, font, image, hints, kittens, config
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+  B=$'\033[1m'; D=$'\033[2m'; U=$'\033[4m'; R=$'\033[0m'
+  C1=$'\033[38;5;141m'   # roxo (títulos)
+  C2=$'\033[38;5;215m'   # laranja (subtítulos)
+  C3=$'\033[38;5;114m'   # verde (atalhos)
+  C4=$'\033[38;5;110m'   # azul (descrições)
+  C5=$'\033[38;5;245m'   # cinza (notas)
+else
+  B=""; D=""; U=""; R=""; C1=""; C2=""; C3=""; C4=""; C5=""
+fi
+
+hr() { printf "${C5}%s${R}\n" "──────────────────────────────────────────────────────────────────────"; }
+title() { printf "\n${C1}${B}▸ %s${R}\n" "$1"; hr; }
+sub() { printf "\n${C2}${B}%s${R}\n" "$1"; }
+key() { printf "  ${C3}%-26s${R} ${C4}%s${R}\n" "$1" "$2"; }
+note() { printf "${C5}  %s${R}\n" "$1"; }
+
+show_header() {
+  printf "${C1}${B}\n"
+  printf "  ███╗   ███╗██╗   ██╗    ██╗  ██╗██╗████████╗████████╗██╗   ██╗\n"
+  printf "  ████╗ ████║╚██╗ ██╔╝    ██║ ██╔╝██║╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝\n"
+  printf "  ██╔████╔██║ ╚████╔╝     █████╔╝ ██║   ██║      ██║    ╚████╔╝\n"
+  printf "  ██║╚██╔╝██║  ╚██╔╝      ██╔═██╗ ██║   ██║      ██║     ╚██╔╝\n"
+  printf "  ██║ ╚═╝ ██║   ██║       ██║  ██╗██║   ██║      ██║      ██║\n"
+  printf "  ╚═╝     ╚═╝   ╚═╝       ╚═╝  ╚═╝╚═╝   ╚═╝      ╚═╝      ╚═╝${R}\n"
+  printf "${C5}  Guia rápido — config em ~/.config/kitty/kitty.conf${R}\n"
+  printf "${C5}  Kitty $(kitty --version 2>/dev/null | awk '{print $2}')${R}\n"
+}
+
+section_tabs() {
+  title "Tabs (abas)"
+  sub "Atalhos customizados (kitty.conf)"
+  key "Ctrl+T"               "nova aba"
+  key "Ctrl+W"               "fecha aba"
+  key "Ctrl+1 .. Ctrl+9"     "pula direto para a aba N"
+  key "Ctrl+Shift+R"         "renomeia a aba atual"
+  sub "Padrão do Kitty"
+  key "Ctrl+Shift+→ / ←"     "próxima / anterior"
+  key "Ctrl+Shift+. / ,"     "move a aba para frente / trás"
+  key "Ctrl+Shift+Alt+T"     "renomear (alternativo)"
+  key "Ctrl+Shift+L"         "remapeado: navega split à direita (ver Splits)"
+}
+
+section_splits() {
+  title "Splits (janelas dentro da aba)"
+  sub "Criar"
+  key "F5"                   "split horizontal (linha embaixo)"
+  key "F6"                   "split vertical (coluna ao lado)"
+  key "Ctrl+Shift+Enter"     "nova janela (split) na aba atual (padrão)"
+  key "F7"                   "rotaciona splits da aba"
+  sub "Fechar"
+  key "Ctrl+Shift+W"         "fecha SÓ o split atual"
+  key "Ctrl+W"               "fecha a ABA inteira (custom — todos os splits)"
+  key "Ctrl+D / exit"        "fecha o split via shell"
+  note "Se for o último split da aba, Ctrl+Shift+W fecha a aba também"
+  sub "Navegar"
+  key "Ctrl+Shift+H"         "split à esquerda"
+  key "Ctrl+Shift+L"         "split à direita"
+  key "Ctrl+Shift+K"         "split acima"
+  key "Ctrl+Shift+J"         "split abaixo"
+  key "Ctrl+Shift+]"         "próxima janela (ordem de criação)"
+  key "Ctrl+Shift+["         "janela anterior"
+  sub "Redimensionar"
+  key "Ctrl+Alt+H / L"       "mais estreito / mais largo"
+  key "Ctrl+Alt+K / J"       "mais alto / mais baixo"
+  sub "Outros"
+  key "Ctrl+Shift+F7"        "foca uma janela visível (escolha por tecla)"
+  key "Ctrl+Shift+Z"         "zoom toggle (maximiza split atual) — custom; antes era scroll_to_prompt -1 (agora Ctrl+Shift+D)"
+}
+
+section_scrollback() {
+  title "Scrollback (rolagem)"
+  key "Ctrl+Shift+↑ / ↓"     "rola linha por linha"
+  key "Ctrl+Shift+PgUp/PgDn" "rola página por página"
+  key "Ctrl+Shift+Home/End"  "topo / fim do scrollback"
+  key "Ctrl+Shift+H"         "NÃO é scrollback: foi remapeado p/ navegar split (ver Splits)"
+  sub "Saltos de prompt (shell integration)"
+  key "Ctrl+Shift+D"         "vai ao prompt anterior (custom)"
+  key "Ctrl+Shift+X"         "vai ao próximo prompt"
+  key "Ctrl+Shift+G"         "mostra a saída do último comando"
+  note "Limite atual: 20.000 linhas (scrollback_lines no kitty.conf)"
+}
+
+section_search() {
+  title "Busca no terminal"
+  key "Ctrl+Shift+/"         "busca interativa no scrollback"
+  key "n / N"                "próxima / anterior dentro do pager"
+  note "Funciona em qualquer texto já impresso na aba — inclusive logs antigos"
+}
+
+section_copy() {
+  title "Clipboard (copiar/colar)"
+  key "Ctrl+Shift+C"         "copia seleção"
+  key "Ctrl+Shift+V"         "cola"
+  key "Shift+Insert"         "cola da seleção primária (X11)"
+  note "copy_on_select=clipboard ativo: selecionar com mouse já copia"
+  note "strip_trailing_spaces=smart: tira espaços ao final automaticamente"
+  note "Ctrl+Shift+S agora SALVA a sessão (kitty.conf), não cola seleção"
+}
+
+section_font() {
+  title "Fonte (zoom)"
+  key "Ctrl+Shift++"         "aumenta tamanho"
+  key "Ctrl+Shift+-"         "diminui tamanho"
+  key "Ctrl+Shift+Backspace" "volta ao tamanho padrão"
+  note "Padrão definido em font_size no kitty.conf (atual: 12.0)"
+}
+
+section_image() {
+  title "Imagens no terminal"
+  sub "Visualizar imagem (kitten icat)"
+  key "kitten icat foto.png" "exibe imagem inline no terminal"
+  key "kitten icat *.jpg"    "exibe várias em sequência"
+  key "kitten icat --align=center img.png"  "centraliza"
+  sub "Outros usos"
+  note "Funciona com PNG, JPG, GIF, WebP, SVG, PDF (1ª página)"
+  note "Em SSH: o Kitty Graphics Protocol funciona via SSH transparente"
+  note "Dentro do nvim: use o plugin snacks.image (já vem no AstroNvim)"
+}
+
+section_hints() {
+  title "Hints (atalhos para clicar com teclado)"
+  key "Ctrl+Shift+E"         "abre URL com o teclado (hints sobre URLs)"
+  key "Ctrl+Shift+P > F"     "abre arquivo do scrollback no \$EDITOR"
+  key "Ctrl+Shift+P > L"     "vai até linha apontada (file:line)"
+  key "Ctrl+Shift+P > H"     "copia hash git visível"
+  key "Ctrl+Shift+P > N"     "copia número de linha apontado"
+  key "Ctrl+Shift+P > Y"     "copia hyperlink"
+  note "O 'hint mode' destaca o que dá pra clicar e você digita as letras"
+}
+
+section_kittens() {
+  title "Kittens (mini-apps embutidos)"
+  key "kitten themes"        "navegador interativo de temas (>200)"
+  key "kitten ssh user@host" "SSH com integração de clipboard, shell, etc."
+  key "kitten diff a b"      "diff lado a lado renderizado no kitty"
+  key "kitten icat img"      "exibe imagem (visto acima)"
+  key "kitten clipboard"     "lê/escreve no clipboard via stdin/stdout"
+  key "kitten panel"         "abre uma janela 'panel' fixa (desktop bar)"
+  key "kitten unicode_input" "escolhe caractere unicode com fuzzy search"
+  key "kitten hyperlinked_grep PATTERN PATH"  "grep com links clicáveis"
+  note "Atalho: Ctrl+Shift+U abre o unicode_input direto"
+  note "Atalho: Ctrl+Shift+F2 edita o kitty.conf no \$EDITOR"
+}
+
+section_config() {
+  title "Configuração"
+  key "Ctrl+Shift+F5"        "recarrega kitty.conf sem reiniciar"
+  key "Ctrl+Shift+F2"        "abre o kitty.conf no editor"
+  key "Ctrl+Shift+F6"        "debug: mostra config completa em vigor"
+  key "Ctrl+Shift+F11"       "alterna fullscreen"
+  key "Ctrl+Shift+F10"       "alterna maximizado"
+  note "Arquivo: ~/.config/kitty/kitty.conf"
+  note "Docs: https://sw.kovidgoyal.net/kitty/conf/"
+}
+
+section_window() {
+  title "Janela do SO (a barra de título está oculta)"
+  sub "Maximizar / Restaurar"
+  key "Alt+Enter"            "alterna maximizado (toggle)"
+  key "Ctrl+Shift+F10"       "alterna maximizado (alternativo)"
+  key "Super+↑"              "maximiza (GNOME — tile to top)"
+  key "Super+↓"              "restaura (GNOME)"
+  sub "Minimizar"
+  key "Ctrl+Shift+M"         "minimiza via wmctrl"
+  key "Super+H"              "minimiza (atalho do GNOME, system-wide)"
+  sub "Fullscreen (sem painel/dock)"
+  key "F11"                  "alterna fullscreen"
+  key "Ctrl+Shift+F11"       "alterna fullscreen (alternativo)"
+  sub "Mover / redimensionar (sem barra)"
+  key "Super+arrastar"       "mover a janela com o mouse"
+  key "Super+seta"           "snap nas bordas (esq/dir/cima/baixo)"
+  key "Alt+Espaço"           "menu da janela (do GNOME)"
+  key "Alt+F7"               "modo mover (depois use as setas)"
+  key "Alt+F8"               "modo redimensionar"
+  sub "Trocar de janela / workspace"
+  key "Alt+Tab"              "alterna entre janelas abertas"
+  key "Super+Tab"            "alterna entre apps"
+  key "Ctrl+Alt+→ / ←"       "muda de workspace"
+}
+
+section_misc() {
+  title "Outros úteis"
+  key "Ctrl+Shift+Esc"       "abre shell do kitty (kitty @ commands)"
+  key "Ctrl+Shift+Delete"    "limpa scrollback e tela"
+  note "Para automação remota: kitty @ ls / kitty @ launch (precisa de listen_on)"
+}
+
+show_all() {
+  show_header
+  section_tabs
+  section_splits
+  section_scrollback
+  section_search
+  section_copy
+  section_font
+  section_image
+  section_hints
+  section_kittens
+  section_window
+  section_config
+  section_misc
+  printf "\n${C5}  Filtre uma seção: ${B}mykitty <tabs|splits|scrollback|search|copy|font|image|hints|kittens|config>${R}\n\n"
+}
+
+case "${1:-all}" in
+  tabs)       show_header; section_tabs ;;
+  splits)     show_header; section_splits ;;
+  scrollback) show_header; section_scrollback ;;
+  search)     show_header; section_search ;;
+  copy)       show_header; section_copy ;;
+  font)       show_header; section_font ;;
+  image|img)  show_header; section_image ;;
+  hints)      show_header; section_hints ;;
+  kittens)    show_header; section_kittens ;;
+  window|win) show_header; section_window ;;
+  config|conf)show_header; section_config ;;
+  misc)       show_header; section_misc ;;
+  -h|--help|help)
+    cat <<EOF
+mykitty — guia de atalhos do Kitty
+
+Uso:
+  mykitty                  # exibe tudo
+  mykitty <seção>          # filtra uma seção
+
+Seções:
+  tabs        atalhos de abas
+  splits      janelas dentro da aba
+  scrollback  rolagem do histórico
+  search      busca de texto
+  copy        clipboard
+  font        zoom de fonte
+  image       imagens (icat)
+  hints       hint mode (URLs, arquivos, etc.)
+  kittens     mini-apps embutidos
+  window      maximizar / minimizar / fullscreen / mover
+  config      reload, edit, debug
+  misc        outros úteis
+EOF
+    ;;
+  all|*) show_all ;;
+esac

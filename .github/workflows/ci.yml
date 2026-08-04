@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint e smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar zsh
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zsh
+
+      # Binário estável em vez do pacote do apt: fixa a versão do linter para que
+      # o CI não quebre quando o Ubuntu do runner mudar de release.
+      - name: Instalar shellcheck
+        run: |
+          curl -fsSL --retry 3 -o sc.tar.xz \
+            https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz
+          tar -xJf sc.tar.xz
+          sudo install -m 0755 shellcheck-stable/shellcheck /usr/local/bin/shellcheck
+          rm -rf sc.tar.xz shellcheck-stable
+          shellcheck --version
+
+      - name: shellcheck
+        run: shellcheck --severity=warning --shell=bash install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh
+
+      - name: Sintaxe bash
+        run: |
+          for f in install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh; do
+            bash -n "$f"
+          done
+
+      - name: Sintaxe zsh
+        run: |
+          zsh -n home/.zshrc
+          zsh -n home.local.example/.zshrc.local
+
+      # O repo é um template público: nenhum $HOME de contribuidor pode vazar
+      # nos dotfiles versionados. A allowlist cobre exemplos genéricos e o
+      # usuário `dev` da imagem Docker de teste.
+      - name: Guard — nenhum caminho pessoal versionado
+        run: |
+          # Este arquivo se exclui: os padrões do próprio guard casariam consigo.
+          if git ls-files -z -- ':!.github/workflows/ci.yml' \
+               | xargs -0 grep -nIE '(^|[[:space:]"'"'"'=:(])/home/' \
+               | grep -vE '/home/(dev|user|username|SEU_USUARIO)([/"'"'"' ]|$)'; then
+            echo "::error::Caminho pessoal encontrado em arquivo versionado (use \$HOME ou ~)."
+            exit 1
+          fi
+
+      - name: Testes
+        run: ./tests/run.sh
+
+      - name: Smoke test da CLI
+        run: |
+          ./bin/powerterminal help
+          ./bin/powerterminal version
+          ./bin/powerterminal install --profile minimal --dry-run --yes
+          ./bin/powerterminal install --profile full --dry-run --yes
+          ./bin/powerterminal doctor

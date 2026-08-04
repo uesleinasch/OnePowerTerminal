@@ -1,0 +1,5 @@
+# SC2034: os bin-helpers definem uma paleta de cores completa (B/D/U/R/C1..C5);
+#         algumas entradas ficam sem uso conforme as seções mudam.
+# SC2088: os cheatsheets imprimem caminhos como "~/.config/..." — é texto para o
+#         usuário ler, não caminho a ser expandido pelo shell.
+disable=SC2034,SC2088

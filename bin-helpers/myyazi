@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+# myyazi — guia rápido de comandos e operação do Yazi (file explorer no terminal)
+# Uso: myyazi [seção]
+# Seções: nav, select, files, open, find, sort, tabs, tasks, preview, cli, pnvim, config
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+  B=$'\033[1m'; D=$'\033[2m'; U=$'\033[4m'; R=$'\033[0m'
+  C1=$'\033[38;5;141m'   # roxo (títulos)
+  C2=$'\033[38;5;215m'   # laranja (subtítulos)
+  C3=$'\033[38;5;114m'   # verde (atalhos)
+  C4=$'\033[38;5;110m'   # azul (descrições)
+  C5=$'\033[38;5;245m'   # cinza (notas)
+else
+  B=""; D=""; U=""; R=""; C1=""; C2=""; C3=""; C4=""; C5=""
+fi
+
+hr() { printf "${C5}%s${R}\n" "──────────────────────────────────────────────────────────────────────"; }
+title() { printf "\n${C1}${B}▸ %s${R}\n" "$1"; hr; }
+sub() { printf "\n${C2}${B}%s${R}\n" "$1"; }
+key() { printf "  ${C3}%-26s${R} ${C4}%s${R}\n" "$1" "$2"; }
+note() { printf "${C5}  %s${R}\n" "$1"; }
+
+show_header() {
+  printf "${C1}${B}\n"
+  printf "  ███╗   ███╗██╗   ██╗    ██╗   ██╗ █████╗ ███████╗██╗\n"
+  printf "  ████╗ ████║╚██╗ ██╔╝    ╚██╗ ██╔╝██╔══██╗╚══███╔╝██║\n"
+  printf "  ██╔████╔██║ ╚████╔╝      ╚████╔╝ ███████║  ███╔╝ ██║\n"
+  printf "  ██║╚██╔╝██║  ╚██╔╝        ╚██╔╝  ██╔══██║ ███╔╝  ██║\n"
+  printf "  ██║ ╚═╝ ██║   ██║          ██║   ██║  ██║███████╗██║\n"
+  printf "  ╚═╝     ╚═╝   ╚═╝          ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝${R}\n"
+  printf "${C5}  Guia rápido — config em ~/.config/yazi/${R}\n"
+  printf "${C5}  Yazi $(yazi --version 2>/dev/null | awk '{print $2}')${R}\n"
+}
+
+section_nav() {
+  title "Navegação"
+  sub "Mover o cursor"
+  key "j / k"                "próximo / anterior arquivo"
+  key "↓ / ↑"                "próximo / anterior arquivo"
+  key "h / l"                "sobe ao diretório pai / entra no diretório"
+  key "← / →"                "sobe / entra (idem h/l)"
+  key "gg / G"               "topo / fim da lista"
+  key "Ctrl+u / Ctrl+d"      "meia página acima / abaixo"
+  key "Ctrl+b / Ctrl+f"      "uma página acima / abaixo"
+  key "PageUp / PageDown"    "uma página acima / abaixo"
+  sub "Histórico e saltos rápidos"
+  key "H / L"                "diretório anterior / próximo (histórico)"
+  key "g h"                  "vai para a home (~)"
+  key "g c"                  "vai para ~/.config"
+  key "g d"                  "vai para ~/Downloads"
+  key "g <Espaço>"           "salto interativo (digite o caminho)"
+  key "g f"                  "segue o symlink sob o cursor"
+  sub "Exibição"
+  key "."                    "mostra / oculta arquivos ocultos"
+}
+
+section_select() {
+  title "Seleção (modo visual)"
+  key "<Espaço>"             "alterna a seleção do arquivo atual"
+  key "v"                    "entra em modo visual (seleciona)"
+  key "V"                    "entra em modo visual (desmarca)"
+  key "Ctrl+a"               "seleciona todos os arquivos"
+  key "Ctrl+r"               "inverte a seleção"
+  key "Esc / Ctrl+["         "sai do visual / limpa seleção / cancela busca"
+}
+
+section_files() {
+  title "Operações de arquivo"
+  sub "Copiar / recortar / colar"
+  key "y"                    "yank (copiar) selecionados"
+  key "x"                    "yank (recortar) selecionados"
+  key "p"                    "cola os arquivos yankados"
+  key "P"                    "cola sobrescrevendo se já existir"
+  key "Y / X"                "cancela o estado de yank"
+  sub "Criar / renomear / apagar"
+  key "a"                    "cria arquivo (termine com / para diretório)"
+  key "r"                    "renomeia o(s) selecionado(s)"
+  key "d"                    "envia para a lixeira"
+  key "D"                    "apaga PERMANENTEMENTE"
+  sub "Links"
+  key "-"                    "symlink (caminho absoluto) dos yankados"
+  key "_"                    "symlink (caminho relativo) dos yankados"
+  key "Ctrl+-"               "hardlink dos yankados"
+}
+
+section_open() {
+  title "Abrir & shell"
+  key "o / <Enter>"          "abre os selecionados (regra de opener)"
+  key "O / Shift+Enter"      "abre interativamente (escolhe o opener)"
+  key ";"                    "roda um comando shell"
+  key ":"                    "roda um comando shell (bloqueia até terminar)"
+  note "Arquivos de texto abrem no \$EDITOR (= nvim, definido no ~/.zshrc)"
+}
+
+section_find() {
+  title "Busca, filtro e jump"
+  sub "Filtrar a lista atual"
+  key "f"                    "filtra arquivos pelo nome (ao vivo)"
+  sub "Localizar dentro da pasta"
+  key "/"                    "localiza próximo (find)"
+  key "?"                    "localiza anterior"
+  key "n / N"                "próximo / anterior resultado"
+  sub "Buscar e pular (precisa das ferramentas)"
+  key "s"                    "busca por NOME via fd"
+  key "S"                    "busca por CONTEÚDO via ripgrep"
+  key "Ctrl+s"               "cancela a busca em andamento"
+  key "z"                    "pula para arquivo/dir via fzf"
+  key "Z"                    "pula para diretório via zoxide"
+  note "Requer fd, ripgrep, fzf e zoxide no PATH"
+}
+
+section_sort() {
+  title "Ordenação, linemode e caminhos"
+  sub "Ordenar  (, + tecla)"
+  key ", n / , N"            "natural / natural reverso"
+  key ", a / , A"            "alfabética / reversa"
+  key ", s / , S"            "por tamanho / reverso"
+  key ", m / , M"            "por data de modificação / reverso"
+  key ", b / , B"            "por data de criação / reverso"
+  key ", e / , E"            "por extensão / reverso"
+  key ", r"                  "ordem aleatória"
+  sub "Linemode  (m + tecla) — info ao lado do arquivo"
+  key "m s"                  "tamanho"
+  key "m p"                  "permissões"
+  key "m m / m b"            "mtime / btime"
+  key "m o"                  "dono"
+  key "m n"                  "nenhum"
+  sub "Copiar caminho  (c + tecla)"
+  key "c c"                  "copia a URL completa do arquivo"
+  key "c d"                  "copia a URL do diretório"
+  key "c f"                  "copia o nome do arquivo"
+  key "c n"                  "copia o nome sem a extensão"
+}
+
+section_tabs() {
+  title "Abas"
+  key "t t"                  "nova aba no diretório atual"
+  key "t r"                  "renomeia a aba atual"
+  key "1 .. 9"               "vai direto para a aba N"
+  key "[ / ]"                "aba anterior / próxima"
+  key "{ / }"                "troca a aba com a anterior / próxima"
+}
+
+section_tasks() {
+  title "Gerenciador de tarefas"
+  key "w"                    "abre o gerenciador de tarefas"
+  note "Dentro do gerenciador:"
+  key "j / k"                "navega entre as tarefas"
+  key "<Enter>"              "inspeciona a tarefa"
+  key "x"                    "cancela a tarefa"
+  key "w / Esc"              "fecha o gerenciador"
+}
+
+section_preview() {
+  title "Preview & spot"
+  key "K / J"                "rola o preview 5 unidades p/ cima / baixo"
+  key "<Tab>"                "spot do arquivo sob o cursor (metadados)"
+  note "No spot: h/l troca de arquivo · c c copia a célula · Tab/Esc fecha"
+}
+
+section_cli() {
+  title "CLI (ya) & flags do yazi"
+  sub "ya — gerenciador de pacotes (plugins / flavors)"
+  key "ya pkg add <repo>"    "instala um plugin ou flavor"
+  key "ya pkg list"          "lista os pacotes instalados"
+  key "ya pkg upgrade"       "atualiza todos os pacotes"
+  key "ya pkg install"       "instala tudo do package.toml"
+  key "ya pkg delete <repo>" "remove um pacote"
+  sub "ya — automação / IPC"
+  key "ya emit <ação>"       "envia uma ação à instância atual"
+  key "ya pub <msg>"         "publica uma mensagem à instância atual"
+  key "ya exec <ação>"       "executa uma ação e imprime o resultado"
+  sub "yazi — flags úteis"
+  key "yazi --cwd-file F"    "grava o cwd ao sair (usado pela função y)"
+  key "yazi --chooser-file F" "grava os arquivos escolhidos (file picker)"
+  key "yazi --clear-cache"   "limpa o cache de previews"
+}
+
+section_pnvim() {
+  title "Integração com o PowerTerminal"
+  key "y"                    "abre o yazi; ao sair (q) troca o terminal p/ o dir"
+  key "yazi"                 "abre sem trocar o diretório do shell"
+  key "q"                    "sai do yazi (com a função y, aplica o cwd)"
+  key "Q"                    "sai SEM gravar o cwd-file (não troca de dir)"
+  note "EDITOR=nvim: abrir um arquivo no yazi o abre no Neovim"
+  note "Função y + EDITOR definidos em ~/.zshrc (gerenciado pelo PowerTerminal)"
+  note "Binário instalado pelo módulo 'tools' (build musl em ~/.local/bin)"
+}
+
+section_config() {
+  title "Configuração"
+  key "~/.config/yazi/yazi.toml"   "comportamento (mgr, preview, opener)"
+  key "~/.config/yazi/keymap.toml" "atalhos (prepend/append_keymap)"
+  key "~/.config/yazi/theme.toml"  "tema / flavor (opcional)"
+  note "Config versionada em ~/PowerTerminal/home/.config/yazi/"
+  note "Docs: https://yazi-rs.github.io/docs/configuration/yazi"
+  note "Sem reload a quente: reabra o yazi para aplicar mudanças na config"
+}
+
+show_all() {
+  show_header
+  section_nav
+  section_select
+  section_files
+  section_open
+  section_find
+  section_sort
+  section_tabs
+  section_tasks
+  section_preview
+  section_cli
+  section_pnvim
+  section_config
+  printf "\n${C5}  Dentro do yazi: ${B}~${R}${C5} ou ${B}F1${R}${C5} abre a ajuda nativa.${R}\n"
+  printf "${C5}  Filtre uma seção: ${B}myyazi <nav|select|files|open|find|sort|tabs|tasks|preview|cli|pnvim|config>${R}\n\n"
+}
+
+case "${1:-all}" in
+  nav)            show_header; section_nav ;;
+  select|sel|vis) show_header; section_select ;;
+  files|file)     show_header; section_files ;;
+  open)           show_header; section_open ;;
+  find|search)    show_header; section_find ;;
+  sort)           show_header; section_sort ;;
+  tabs|tab)       show_header; section_tabs ;;
+  tasks|task)     show_header; section_tasks ;;
+  preview|spot)   show_header; section_preview ;;
+  cli|ya)         show_header; section_cli ;;
+  pnvim|nvim)     show_header; section_pnvim ;;
+  config|conf)    show_header; section_config ;;
+  -h|--help|help)
+    cat <<EOF
+myyazi — guia de comandos do Yazi
+
+Uso:
+  myyazi                   # exibe tudo
+  myyazi <seção>           # filtra uma seção
+
+Seções:
+  nav         navegação (cursor, histórico, saltos)
+  select      seleção / modo visual
+  files       copiar, recortar, colar, criar, renomear, apagar, links
+  open        abrir arquivos e rodar comandos shell
+  find        busca (fd/rg), filtro, jump (fzf/zoxide)
+  sort        ordenação, linemode e copiar caminhos
+  tabs        abas
+  tasks       gerenciador de tarefas
+  preview     preview e spot (metadados)
+  cli         CLI 'ya' (pkg, emit, pub) e flags do yazi
+  pnvim       integração com o PowerTerminal (função y, EDITOR)
+  config      arquivos de configuração
+EOF
+    ;;
+  all|*) show_all ;;
+esac

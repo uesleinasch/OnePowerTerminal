@@ -1,0 +1,5 @@
+**/*.pnbak.*
+home.local
+.git
+docker
+*.tar.gz

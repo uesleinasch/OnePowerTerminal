@@ -1,0 +1,73 @@
+name: Relatar um bug
+description: Algo do install, dos dotfiles ou dos helpers não funciona como deveria.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de abrir: rode `powerterminal doctor` e confira se o problema aparece
+        também com `--dry-run`. Isso costuma apontar a causa em poucos segundos.
+
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que aconteceu
+      description: Descreva o comportamento observado e o que você esperava.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducao
+    attributes:
+      label: Como reproduzir
+      description: O comando exato e os passos até o erro.
+      placeholder: |
+        1. bin/powerterminal install --module kitty --yes
+        2. ...
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distribuição e versão
+      placeholder: "Ubuntu 24.04 / Pop!_OS 22.04 / Debian 12"
+    validations:
+      required: true
+
+  - type: input
+    id: versao
+    attributes:
+      label: Saída de `powerterminal version`
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Saída de `powerterminal doctor`
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Log da execução
+      description: >
+        O install grava em `~/.local/state/powerterminal/install-<timestamp>.log`.
+        Cole a parte relevante, ou anexe o arquivo.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checagens
+    attributes:
+      label: Checagens
+      options:
+        - label: Procurei nas issues existentes e não encontrei este problema.
+          required: true
+        - label: Conferi que nenhuma informação pessoal (caminho, host, token) ficou no que colei acima.
+          required: true

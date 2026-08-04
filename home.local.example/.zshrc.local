@@ -1,0 +1,50 @@
+# ~/.zshrc.local — personalização específica da máquina/usuário.
+# Copie este arquivo para ~/.zshrc.local e edite à vontade.
+# Este arquivo NÃO é versionado pelo PowerTerminal e nunca é tocado pelo install.
+
+# ----- Identidade / aliases pessoais -----
+# Exemplos extraídos do ambiente original (descomente o que for útil):
+
+# alias vpn-work='cd ~/vpn && sudo openvpn --config vpn.ovpn'
+# alias dbeaver-max="snap run dbeaver-ce -vmargs -Xms512m -Xmx1096m"
+
+# ----- Sunshine (game streaming) -----
+# alias sunshine-start='systemctl --user start sunshine.service'
+# alias sunshine-stop='systemctl --user stop sunshine.service'
+# alias sunshine-restart='systemctl --user restart sunshine.service'
+# alias sunshine-status='systemctl --user status sunshine.service'
+
+# ----- Penpot (Docker) -----
+# PENPOT_DIR="$HOME/penpot"
+# alias penpot-start='cd "$PENPOT_DIR" && docker compose -p penpot up -d'
+# alias penpot-stop='cd "$PENPOT_DIR" && docker compose -p penpot down'
+# alias penpot-logs='cd "$PENPOT_DIR" && docker compose -p penpot logs -f'
+
+# ----- Excalidraw em container -----
+# excalidraw() {
+#   local IMAGE="excalidraw/excalidraw:latest" NAME="excalidraw" PORT=5000
+#   if docker ps --filter "name=^/${NAME}$" --format '{{.Names}}' | grep -q "^${NAME}$"; then
+#     echo "✅ Excalidraw já está rodando."; return 0
+#   fi
+#   docker run --rm -dit --name "$NAME" -p "${PORT}:80" "$IMAGE"
+#   echo "🚀 Excalidraw em http://localhost:${PORT}"
+# }
+
+# ----- Toolchains adicionais -----
+# Java
+# export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+# export PATH="$PATH:$JAVA_HOME/bin"
+
+# Node via 'n' (https://github.com/tj/n)
+# export PATH="$HOME/n/bin:$PATH"
+
+# Haskell (ghcup)
+# [[ -f "$HOME/.ghcup/env" ]] && source "$HOME/.ghcup/env"
+
+# Google Cloud SDK
+# [[ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]] && source "$HOME/google-cloud-sdk/path.zsh.inc"
+# [[ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]] && source "$HOME/google-cloud-sdk/completion.zsh.inc"
+
+# ----- Segredos -----
+# NUNCA versione tokens. Coloque aqui se precisar:
+# export OPENAI_API_KEY="..."

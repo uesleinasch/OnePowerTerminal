@@ -1,0 +1,33 @@
+# Backups gerados pelo próprio PowerTerminal ao linkar arquivos reais
+*.pnbak.*
+
+# Tarballs gerados por `powerterminal share`
+*.tar.gz
+*.tgz
+
+# Personalização local (não compartilhada)
+home.local/
+
+# Estado runtime do Neovim (caso alguém rode nvim dentro do repo)
+.lazy/
+.local/
+
+# Kitty: estado runtime da sessão e cache do save-session.py (não versionar)
+home/.config/kitty/last-session.kitty
+home/.config/kitty/__pycache__/
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Material do assistente de código: contexto desta máquina, não do projeto.
+# `.claude/settings.local.json` guarda paths absolutos — versioná-lo faria o
+# guard anti-vazamento do CI falhar.
+CLAUDE.md
+.claude/
+docs/superpowers/

@@ -1,0 +1,819 @@
+#!/usr/bin/env bash
+# myastro — guia rápido de atalhos e recursos do AstroNvim (com config local)
+# Uso: myastro [seção]
+# Seções: leader, modes, motion, select, edit, textobj, registers, replace,
+#         marks, macros, buffers, windows, files, search, lsp, refactor, diag,
+#         git, term, harpoon, flash, surround, comments, session, ui, which,
+#         multicursor, http, db, packs, misc, prontos
+
+set -euo pipefail
+
+if [[ -t 1 ]]; then
+  B=$'\033[1m'; D=$'\033[2m'; U=$'\033[4m'; R=$'\033[0m'
+  C1=$'\033[38;5;141m'   # roxo (títulos)
+  C2=$'\033[38;5;215m'   # laranja (subtítulos)
+  C3=$'\033[38;5;114m'   # verde (atalhos)
+  C4=$'\033[38;5;110m'   # azul (descrições)
+  C5=$'\033[38;5;245m'   # cinza (notas)
+else
+  B=""; D=""; U=""; R=""; C1=""; C2=""; C3=""; C4=""; C5=""
+fi
+
+hr() { printf "${C5}%s${R}\n" "──────────────────────────────────────────────────────────────────────"; }
+title() { printf "\n${C1}${B}▸ %s${R}\n" "$1"; hr; }
+sub() { printf "\n${C2}${B}%s${R}\n" "$1"; }
+key() { printf "  ${C3}%-26s${R} ${C4}%s${R}\n" "$1" "$2"; }
+note() { printf "${C5}  %s${R}\n" "$1"; }
+
+show_header() {
+  printf "${C1}${B}\n"
+  printf "  ███╗   ███╗██╗   ██╗     █████╗ ███████╗████████╗██████╗  ██████╗ \n"
+  printf "  ████╗ ████║╚██╗ ██╔╝    ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔═══██╗\n"
+  printf "  ██╔████╔██║ ╚████╔╝     ███████║███████╗   ██║   ██████╔╝██║   ██║\n"
+  printf "  ██║╚██╔╝██║  ╚██╔╝      ██╔══██║╚════██║   ██║   ██╔══██╗██║   ██║\n"
+  printf "  ██║ ╚═╝ ██║   ██║       ██║  ██║███████║   ██║   ██║  ██║╚██████╔╝\n"
+  printf "  ╚═╝     ╚═╝   ╚═╝       ╚═╝  ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ${R}\n"
+  printf "${C5}  Guia rápido — config em ~/.config/nvim/${R}\n"
+  if command -v nvim >/dev/null 2>&1; then
+    printf "${C5}  Neovim $(nvim --version 2>/dev/null | head -1 | awk '{print $2}')${R}\n"
+  fi
+  printf "${C5}  Leader = Espaço     LocalLeader = ,${R}\n"
+}
+
+section_leader() {
+  title "Leader / descoberta"
+  key "<Space>"               "Leader (prefixo principal de quase tudo)"
+  key "<Space>?"              "buscar keymaps (snacks picker)"
+  key "<Space>K"              "árvore completa de atalhos (which-key)"
+  key "<Space> (espera)"      "which-key abre painel automático"
+  key ":Telescope keymaps"    "lista todos os mappings ativos"
+  note "Tudo abaixo é grupo do leader: b=buffer, f=find, l=lsp, g=git, t=term…"
+}
+
+section_modes() {
+  title "Modos do vim"
+  key "<Esc> / <Ctrl-[>"      "volta para Normal"
+  key "i / I"                 "Insert antes do cursor / no início da linha"
+  key "a / A"                 "Insert depois do cursor / no fim da linha"
+  key "o / O"                 "abre linha abaixo / acima e entra em Insert"
+  key "v"                     "Visual (caractere)"
+  key "V"                     "Visual line (linha inteira)"
+  key "<Ctrl-v>"              "Visual block (retângulo / coluna)"
+  key "R"                     "Replace — sobrescreve enquanto digita"
+  key "r{c}"                  "substitui 1 char por {c} e volta a Normal"
+  key ":"                     "modo Command (executa comandos ex)"
+  key "/  /  ?"               "busca para frente / para trás"
+  note "Em Normal as teclas viram comandos; em Insert viram texto."
+  note "Saída do terminal interno: <Esc><Esc> (ver: myastro term)"
+}
+
+section_motion() {
+  title "Movimento (cursor)"
+  sub "Caractere / linha"
+  key "h j k l"               "esquerda / baixo / cima / direita"
+  key "0 / ^ / $"             "início linha / 1º não-branco / fim"
+  key "+ / -"                 "1º não-branco da próxima / anterior linha"
+  key "|"                     "vai para a coluna 1 (use {N}| p/ coluna N)"
+  sub "Palavra / WORD"
+  key "w / W"                 "início próxima palavra (W ignora pontuação)"
+  key "b / B"                 "início palavra anterior"
+  key "e / E"                 "fim da palavra"
+  key "ge / gE"               "fim da palavra anterior"
+  sub "Tela / arquivo"
+  key "gg / G"                "topo / fim do arquivo"
+  key "{N}G  /  :{N}"         "pula para a linha N"
+  key "<Ctrl-d> / <Ctrl-u>"   "meia tela para baixo / cima"
+  key "<Ctrl-f> / <Ctrl-b>"   "página para frente / para trás"
+  key "H / M / L"             "topo / meio / base da tela visível"
+  key "zz / zt / zb"          "centraliza / topo / base na linha atual"
+  sub "Procurar caractere na linha"
+  key "f{c} / F{c}"           "salta para próximo / anterior {c}"
+  key "t{c} / T{c}"           "para antes de / depois de {c}"
+  key ";  /  ,"               "repete f/t/F/T para frente / para trás"
+  sub "Pular / saltos"
+  key "%"                     "casa parêntese / chave / colchete"
+  key "* / #"                 "próxima / anterior ocorrência da palavra"
+  key "<Ctrl-o> / <Ctrl-i>"   "volta / avança no jumplist"
+  note "Use também 's' (flash) para teleporte — ver: myastro flash"
+}
+
+section_select() {
+  title "Seleção (Visual)"
+  sub "Entrar em Visual"
+  key "v"                     "seleção por caractere"
+  key "V"                     "seleção por linha"
+  key "<Ctrl-v>"              "seleção em bloco / coluna"
+  key "gv"                    "reseleciona a última seleção visual"
+  sub "Estender seleção"
+  key "h j k l / w b $ G"     "qualquer movimento expande a seleção"
+  key "o"                     "alterna o ponto âncora (início ↔ fim)"
+  key "<Esc>"                 "sai de Visual"
+  sub "Operar sobre a seleção"
+  key "y"                     "yank (copia)"
+  key "d / x"                 "delete (recorta)"
+  key "c"                     "change (apaga e entra em Insert)"
+  key "> / <"                 "indenta / desindenta"
+  key "="                     "auto-indenta"
+  key "u / U"                 "tudo para minúsculas / maiúsculas"
+  key "~"                     "inverte a caixa"
+  key ":"                     "abre cmdline já com :'<,'> aplicado à faixa"
+  sub "Visual block (Ctrl-v)"
+  key "I{texto}<Esc>"         "insere texto em todas as linhas da coluna"
+  key "A{texto}<Esc>"         "anexa texto após cada linha"
+  key "c{texto}<Esc>"         "substitui em todas as linhas"
+  key "r{c}"                  "preenche o bloco com o char {c}"
+  note "Visual block edita várias linhas de uma vez (estilo cursor múltiplo)"
+}
+
+section_edit() {
+  title "Editar (yank / delete / change / paste)"
+  sub "Yank (copiar)"
+  key "yy / Y"                "copia a linha inteira"
+  key "y{motion}"             "copia movimento. Ex: yiw, y$, yap"
+  key "y  (visual)"           "copia a seleção"
+  sub "Delete (recortar)"
+  key "dd"                    "apaga / recorta a linha"
+  key "d{motion}"             "apaga movimento. Ex: dw, d$, dap"
+  key "x / X"                 "apaga char sob / antes do cursor"
+  key "D"                     "apaga até o fim da linha"
+  sub "Change (apaga + Insert)"
+  key "cc / S"                "muda a linha inteira"
+  key "c{motion}"             "muda movimento. Ex: ciw, c$, cit"
+  key "C"                     "muda até o fim da linha"
+  key "s"                     "apaga char e entra em Insert"
+  sub "Paste (colar)"
+  key "p / P"                 "cola depois / antes do cursor"
+  key "]p / [p"               "cola ajustando indentação ao contexto"
+  key "gp / gP"               "cola e deixa o cursor após o texto"
+  sub "Desfazer / refazer / repetir"
+  key "u"                     "desfaz"
+  key "<Ctrl-r>"              "refaz"
+  key "U"                     "desfaz toda a linha"
+  key "."                     "repete o último comando de edição"
+  sub "Indentação"
+  key ">> / <<"               "indenta / desindenta linha"
+  key ">{motion}"             "indenta movimento. Ex: >ap"
+  key "=="                    "auto-indenta a linha (treesitter / LSP)"
+  key "=G"                    "auto-indenta até o fim do arquivo"
+  sub "Caixa / case"
+  key "~"                     "inverte caixa do char sob o cursor"
+  key "guu / gUU"             "linha em minúsculas / maiúsculas"
+  key "gu{motion} / gU{motion}" "minúsculas / maiúsculas no movimento"
+  note "Yank/paste já vão para o clipboard do sistema (clipboard=unnamedplus)"
+  note "Para forçar o + explicitamente: \"+yy   \"+p   (ver: myastro registers)"
+}
+
+section_textobj() {
+  title "Text objects (operar em estruturas)"
+  note "Use depois de operadores: d, c, y, v, > , < , =, ~, gu, gU, …"
+  sub "Pares (i = inner, a = around)"
+  key "iw / aw"               "palavra (interna / com espaços ao redor)"
+  key "iW / aW"               "WORD (sem cortar pontuação)"
+  key "is / as"               "frase"
+  key "ip / ap"               "parágrafo"
+  key "i\" / a\""             "entre aspas duplas"
+  key "i' / a'"               "entre aspas simples"
+  key "i\` / a\`"             "entre crases"
+  key "i( i) ib  /  a( a) ab" "dentro / incluindo parênteses"
+  key "i{ i} iB  /  a{ a} aB" "dentro / incluindo chaves"
+  key "i[ i]   /  a[ a]"      "dentro / incluindo colchetes"
+  key "i< i>   /  a< a>"      "dentro / incluindo angle brackets"
+  key "it / at"               "dentro / incluindo tag HTML/JSX"
+  sub "Treesitter (mini.ai)"
+  key "if / af"               "função"
+  key "ic / ac"               "classe / bloco"
+  key "ia / aa"               "argumento (function arg)"
+  key "io / ao"               "operador / condição"
+  note "Combine: ciw (muda palavra), da\" (apaga string completa),"
+  note "ya{ (copia o bloco { … } inteiro), yi{ (só o conteúdo dentro), >ap…"
+}
+
+section_registers() {
+  title "Registers (vários clipboards)"
+  sub "Usar register"
+  key "\"{r}{cmd}"             "usa register {r}. Ex: \"ayy, \"ap, \"adw"
+  key "\"+y / \"+p"            "clipboard do sistema (X11 / Wayland)"
+  key "\"*y / \"*p"            "primary selection (X11)"
+  key "\"0p"                   "cola o último yank (ignorando deletes)"
+  key "\"_d / \"_c"            "delete / change sem encher register (black hole)"
+  sub "Registers especiais"
+  key "\"\"  (default)"        "último yank ou delete"
+  key "\"0"                    "último yank"
+  key "\"1 .. \"9"             "histórico de deletes (0=mais recente)"
+  key "\". (ponto)"            "último texto inserido"
+  key "\":"                    "último comando :"
+  key "\"/"                    "último padrão de busca"
+  key "\"%"                    "nome do arquivo atual"
+  key "\"#"                    "buffer alternativo (Ctrl-^)"
+  key "\"=  (expressão)"       "calcula expressão. Ex: \"=2+2<CR>p"
+  sub "Listar / picker"
+  key ":registers / :reg"     "lista todos os registers"
+  key "<Leader>f'"            "picker de registers (snacks)"
+  key "<Ctrl-r>{r}  (insert)" "insere register em modo Insert"
+  key "<Ctrl-r>{r}  (cmdline)" "insere register no command-line"
+  sub "Yanky — histórico de yank/paste"
+  key "p / P"                 "cola (yanky mantém um ring de histórico)"
+  key "]y / [y"               "logo após colar: cicla próx / ant no histórico"
+  key "gp / gP"               "cola depois / antes da seleção"
+  key "]p / [p"               "cola ajustando a indentação (linewise)"
+  key "<Leader>fy"            "abre o histórico de yanks (picker)"
+  note "Default já manda yank/delete para o clipboard (unnamedplus)"
+}
+
+section_replace() {
+  title "Substituir (find & replace)"
+  sub "Comando :substitute"
+  key ":s/foo/bar/"           "1ª ocorrência da linha"
+  key ":s/foo/bar/g"          "todas da linha"
+  key ":%s/foo/bar/g"         "todas do arquivo"
+  key ":%s/foo/bar/gc"        "pede confirmação para cada"
+  key ":%s/\\<foo\\>/bar/g"   "palavra inteira"
+  key ":'<,'>s/foo/bar/g"     "só dentro da seleção (V…V depois :)"
+  sub "Atalhos práticos"
+  key "*  :%s//bar/g"         "busca palavra com * e :s sem padrão (reusa /)"
+  key "&"                     "repete última :s na linha atual"
+  key "g&"                    "repete última :s no arquivo todo"
+  key "<Leader>lr"            "rename via LSP (refactor seguro entre arquivos)"
+  sub "Modo Replace"
+  key "R"                     "sobrescreve enquanto digita"
+  key "r{c}"                  "troca 1 char por {c}"
+  key "gr{motion}"            "replace sem alterar tamanho da linha"
+  sub "Projeto inteiro (grug-far)"
+  key "<Leader>ss"            "search & replace no workspace (UI dedicada)"
+  key "<Leader>sw"            "replace da palavra sob o cursor"
+  key "<Leader>sf"            "search & replace só no arquivo atual"
+  key "<Leader>se"            "search & replace só no filetype atual"
+  key "<Leader>s (visual)"    "usa a seleção como termo de busca"
+  key ":GrugFar"              "abre o painel manualmente"
+  note "No neo-tree: gS sobre um nó faz replace naquele diretório"
+  note "Nativo: <Leader>fg (live grep) → <Ctrl-q> → :cdo s/x/y/g | update"
+}
+
+section_prontos() {
+  title "Comandos prontos (arquivo inteiro)"
+  sub "Selecionar tudo"
+  key "ggVG"                  "seleciona o arquivo todo (visual line)"
+  key "ggvG\$"                "seleciona char-wise (até o último caractere)"
+  key "ggVGo"                 "seleciona tudo e alterna o ponto âncora"
+  sub "Copiar / cortar / deletar tudo"
+  key ":%y"                   "copia o arquivo todo (vai pro clipboard)"
+  key ":%y+"                  "copia explicitamente para o clipboard +"
+  key ":%y a"                 "copia o arquivo para o register a"
+  key ":%d"                   "deleta tudo (cai no register default)"
+  key ":%d _"                 "deleta tudo SEM encher register (black hole)"
+  sub "Indentar / formatar"
+  key "gg=G"                  "auto-indenta o arquivo todo"
+  key "ggVG="                 "idem via visual line + ="
+  key "<Leader>lf"            "format buffer pelo LSP (prettier/stylua/ormolu…)"
+  key "<Leader>uf / <Leader>uF" "toggle autoformat global / do buffer"
+  sub "Caixa (case)"
+  key "ggguG"                 "tudo em minúsculas"
+  key "gggUG"                 "tudo em maiúsculas"
+  key "ggg~G"                 "inverte a caixa do arquivo todo"
+  sub "Substituir / limpar"
+  key ":%s/foo/bar/g"         "substitui em todo o arquivo"
+  key ":%s/foo/bar/gc"        "idem com confirmação por ocorrência"
+  key ":%s/\\<foo\\>/bar/g"   "palavra inteira"
+  key ":%s/\\s\\+\$//"        "remove espaços finais (trailing whitespace)"
+  key ":%s/\\r//g"            "remove ^M (CRLF → LF)"
+  key ":%s/\\n\\{3,\\}/\\r\\r/g" "colapsa 3+ linhas em branco em 2"
+  sub "Ordenar / linhas"
+  key ":sort"                 "ordena o arquivo todo"
+  key ":sort u"               "ordena removendo duplicadas"
+  key ":sort!"                "ordem reversa"
+  key ":sort n"               "ordenação numérica"
+  key ":g/^\$/d"              "remove todas as linhas em branco"
+  key ":g/foo/d"              "deleta toda linha que casa com /foo/"
+  key ":v/foo/d"              "deleta toda linha que NÃO casa com /foo/"
+  key ":g/^/m0"               "inverte a ordem do arquivo"
+  sub "Filtrar pelo shell"
+  key ":%!cmd"                "passa o arquivo todo por 'cmd'"
+  key ":%!jq ."               "formata JSON do buffer com jq"
+  key ":%!sort -u"            "ordena único via shell"
+  key ":%!column -t"          "alinha colunas separadas por espaço"
+  sub "Aplicar comando em cada linha"
+  key ":%norm @q"             "executa o macro q em todas as linhas"
+  key ":%norm A;"             "anexa ';' em todas as linhas"
+  key ":%norm Idef "          "prefixa 'def ' em todas as linhas"
+  sub "Tabs / espaços"
+  key ":%retab"               "converte tabs ↔ espaços conforme expandtab"
+  key ":set list! / nolist"   "mostra/oculta caracteres invisíveis"
+  sub "Salvar / sair (todos os buffers)"
+  key ":wa"                   "salva todos os buffers"
+  key ":wqa"                  "salva e sai de tudo"
+  key ":qa!"                  "fecha tudo descartando alterações"
+  key ":w !sudo tee %"        "salva o arquivo atual via sudo"
+  note "Como você usa clipboard=unnamedplus, :%y já vai pro sistema"
+  note "Para receitas mais específicas, ver: myastro replace, edit, registers"
+}
+
+section_marks() {
+  title "Marks e jumps"
+  sub "Criar mark"
+  key "m{a-z}"                "mark local (válido só no buffer)"
+  key "m{A-Z}"                "mark global (cruza arquivos / sessões)"
+  sub "Pular para mark"
+  key "\`{m}"                 "linha + coluna exata"
+  key "'{m}"                  "início da linha do mark"
+  key "''  /  \`\`"           "volta para a posição antes do último jump"
+  key "'.  /  \`."            "última linha editada"
+  key "'^  /  \`^"            "última posição em Insert"
+  sub "Jumplist / changelist"
+  key "<Ctrl-o> / <Ctrl-i>"   "volta / avança no jumplist"
+  key "g; / g,"               "volta / avança no changelist (edições)"
+  sub "Listar"
+  key ":marks"                "lista todos os marks"
+  key "<Leader>fm"            "picker de marks (snacks)"
+  note "Marks A-Z são persistentes — bons para 'pinar' arquivos do projeto"
+}
+
+section_macros() {
+  title "Macros e repetição"
+  sub "Gravar / executar"
+  key "q{r}"                  "começa a gravar no register {r}"
+  key "q  (de novo)"          "para a gravação"
+  key "@{r}"                  "executa o macro do register {r}"
+  key "@@"                    "repete o último macro executado"
+  key "{N}@{r}"               "executa N vezes. Ex: 100@a"
+  sub "Repetir comandos"
+  key "."                     "repete a última edição"
+  key "&"                     "repete a última :s na linha"
+  key "g&"                    "repete a última :s no arquivo"
+  key "n / N"                 "repete busca / inverso"
+  key "; / ,"                 "repete f/t / inverso"
+  sub "Editar macro depois de gravar"
+  key ":let @a='…'"           "edita o conteúdo do register a direto"
+  key "\"ap → editar → \"ay"  "cola, ajusta no buffer, e re-yank no register"
+  note "Workflow típico: qq … q  (grava em q), depois 50@q em outras linhas"
+}
+
+section_buffers() {
+  title "Buffers (arquivos abertos)"
+  sub "Navegar"
+  key "]b   /  [b"            "próximo / anterior buffer"
+  key "<Leader>bb"            "picker de buffers"
+  key "<Leader>b\\"           "abrir buffer em split horizontal"
+  key "<Leader>b|"            "abrir buffer em split vertical"
+  sub "Fechar"
+  key "<Leader>c"             "fecha buffer (mantém janela)"
+  key "<Leader>C"             "força fechar buffer"
+  key "<Leader>bd"            "fechar buffer escolhendo na tabline"
+  key "<Leader>bc"            "fecha todos exceto o atual"
+  key "<Leader>bC"            "fecha todos exceto o pinned"
+  key "<Leader>bl / bh"       "fecha buffers à direita / esquerda"
+  sub "Reordenar / pin"
+  key "<Leader>b>  /  b<"     "move buffer 1 posição"
+  key "<Leader>bse"           "ordena por extensão"
+  key "<Leader>br / bp"       "fecha buffers à direita / pin"
+  note "Tabline = heirline; cada item é um buffer, não uma 'aba' do vim"
+}
+
+section_windows() {
+  title "Janelas / splits dentro do nvim"
+  sub "Criar"
+  key "<Leader>\\"            "split horizontal"
+  key "<Leader>|"             "split vertical"
+  key ":vsp / :sp"            "via comando"
+  sub "Navegar (estilo tmux)"
+  key "<Ctrl-h/j/k/l>"        "move entre splits (esq/baixo/cima/dir)"
+  key "<Ctrl-w> w"            "ciclar entre splits"
+  sub "Fechar / redimensionar"
+  key "<Leader>w"             "fecha janela atual"
+  key "<Ctrl-w> ="            "iguala tamanhos"
+  key "<Ctrl-w> _ / |"        "maximiza altura / largura"
+  key "<Ctrl-Up/Down/L/R>"    "redimensiona o split (resize_mappings)"
+  note "Para splits do TERMINAL (kitty), use F5/F6 — veja: mykitty splits"
+}
+
+section_files() {
+  title "Arquivos (neo-tree + snacks/telescope)"
+  sub "Explorer (neo-tree)"
+  key "<Leader>e"             "alterna o neo-tree (arquivos)"
+  key "<Leader>o"             "foca no neo-tree (abre se preciso)"
+  key "<Leader>fe"            "neo-tree em float"
+  sub "Dentro do neo-tree"
+  key "a / A"                 "novo arquivo / pasta"
+  key "d / r / c / x / p"     "delete / rename / copy / cut / paste"
+  key "y"                     "copia path"
+  key "H"                     "mostra arquivos ocultos"
+  key "<Enter> / o"           "abre arquivo"
+  key "s / S"                 "abre em vsplit / hsplit"
+  key "<Tab>"                 "preview"
+  key "?"                     "ajuda do neo-tree"
+  sub "Encontrar / abrir"
+  key "<Leader>ff"            "busca arquivos (fuzzy)"
+  key "<Leader>fF"            "arquivos incluindo ocultos / ignored"
+  key "<Leader>fo"            "buffers / arquivos recentes (oldfiles)"
+  key "<Leader>fb"            "lista de buffers"
+  key "<Leader>fp"            "projetos recentes"
+  key "<Leader>fP"            "busca PDF e abre no navegador padrão (Brave)"
+}
+
+section_search() {
+  title "Busca (snacks picker / telescope)"
+  key "<Leader>fw"             "grep da palavra sob cursor"
+  key "<Leader>fW"             "grep da palavra incl. ocultos/ignored"
+  key "<Leader>fg"             "grep ao vivo no projeto"
+  key "<Leader>f/"             "grep no buffer atual"
+  key "<Leader>fc"             "grep dos arquivos de config do nvim"
+  key "<Leader>fh"             "ajuda (:help)"
+  key "<Leader>fk"             "keymaps (atalhos)"
+  key "<Leader>fm"             "marks"
+  key "<Leader>fn"             "notificações"
+  key "<Leader>fs"             "símbolos do buffer (LSP)"
+  key "<Leader>fS"             "símbolos do workspace (LSP)"
+  key "<Leader>fT"             "todo-comments (TODO/FIX/HACK…)"
+  key "<Leader>f'"             "registers"
+  key "<Leader>f<CR>"           "resume última busca"
+  note "Em busca: <Ctrl-q> manda resultados pra quickfix"
+}
+
+section_lsp() {
+  title "LSP (linguagem)"
+  sub "Navegação"
+  key "gd"                    "definição"
+  key "gD"                    "declaração"
+  key "gI"                    "implementação"
+  key "gr  /  <Leader>lR"     "referências"
+  key "gy"                    "type definition"
+  key "K"                     "hover (docs)"
+  key "<Ctrl-k>"              "signature help (em insert)"
+  sub "Refactor / fix"
+  key "grn"                   "rename com preview (inc-rename)"
+  key "<Leader>lr"            "rename do símbolo (LSP padrão)"
+  key "<Leader>la"            "code action"
+  key "<Leader>lf"            "format buffer"
+  key "<Leader>lF"            "toggle autoformat-on-save"
+  key "<Leader>lh"            "toggle inlay hints"
+  sub "Símbolos / info"
+  key "<Leader>ls"            "símbolos do buffer (Aerial)"
+  key "<Leader>lS"            "símbolos workspace"
+  key "<Leader>lG"            "diagnostics workspace"
+  key "<Leader>li"            ":LspInfo"
+  key "<Leader>lI"            ":Mason (instalar LS/formatters/DAP)"
+  note "Packs ativos: lua, typescript-all-in-one, angular, html-css, json,"
+  note "tailwindcss, haskell. C# usa omnisharp + csharpier (config manual)."
+}
+
+section_diag() {
+  title "Diagnostics (Trouble)"
+  key "]d  /  [d"             "próximo / anterior diagnóstico"
+  key "]e  /  [e"             "próximo / anterior erro"
+  key "<Leader>ld"            "diagnostic float (linha atual)"
+  key "<Leader>xx"            "Trouble: diagnostics workspace"
+  key "<Leader>xX"            "Trouble: diagnostics do buffer"
+  key "<Leader>xs"            "Trouble: símbolos do documento"
+  key "<Leader>xl"            "Trouble: definições/refs do LSP"
+  key "<Leader>xL"            "Trouble: location list"
+  key "<Leader>xQ"            "Trouble: quickfix list"
+  key "<Leader>xT"            "Trouble: todo-comments"
+  note "Trouble = lista navegável; q sai, r recarrega, ? ajuda"
+}
+
+section_git() {
+  title "Git (gitsigns)"
+  sub "Hunks (mudanças)"
+  key "]g  /  [g"             "próximo / anterior hunk"
+  key "<Leader>gl"            "blame da linha"
+  key "<Leader>gL"            "blame do arquivo (toggle)"
+  key "<Leader>gp"            "preview hunk"
+  key "<Leader>gh"            "reset hunk"
+  key "<Leader>gr"            "reset buffer"
+  key "<Leader>gs"            "stage hunk"
+  key "<Leader>gS"            "stage buffer"
+  key "<Leader>gu"            "unstage hunk"
+  key "<Leader>gd"            "diff this (vs index)"
+  key "<Leader>gD"            "diff this ~ (vs HEAD)"
+  sub "Outros"
+  key "<Leader>gc"            "branches (snacks/telescope)"
+  key "<Leader>gC"            "commits"
+  key "<Leader>gt"            "status"
+  sub "Diffview (diffs e histórico)"
+  key ":DiffviewOpen"          "diff da working tree / resolver merge conflict"
+  key ":DiffviewFileHistory %" "histórico do arquivo atual"
+  key ":DiffviewFileHistory"   "histórico do repositório"
+  key ":DiffviewClose"         "fecha o diffview"
+  note "Para git de verdade: \$ lazygit no terminal — abre como floating"
+}
+
+section_term() {
+  title "Terminal (toggleterm)"
+  key "<F7>"                  "alterna terminal flutuante"
+  key "<Leader>tf"            "terminal float"
+  key "<Leader>th"            "terminal split horizontal"
+  key "<Leader>tv"            "terminal split vertical"
+  key "<Leader>tl"            "terminal lazygit (se instalado)"
+  key "<Leader>tn"            "terminal node"
+  key "<Leader>tp"            "terminal python"
+  key "<Leader>tt"            "terminal btm/htop"
+  sub "Dentro do terminal"
+  key "<Esc><Esc>"            "sai do modo insert do terminal"
+  key "<Ctrl-\\><Ctrl-n>"     "sai do modo terminal (vanilla)"
+  note "O terminal interno é \$SHELL; F7 funciona em qualquer modo"
+}
+
+section_harpoon() {
+  title "Harpoon (marcações rápidas)"
+  key "<Leader><Leader>a"     "marca arquivo atual"
+  key "<Leader><Leader>e"     "abre menu Harpoon"
+  key "<Leader><Leader>1..5"  "pula para arquivo Harpoon 1..5"
+  key "<Leader><Leader>n / p" "próximo / anterior na lista"
+  note "Workflow: marca 2-5 arquivos do dia, salta com <Space><Space>1/2/3"
+}
+
+section_flash() {
+  title "Flash (motion turbinada)"
+  key "s"                     "flash jump (digita 2 chars + label)"
+  key "S"                     "flash treesitter (seleciona nó)"
+  key "r"  "(operator)"       "remote flash — opera em outro lugar"
+  key "R"  "(visual/op)"      "treesitter search"
+  key "<Ctrl-s>" "(cmdline)"  "toggle flash em search/cmd"
+  note "Ex: 'dsab' apaga 'até bla' em qualquer split visível"
+}
+
+section_surround() {
+  title "nvim-surround"
+  key "ys{motion}{char}"      "envolver com {char}. Ex: ysiw)"
+  key "yss{char}"             "envolver linha inteira"
+  key "ds{char}"              "remove o surround. Ex: ds\""
+  key "cs{old}{new}"          "troca surround. Ex: cs'\""
+  key "S{char}"  "(visual)"   "envolver seleção"
+  note "Tipos: ( [ { ' \" \` t (tag HTML), f (função), q (qualquer aspa)"
+}
+
+section_comments() {
+  title "Comentários e TODOs"
+  sub "Comentar (Comment.nvim padrão do AstroNvim)"
+  key "gcc"                   "comenta linha (toggle)"
+  key "gc{motion}"            "comenta movimento. Ex: gcap (parágrafo)"
+  key "gc"  "(visual)"        "comenta seleção"
+  key "gbc / gb{motion}"      "block comment"
+  sub "todo-comments"
+  key "]t  /  [t"             "próximo / anterior TODO"
+  key "<Leader>fT"            "lista todos os TODO/FIX/HACK"
+  key "<Leader>xT"            "TODOs no Trouble"
+  note "Tags reconhecidas: TODO FIX FIXME HACK WARN PERF NOTE TEST"
+}
+
+section_session() {
+  title "Sessões (resession)"
+  key "<Leader>Sl"            "carregar sessão"
+  key "<Leader>Ss"            "salvar sessão"
+  key "<Leader>St"            "salvar tab session"
+  key "<Leader>Sd"            "deletar sessão"
+  key "<Leader>Sf"            "carregar sessão por nome (picker)"
+  key "<Leader>S."            "carregar última sessão do diretório"
+  note "Salva auto ao sair; restaura buffers, splits e cursor"
+}
+
+section_ui() {
+  title "UI / Toggles"
+  key "<Leader>uw"            "toggle word wrap"
+  key "<Leader>us"            "toggle spell"
+  key "<Leader>un"            "toggle line numbers"
+  key "<Leader>uN"            "toggle relative numbers"
+  key "<Leader>uc"            "toggle autocompletion"
+  key "<Leader>ud"            "toggle diagnostics"
+  key "<Leader>uh"            "toggle inlay hints"
+  key "<Leader>ug"            "toggle signcolumn"
+  key "<Leader>uf"            "toggle autoformat global"
+  key "<Leader>uF"            "toggle autoformat do buffer"
+  key "<Leader>ut"            "toggle treesitter highlight"
+  key "<Leader>uu"            "toggle URL highlight"
+  key "<Leader>uy"            "toggle syntax highlight"
+  key "<Leader>uz"            "toggle zen mode"
+  note "vscode-icons já carregado — emojis/ícones nas listas vêm dele"
+}
+
+section_which() {
+  title "Which-key (navegação por menu)"
+  key "<Space> (espera)"      "abre painel com todas as opções do leader"
+  key "<Space>K"              "árvore completa em janela dedicada"
+  key ":WhichKey <prefix>"    "ver todas as continuações de um prefixo"
+  note "Grupos principais do leader:"
+  note "  b=Buffer  f=Find  g=Git  l=LSP  S=Session  t=Terminal"
+  note "  u=UI/Toggle  x=Trouble/diag  <Space><Space>=Harpoon"
+}
+
+section_packs() {
+  title "Packs / pacotes ativos (community.lua)"
+  sub "Linguagens"
+  key "lua"                   "lua_ls + stylua"
+  key "typescript-all-in-one" "TS/JS + ESLint + prettier + jsx"
+  key "angular"               "angular-language-server (.html templates)"
+  key "html-css"              "HTML, CSS, Emmet"
+  key "json"                  "JSON LSP + schemastore"
+  key "tailwindcss"           "Tailwind LSP + colorizer"
+  key "haskell"               "haskell-language-server + ormolu/fourmolu"
+  key "C# (manual)"           "omnisharp + csharpier + netcoredbg"
+  sub "Motion / edição"
+  key "flash-nvim"            "ver: myastro flash"
+  key "harpoon"               "ver: myastro harpoon"
+  key "nvim-surround"         "ver: myastro surround"
+  sub "Diagnostics / extras"
+  key "trouble-nvim"          "ver: myastro diag"
+  key "todo-comments-nvim"    "ver: myastro comments"
+  key "vscode-icons"          "ícones nos pickers/explorer"
+  sub "Adicionados (refactor / busca / git / tools)"
+  key "refactoring-nvim"      "ver: myastro refactor"
+  key "grug-far-nvim"         "ver: myastro replace"
+  key "diffview-nvim"         "ver: myastro git"
+  key "multicursors-nvim"     "ver: myastro multicursor"
+  key "yanky-nvim"            "ver: myastro registers"
+  key "kulala-nvim"           "ver: myastro http"
+  key "full-dadbod"           "ver: myastro db"
+  key "inc-rename (local)"    "rename preview — ver: myastro lsp"
+  note "Editar: ~/.config/nvim/lua/community.lua e :Lazy sync"
+}
+
+section_misc() {
+  title "Outros úteis"
+  sub "Lazy / Mason / Update"
+  key ":Lazy"                 "gerenciador de plugins (sync, update, profile)"
+  key ":Mason"                "instalar/atualizar LSP, DAP, formatters"
+  key ":AstroUpdate"          "atualiza AstroNvim + plugins"
+  key ":AstroVersion"         "versão atual do AstroNvim"
+  key ":AstroChangelog"       "changelog"
+  key "<Leader>pU"            "AstroUpdatePackages"
+  sub "Health / debug"
+  key ":checkhealth"          "verifica problemas (LSP, providers, treesitter)"
+  key ":LspLog"               "log do LSP (paths absolutos)"
+  key ":Inspect"              "highlight groups sob o cursor"
+  key ":InspectTree"          "árvore treesitter"
+  sub "Save / quit"
+  key "<Leader>w"             "fecha janela (split do nvim)"
+  key "<Leader>q"             ":quit"
+  key "<Leader>n"             "novo buffer"
+  key "ZZ / ZQ"               "salva e sai / sai sem salvar (vanilla)"
+}
+
+section_refactor() {
+  title "Refactor (refactoring.nvim + inc-rename)"
+  note "A maioria funciona em modo VISUAL: selecione o trecho primeiro."
+  key "<Leader>re"            "extrair função (da seleção)"
+  key "<Leader>rf"            "extrair função para outro arquivo"
+  key "<Leader>rv"            "extrair variável"
+  key "<Leader>ri"            "inline da variável (normal ou visual)"
+  key "<Leader>rr"            "menu de refactors disponíveis (visual)"
+  sub "Debug prints"
+  key "<Leader>rp"            "insere print no ponto atual"
+  key "<Leader>rd"            "insere print da variável sob o cursor"
+  key "<Leader>rc"            "remove os prints de debug inseridos"
+  sub "Rename de símbolo"
+  key "grn"                   "rename com preview ao vivo (inc-rename)"
+  note "Extract no modo normal: <Leader>rb (bloco), <Leader>rbf (p/ arquivo)"
+}
+
+section_multicursor() {
+  title "Multi-cursor (multicursors.nvim)"
+  key "<Leader>m"             "inicia multi-cursor na palavra/seleção (modo n e v)"
+  note "Equivalente ao Ctrl-D do VSCode."
+  note "Ao iniciar abre um painel (hydra) no rodapé com todas as teclas:"
+  note "  n / N    adiciona cursor na próxima / anterior ocorrência"
+  note "  q        pula a ocorrência atual"
+  note "  i a c    insert antes / depois / change em todos os cursores"
+  note "  <Esc>    finaliza o modo multi-cursor"
+}
+
+section_http() {
+  title "HTTP / REST (kulala) — arquivos .http"
+  note "Crie um arquivo .http, escreva a requisição. Prefixo: <Leader>k"
+  key "<Leader>ks"            "envia a requisição sob o cursor"
+  key "<CR>"                  "envia a requisição (dentro do .http)"
+  key "<Leader>ka"            "envia todas as requisições do arquivo"
+  key "<Leader>kr"            "repete a última requisição"
+  key "<Leader>ki"            "inspeciona a requisição atual"
+  key "<Leader>kc"            "copia a requisição como cURL"
+  key "<Leader>kb"            "abre o scratchpad"
+  key "<Leader>kn  <Leader>kp" "pula p/ próxima / anterior requisição"
+  note "Prefixo movido de <Leader>r p/ <Leader>k (config: plugins/kulala.lua)"
+}
+
+section_db() {
+  title "Banco de dados (vim-dadbod / DBUI)"
+  key ":DBUI"                 "abre a árvore lateral de bancos"
+  key ":DBUIToggle"           "alterna o painel do DBUI"
+  key ":DBUIAddConnection"    "cadastra uma conexão (URL do banco)"
+  key ":DBUIFindBuffer"       "encontra o buffer SQL da conexão"
+  sub "Dentro do DBUI / buffer .sql"
+  key "<CR>"                  "expande nó da árvore / executa a query"
+  key "<Leader>W"             "salva a query atual como favorita"
+  note "Autocomplete de tabelas/colunas em .sql (vim-dadbod-completion + blink)"
+  note "Conexão por URL — ex.: sqlserver://user:senha@host:1433/banco"
+}
+
+show_all() {
+  show_header
+  section_leader
+  section_modes
+  section_motion
+  section_select
+  section_edit
+  section_textobj
+  section_registers
+  section_replace
+  section_prontos
+  section_marks
+  section_macros
+  section_buffers
+  section_windows
+  section_files
+  section_search
+  section_lsp
+  section_refactor
+  section_diag
+  section_git
+  section_term
+  section_harpoon
+  section_flash
+  section_surround
+  section_comments
+  section_session
+  section_ui
+  section_which
+  section_multicursor
+  section_http
+  section_db
+  section_packs
+  section_misc
+  printf "\n${C5}  Filtre uma seção: ${B}myastro <leader|modes|motion|select|edit|textobj|registers|replace|prontos|marks|macros|buffers|windows|files|search|lsp|refactor|diag|git|term|harpoon|flash|surround|comments|session|ui|which|multicursor|http|db|packs|misc>${R}\n\n"
+}
+
+case "${1:-all}" in
+  leader)             show_header; section_leader ;;
+  modes|mode)         show_header; section_modes ;;
+  motion|move)        show_header; section_motion ;;
+  select|visual|sel)  show_header; section_select ;;
+  edit|editing|yank|paste|copy|cut) show_header; section_edit ;;
+  textobj|textobjects|to) show_header; section_textobj ;;
+  registers|register|regs|reg) show_header; section_registers ;;
+  replace|substitute|sub) show_header; section_replace ;;
+  prontos|recipes|whole|all-file|cheats) show_header; section_prontos ;;
+  marks|mark|jump|jumps) show_header; section_marks ;;
+  macros|macro|repeat) show_header; section_macros ;;
+  buffers|buf)        show_header; section_buffers ;;
+  windows|win|splits) show_header; section_windows ;;
+  files|file|tree)    show_header; section_files ;;
+  search|find)        show_header; section_search ;;
+  lsp)                show_header; section_lsp ;;
+  refactor|refactoring|refac) show_header; section_refactor ;;
+  diag|trouble)       show_header; section_diag ;;
+  git)                show_header; section_git ;;
+  term|terminal)      show_header; section_term ;;
+  harpoon)            show_header; section_harpoon ;;
+  flash)              show_header; section_flash ;;
+  surround)           show_header; section_surround ;;
+  comments|comment|todo) show_header; section_comments ;;
+  session|sessions)   show_header; section_session ;;
+  ui|toggle|toggles)  show_header; section_ui ;;
+  which|whichkey)     show_header; section_which ;;
+  multicursor|multicursors|mc) show_header; section_multicursor ;;
+  http|rest|kulala|api) show_header; section_http ;;
+  db|database|sql|dadbod|dbui) show_header; section_db ;;
+  packs|pack|plugins) show_header; section_packs ;;
+  misc)               show_header; section_misc ;;
+  -h|--help|help)
+    cat <<EOF
+myastro — guia de atalhos do AstroNvim
+
+Uso:
+  myastro                  # exibe tudo
+  myastro <seção>          # filtra uma seção
+
+Seções:
+  leader      Leader, descoberta e which-key
+  modes       modos do vim (Normal, Insert, Visual, Replace, Cmd)
+  motion      movimento de cursor (h/j/k/l, w, gg, f{c}, …)
+  select      seleção visual (v, V, Ctrl-v) e ações sobre seleção
+  edit        yank / delete / change / paste / undo / indent
+  textobj     text objects (iw, aw, i", ip, if, ac …)
+  registers   registers ("a, "+, "0, "_, :reg …)
+  replace     :substitute, &, modo R, search&replace no projeto
+  prontos     comandos prontos (arquivo inteiro): :%y, gg=G, ggVG…
+  marks       marks (m{a}, '{a}, jumplist) + changelist
+  macros      gravar (q{r}) e executar (@{r}) macros, repetir (.)
+  buffers     navegar / fechar / reordenar buffers
+  windows     splits do nvim (criar/navegar/redimensionar)
+  files       neo-tree e abrir arquivos
+  search      buscas (arquivos, grep, símbolos, help)
+  lsp         LSP (gd, K, rename, code action, format…)
+  refactor    refactoring.nvim (extract/inline/debug) + rename preview
+  diag        diagnostics + Trouble
+  git         gitsigns (hunks, stage, blame, diff)
+  term        toggleterm (terminal interno)
+  harpoon     marcações rápidas (Space Space)
+  flash       motion s/S e remote flash
+  surround    ys/cs/ds para envolver / trocar / remover
+  comments    gcc, gc{motion}, todo-comments
+  session     resession (salvar/restaurar sessões)
+  ui          toggles (wrap, spell, números, diagnósticos…)
+  which       which-key (menu por prefixo)
+  multicursor multi-cursor estilo VSCode (multicursors.nvim)
+  http        cliente HTTP/REST (kulala) em arquivos .http
+  db          banco de dados (vim-dadbod / DBUI)
+  packs       packs/comunidade ativos
+  misc        :Lazy, :Mason, health, save/quit
+EOF
+    ;;
+  all|*) show_all ;;
+esac

@@ -1,0 +1,58 @@
+name: Propor uma funcionalidade
+description: Sugerir um módulo, ferramenta ou comportamento novo.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Alguns temas estão **fora de escopo por design**: `git` e `~/.gitconfig`,
+        `~/.npmrc`, configurações de GNOME e `:Lazy sync` automático. Se a sua
+        proposta é um deles, explique abaixo o que mudaria essa decisão.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Que problema isso resolve
+      description: O incômodo concreto, antes da solução.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: >
+        O que você gostaria que acontecesse. Se for um módulo novo, diga o que ele
+        instalaria e quais arquivos linkaria.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas consideradas
+      description: Inclusive "deixar do jeito que está, e resolver no `~/.zshrc.local`".
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área
+      options:
+        - Módulo novo (uma ferramenta ou ambiente que o install passaria a cobrir)
+        - Módulo existente
+        - Dotfiles (home/)
+        - Helpers (myastro / mykitty / myyazi)
+        - Assistente de instalação / UI
+        - Outra
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checagens
+    attributes:
+      label: Checagens
+      options:
+        - label: Procurei nas issues existentes e não encontrei esta proposta.
+          required: true
