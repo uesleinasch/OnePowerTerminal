@@ -30,7 +30,8 @@ _vf_install_kitty_binary() {
     log_dry "curl -L $_PN_KITTY_INSTALLER | sh /dev/stdin"
     return 0
   fi
-  curl -L --connect-timeout 15 --max-time 600 "$_PN_KITTY_INSTALLER" | sh /dev/stdin \
+  # -f: sem ele, uma página de erro HTTP seria canalizada para o sh.
+  curl -fL --connect-timeout 15 --max-time 600 "$_PN_KITTY_INSTALLER" | sh /dev/stdin \
     || die "Kitty installer falhou."
 }
 

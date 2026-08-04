@@ -23,6 +23,10 @@ _pn_check_sudo() {
 }
 
 _pn_check_rede() {
+  if ! has_cmd curl; then
+    printf 'warn\tConectividade\tcurl ausente — não deu para testar (o módulo apt instala)\n'
+    return 0
+  fi
   if curl -fsS --connect-timeout 5 --max-time 8 -o /dev/null https://github.com 2>/dev/null; then
     printf 'ok\tConectividade\tgithub.com alcançável\n'
   else

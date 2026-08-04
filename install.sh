@@ -55,6 +55,8 @@ _bs_obter() {
 
 _bs_atualizar() {
   _bs_has git || _bs_die "$PT_DEST é um clone git, mas o git não está instalado."
+  [[ -e "$PT_DEST/bin/powerterminal" ]] \
+    || _bs_die "$PT_DEST é um clone git, mas não parece ser o PowerTerminal (bin/powerterminal ausente). Mova ou remova o diretório, ou escolha outro destino com POWERTERMINAL_HOME=/outro/caminho"
   _bs_info "Já existe um clone em $PT_DEST; atualizando…"
   git -C "$PT_DEST" pull --ff-only
 }

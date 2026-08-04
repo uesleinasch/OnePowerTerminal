@@ -26,14 +26,18 @@ _vf_install_starship() {
 _vf_install_eza() {
   if has_cmd eza; then log_info "OK: eza presente"; return 0; fi
   if apt_install eza 2>/dev/null; then return 0; fi
+  require_x86_64 eza || return 0
   log_info "eza não está no apt — baixando binário do GitHub…"
+  # Build musl (estática): a build -gnu recente exige glibc ≥ 2.39 e quebraria
+  # no Ubuntu 22.04 (glibc 2.35) — mesma razão do yazi usar musl.
   install_github_binary \
-    "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-gnu.tar.gz" \
+    "https://github.com/eza-community/eza/releases/latest/download/eza_x86_64-unknown-linux-musl.tar.gz" \
     eza
 }
 
 _vf_install_yazi() {
   if has_cmd yazi; then log_info "OK: yazi presente"; return 0; fi
+  require_x86_64 yazi || return 0
   log_info "Instalando yazi (file explorer no terminal)…"
   # Build musl (estática): independe da glibc do sistema (ex.: glibc < 2.39).
   # Traz dois binários: `yazi` (TUI) e `ya` (CLI/plugins).
@@ -44,6 +48,7 @@ _vf_install_yazi() {
 
 _vf_install_lazygit() {
   if has_cmd lazygit; then log_info "OK: lazygit presente"; return 0; fi
+  require_x86_64 lazygit || return 0
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "install lazygit (resolveria a versão mais recente via API e baixaria o tarball)"
     return 0

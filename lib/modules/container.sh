@@ -295,7 +295,7 @@ mod_container_install() {
   # mod_X_configure só roda no caminho do wizard: com --profile ou --module a
   # resposta nunca foi gravada. Sem este fallback, POWERTERMINAL_CONTAINER_RUNTIME
   # seria ignorada em silêncio justamente no modo em que ela é a única via de
-  # escolha — é o que acontece hoje com POWERTERMINAL_NODE_MANAGER.
+  # escolha — o módulo node usa o mesmo padrão (_vf_node_manager_decidido).
   runtime="$(pn_get_answer container.runtime "")"
   [[ -n "$runtime" ]] || runtime="$(_vf_runtime_decidido)"
   [[ -n "$runtime" ]] || runtime=docker

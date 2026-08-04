@@ -15,6 +15,10 @@ mod_nvim_install() {
     log_info "OK: nvim já no PATH ($(nvim --version | head -1))"
     return 0
   fi
+  if ! require_x86_64 nvim; then
+    post_install_note "Instale o Neovim manualmente para $(uname -m) — o release oficial usado pelo módulo nvim é só x86_64."
+    return 0
+  fi
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "download $_PN_NVIM_URL"
     log_dry "sudo rm -rf $_PN_NVIM_PREFIX/nvim $_PN_NVIM_PREFIX/nvim-linux-x86_64"

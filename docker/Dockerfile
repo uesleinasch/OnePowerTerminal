@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Apenas o estritamente necessário para rodar o powerterminal install.
 # (Os pacotes extras virão do próprio script — esse é o ponto de testar.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      sudo curl ca-certificates locales whiptail git \
+      sudo curl ca-certificates locales git \
       tzdata \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*

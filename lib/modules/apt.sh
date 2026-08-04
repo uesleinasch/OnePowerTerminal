@@ -16,7 +16,6 @@ _PN_APT_PKGS=(
   unzip
   fontconfig
   build-essential
-  whiptail
   ripgrep
   fd-find
   fzf

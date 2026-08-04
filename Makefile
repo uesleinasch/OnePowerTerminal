@@ -11,6 +11,7 @@ POWERTERMINAL_HOME := $(CURDIR)
 # ~/.local/kitty.app, que não fazem parte do estado canônico).
 define MANIFEST
 export POWERTERMINAL_HOME="$(POWERTERMINAL_HOME)"; \
+export POWERTERMINAL_NOTES_FILE=/dev/null POWERTERMINAL_ANSWERS_FILE=/dev/null; \
 . "$(POWERTERMINAL_HOME)/lib/core.sh" >/dev/null; \
 for m in "$(POWERTERMINAL_HOME)"/lib/modules/*.sh; do . "$$m"; done; \
 declare -F | awk '$$3 ~ /^mod_.*_links$$/ {print $$3}' | while read -r fn; do "$$fn"; done \

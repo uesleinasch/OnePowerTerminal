@@ -25,19 +25,28 @@ _vf_is_real_n() {
   n --version </dev/null 2>/dev/null | grep -qE '^[0-9]+\.[0-9]+'
 }
 
-mod_node_configure() {
-  local escolha=""
-
+# Resolve o gerenciador sem perguntar nada: já instalado, depois a env.
+# Devolve vazio quando nada decidiu — só nesse caso vale perguntar/defaultar.
+# Mesmo papel de _vf_runtime_decidido no módulo container: também é o que faz
+# POWERTERMINAL_NODE_MANAGER valer no caminho --profile/--module, onde
+# mod_node_configure nunca roda.
+_vf_node_manager_decidido() {
   if [[ -s "$_PN_NVM_DIR/nvm.sh" ]]; then
-    escolha=nvm
+    printf 'nvm\n'
   elif [[ -x "$_PN_N_PREFIX/bin/n" ]] || _vf_is_real_n; then
-    escolha=n
+    printf 'n\n'
   elif [[ -n "${POWERTERMINAL_NODE_MANAGER:-}" ]]; then
     case "$POWERTERMINAL_NODE_MANAGER" in
-      nvm|n) escolha="$POWERTERMINAL_NODE_MANAGER" ;;
+      nvm|n) printf '%s\n' "$POWERTERMINAL_NODE_MANAGER" ;;
       *) log_warn "POWERTERMINAL_NODE_MANAGER inválido: '$POWERTERMINAL_NODE_MANAGER' (use nvm|n)" ;;
     esac
   fi
+  return 0
+}
+
+mod_node_configure() {
+  local escolha
+  escolha="$(_vf_node_manager_decidido)"
 
   if [[ -z "$escolha" ]]; then
     if [[ "${POWERTERMINAL_NONINTERACTIVE:-0}" == "1" ]] || ! [[ -t 0 ]]; then
@@ -117,7 +126,11 @@ _vf_install_node_via_n() {
 
 mod_node_install() {
   local manager
-  manager="$(pn_get_answer node.manager nvm)"
+  # Com --profile/--module o configure nunca rodou e não há resposta gravada:
+  # sem este fallback, POWERTERMINAL_NODE_MANAGER seria ignorada em silêncio.
+  manager="$(pn_get_answer node.manager "")"
+  [[ -n "$manager" ]] || manager="$(_vf_node_manager_decidido)"
+  [[ -n "$manager" ]] || manager=nvm
   log_info "Gerenciador escolhido: $manager"
 
   case "$manager" in

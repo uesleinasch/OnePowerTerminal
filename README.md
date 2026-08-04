@@ -72,7 +72,7 @@ cd ~/PowerTerminal && ./tests/run.sh
 ├── bin/powerterminal              # entrypoint da CLI
 ├── lib/
 │   ├── core.sh               # log, link_safe, backup, sudo wrapper, dry-run
-│   ├── ui.sh                 # TUI whiptail + fallback texto
+│   ├── ui.sh                 # TUI gum (vendorizado) + fallback texto
 │   └── modules/              # 10 módulos independentes
 │       ├── apt.sh            # base: curl, ripgrep, fzf, jq, …
 │       ├── fonts.sh          # MesloLGS NF (Powerlevel10k)
@@ -184,7 +184,7 @@ Instala um gerenciador de versões e o Node LTS, sem mexer em `~/.npmrc`.
 1. Se já existe `~/.nvm` ou `~/n` (ou `n` no PATH) → reusa o que está lá.
 2. `POWERTERMINAL_NODE_MANAGER=nvm|n` (env) → respeita a escolha.
 3. Modo não-interativo (`--yes` / sem TTY) → default `nvm`.
-4. Modo interativo → menu `whiptail` (ou prompt) perguntando.
+4. Modo interativo → menu `gum` (ou prompt de texto) perguntando.
 
 **O que o instalador faz:**
 

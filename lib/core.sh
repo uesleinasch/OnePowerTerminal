@@ -46,6 +46,15 @@ unset _pn_legacy
 # ---- Predicates --------------------------------------------------------------
 has_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+# require_x86_64 LABEL — os assets de GitHub baixados por este repo são todos
+# x86_64; em outra arquitetura o download "funcionaria" e entregaria um binário
+# que não executa. Falha com aviso para o chamador pular o passo.
+require_x86_64() {
+  [[ "$(uname -m)" == "x86_64" ]] && return 0
+  log_warn "$1: sem binário para $(uname -m) — pulando."
+  return 1
+}
+
 # O shell padrão do usuário vive em /etc/passwd. $SHELL é só o da sessão
 # corrente e diverge de propósito no caso que interessa detectar: quem digita
 # `zsh` na mão continua com o bash registrado.
@@ -55,12 +64,16 @@ login_shell() {
 
 is_supported_distro() {
   [[ -r /etc/os-release ]] || return 1
-  # shellcheck disable=SC1091
-  . /etc/os-release
-  case "${ID:-}" in
-    ubuntu|debian|pop) return 0 ;;
-    *) [[ "${ID_LIKE:-}" =~ (ubuntu|debian) ]] ;;
-  esac
+  # Subshell: sourcear no escopo do chamador vazaria ID/ID_LIKE/PRETTY_NAME
+  # e colidiria com variáveis de quem chamou (mesma razão de _vf_os_release_val).
+  (
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    case "${ID:-}" in
+      ubuntu|debian|pop) exit 0 ;;
+    esac
+    [[ "${ID_LIKE:-}" =~ (ubuntu|debian) ]]
+  )
 }
 
 require_supported_distro() {
@@ -109,7 +122,7 @@ apt_install() {
     log_dry "apt-get install -y $*"
     return 0
   fi
-  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
+  as_sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
 }
 
 apt_update_once() {
@@ -117,7 +130,7 @@ apt_update_once() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "apt-get update"
   else
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get update -y
+    as_sudo env DEBIAN_FRONTEND=noninteractive apt-get update -y
   fi
   _PN_APT_UPDATED=1
 }
@@ -208,6 +221,10 @@ link_safe() {
       log_info "OK (symlink já correto): $dst"
       return 0
     fi
+    # Symlink de terceiros (stow, chezmoi…) não gera .pnbak — o link em si é
+    # barato, mas o alvo se perderia em silêncio. O log preserva a informação.
+    [[ "$cur" == "$POWERTERMINAL_HOME"/* ]] \
+      || log_warn "Substituindo symlink que não é do PowerTerminal: $dst → $cur"
     run rm -f "$dst"
   elif [[ -e "$dst" ]]; then
     backup_path "$dst"
@@ -219,15 +236,22 @@ link_safe() {
 # unlink_safe DST — remove DST only if it's a symlink owned by PowerTerminal, then
 # restore the most recent backup if one exists.
 unlink_safe() {
-  local dst="$1"
+  local dst="$1" era_link=0
   if [[ -L "$dst" ]]; then
     local target; target="$(readlink "$dst" 2>/dev/null || true)"
     if [[ "$target" != "$POWERTERMINAL_HOME"/* ]]; then
       log_warn "Symlink $dst não pertence ao PowerTerminal ($target). Ignorado."
       return 0
     fi
+    era_link=1
     log_info "Removendo symlink: $dst"
     run rm -f "$dst"
+  fi
+  # Restaura só quando o caminho ficou (ou ficaria) livre: um arquivo real aqui
+  # é do usuário, e mover o backup por cima destruiria o conteúdo atual dele.
+  if [[ "$era_link" == "0" && -e "$dst" ]]; then
+    log_warn "$dst é um arquivo real (não symlink) — mantido; backup não restaurado."
+    return 0
   fi
   # Pega o backup mais recente. Sort lexicográfico em sufixo YYYYMMDDHHMMSS é
   # locale-independente e monotônico (resolve ties melhor que `ls -1t`).

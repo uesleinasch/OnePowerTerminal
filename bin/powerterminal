@@ -261,8 +261,17 @@ cmd_doctor() {
 }
 
 cmd_share() {
-  local outfile
-  outfile="${1:-powerterminal-share-$(date +%Y%m%d).tar.gz}"
+  local outfile=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) DRY_RUN=1; shift ;;
+      -*) die "Flag desconhecida: $1 (rode 'powerterminal help share')" ;;
+      *)
+        [[ -z "$outfile" ]] || die "share aceita no máximo um argumento (arquivo de saída)."
+        outfile="$1"; shift ;;
+    esac
+  done
+  outfile="${outfile:-powerterminal-share-$(date +%Y%m%d).tar.gz}"
   log_section "Empacotando PowerTerminal para compartilhamento"
   log_info "Saída: $outfile"
   if [[ "$DRY_RUN" == "1" ]]; then
@@ -283,6 +292,13 @@ cmd_share() {
 }
 
 cmd_update() {
+  local a
+  for a in "$@"; do
+    case "$a" in
+      --dry-run) DRY_RUN=1 ;;
+      *) die "Flag desconhecida: $a (rode 'powerterminal help update')" ;;
+    esac
+  done
   log_section "Atualizando ferramentas (best-effort)"
   local omz_custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
   for d in \
