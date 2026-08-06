@@ -748,7 +748,7 @@ case "${1:-all}" in
   textobj|textobjects|to) show_header; section_textobj ;;
   registers|register|regs|reg) show_header; section_registers ;;
   replace|substitute|sub) show_header; section_replace ;;
-  prontos|recipes|whole|all-file|cheats) show_header; section_prontos ;;
+  prontos|recipes|whole|all-file|arquivo|cheats) show_header; section_prontos ;;
   marks|mark|jump|jumps) show_header; section_marks ;;
   macros|macro|repeat) show_header; section_macros ;;
   buffers|buf)        show_header; section_buffers ;;
@@ -761,7 +761,7 @@ case "${1:-all}" in
   git)                show_header; section_git ;;
   term|terminal)      show_header; section_term ;;
   harpoon)            show_header; section_harpoon ;;
-  flash)              show_header; section_flash ;;
+  flash|leap)         show_header; section_flash ;;
   surround)           show_header; section_surround ;;
   comments|comment|todo) show_header; section_comments ;;
   session|sessions)   show_header; section_session ;;
