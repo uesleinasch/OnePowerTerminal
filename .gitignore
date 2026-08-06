@@ -16,6 +16,9 @@ home.local/
 home/.config/kitty/last-session.kitty
 home/.config/kitty/__pycache__/
 
+# btop: log de execução, gerado na máquina e trazido pelo `make sync`
+home/.config/btop/btop.log
+
 # Editores
 .vscode/
 .idea/

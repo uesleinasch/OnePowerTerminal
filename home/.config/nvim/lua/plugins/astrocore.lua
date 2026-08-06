@@ -3,6 +3,44 @@
 -- NOTE: We highly recommend setting up the Lua Language Server (`:LspInstall lua_ls`)
 --       as this provides autocomplete and documentation while editing
 
+-- Abre PDFs no navegador padrão da máquina em vez de carregar o binário no buffer.
+-- Resolve o navegador uma única vez e reaproveita (cache em `_browser`).
+local _browser
+local function default_browser()
+  if not _browser then
+    local cmd
+    if vim.env.BROWSER and #vim.env.BROWSER > 0 then
+      cmd = { vim.env.BROWSER }
+    else
+      local desktop = vim.trim(vim.fn.system { "xdg-settings", "get", "default-web-browser" })
+      local bin = desktop:gsub("%.desktop$", "")
+      if bin ~= "" and vim.fn.executable(bin) == 1 then cmd = { bin } end
+    end
+    if not cmd then
+      for _, c in ipairs { "sensible-browser", "x-www-browser", "xdg-open" } do
+        if vim.fn.executable(c) == 1 then
+          cmd = { c }
+          break
+        end
+      end
+    end
+    _browser = cmd or { "xdg-open" }
+  end
+  return vim.deepcopy(_browser)
+end
+
+local function open_pdf_external(bufnr)
+  local file = vim.api.nvim_buf_get_name(bufnr)
+  local cmd = default_browser()
+  table.insert(cmd, file)
+  vim.fn.jobstart(cmd, { detach = true })
+  vim.notify("Abrindo PDF no navegador: " .. vim.fn.fnamemodify(file, ":t"), vim.log.levels.INFO)
+  -- não carrega o conteúdo binário: descarta o buffer do .pdf
+  vim.schedule(function()
+    if vim.api.nvim_buf_is_valid(bufnr) then pcall(vim.api.nvim_buf_delete, bufnr, { force = true }) end
+  end)
+end
+
 ---@type LazySpec
 return {
   "AstroNvim/astrocore",
@@ -82,12 +120,36 @@ return {
         },
         ["<Leader>K"] = { "<Cmd>WhichKey<CR>", desc = "Show all keymaps (which-key tree)" },
 
+        -- Busca PDFs (Telescope filtrando *.pdf -> abre no pdfreader.nvim)
+        ["<Leader>fP"] = {
+          function()
+            require("telescope.builtin").find_files {
+              prompt_title = "PDFs",
+              find_command = { "rg", "--files", "--glob", "*.pdf" },
+            }
+          end,
+          desc = "Busca PDFs",
+        },
+
         -- tables with just a `desc` key will be registered with which-key if it's installed
         -- this is useful for naming menus
         -- ["<Leader>b"] = { desc = "Buffers" },
 
         -- setting a mapping to false will disable it
         -- ["<C-S>"] = false,
+      },
+    },
+    -- Autocommands
+    autocmds = {
+      -- Abre PDFs no navegador padrão (via `default_browser` no topo do arquivo)
+      -- em vez de tentar carregar/renderizar o binário dentro do Neovim.
+      pdf_open_external = {
+        {
+          event = "BufReadCmd",
+          pattern = "*.pdf",
+          desc = "Abrir PDF no navegador padrão da máquina",
+          callback = function(ev) open_pdf_external(ev.buf) end,
+        },
       },
     },
   },
