@@ -8,6 +8,23 @@ CLI para replicar e compartilhar um ambiente de desenvolvimento
 `myastro`/`mykitty`/`myyazi` e ferramentas CLI**) em qualquer máquina **Ubuntu /
 Debian / Pop!_OS**.
 
+Montar esse ambiente à mão custa horas — instalar pacote por pacote, buscar os
+binários que o apt não tem na versão certa, copiar dotfiles de algum backup e
+descobrir na primeira semana o que ficou faltando. O PowerTerminal reduz isso a
+um comando. São doze módulos independentes e idempotentes: rodar de novo
+atualiza em vez de duplicar, e você escolhe entre um perfil pronto
+(`minimal`/`dev`/`full`) ou um subset via `--module`.
+
+As configs ficam versionadas em `home/`, com `$HOME` apontando para lá por
+symlink — você edita o arquivo onde sempre editou e o repositório acompanha, o
+que torna o ambiente algo que se leva de máquina em máquina e se compartilha com
+um colega (`powerterminal share`).
+
+E nada é irreversível: `--dry-run` mostra o que aconteceria sem tocar em disco,
+o link move qualquer arquivo preexistente para `.pnbak.<timestamp>` antes de
+substituir, `doctor` diagnostica o que saiu do lugar e `unlink` desfaz
+restaurando os backups.
+
 > **Não toca em git.** Assume que o usuário já tem `~/.gitconfig`,
 > `~/.npmrc` e suas credenciais configuradas.
 >
@@ -340,32 +357,6 @@ myyazi files       # filtra uma seção (nav, files, find, tabs, cli, …)
 | O módulo `container` foi pulado no install | A instalação rodou dentro de um container (detectado por `/.dockerenv` ou `/run/.containerenv`). Rode `powerterminal install --module container` na máquina real. |
 | Erro `unknown style 'zdiff3'` no `git`        | Git < 2.35; use `merge.conflictstyle=diff3` ou atualize via `ppa:git-core/ppa`. |
 | Shader `paper` do picom não aplica            | O picom < v10 exige caminho absoluto em `glx-fshader`. Descomente a linha em `home/.config/picom/picom.conf` trocando `SEU_USUARIO`. |
-
-## Vindo do PowerNeovim
-
-O projeto se chamava **PowerNeovim** até a 0.1.0 — o nome antigo descrevia mal o
-escopo, já que o Neovim é um módulo entre onze. Para não quebrar instalações
-existentes, os nomes anteriores seguem funcionando, com aviso de depreciação:
-
-| Antigo | Novo |
-|---|---|
-| comando `powerneovim` | `powerterminal` |
-| `POWERNEOVIM_HOME` | `POWERTERMINAL_HOME` |
-| `POWERNEOVIM_NONINTERACTIVE` | `POWERTERMINAL_NONINTERACTIVE` |
-| `POWERNEOVIM_UI` | `POWERTERMINAL_UI` |
-| `POWERNEOVIM_NODE_MANAGER` | `POWERTERMINAL_NODE_MANAGER` |
-
-Essa camada de compatibilidade sai na 1.0. Se você tem um clone antigo, renomeie
-o diretório e atualize o remote:
-
-```bash
-mv ~/PowerNeovim ~/PowerTerminal
-git -C ~/PowerTerminal remote set-url origin git@github.com:uesleinasch/OnePowerTerminal.git
-```
-
-Os logs de instalação passaram de `~/.local/state/powerneovim/` para
-`~/.local/state/powerterminal/`; os antigos ficam onde estão e podem ser
-descartados.
 
 ## Contribuindo
 

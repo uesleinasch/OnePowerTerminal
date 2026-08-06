@@ -139,17 +139,15 @@ ci: roda a suíte de testes
 docs: documenta o contrato de módulo
 ```
 
-## Nomes anteriores à renomeação
+## Camada de nomes legados
 
-O projeto se chamava **PowerNeovim** até a versão 0.1.0. Para não quebrar quem já
-tinha uma instalação, seguem funcionando, com aviso de depreciação:
+Existe uma camada de compatibilidade que aceita nomes `POWERNEOVIM_*` como
+alias das variáveis `POWERTERMINAL_*`, e um symlink `bin/powerneovim` →
+`powerterminal`, ambos com aviso de depreciação. Ela sai na 1.0.
 
-- o comando `powerneovim`, como symlink para `powerterminal`;
-- as variáveis `POWERNEOVIM_HOME`, `POWERNEOVIM_NONINTERACTIVE`,
-  `POWERNEOVIM_UI` e `POWERNEOVIM_NODE_MANAGER`.
-
-Essa camada sai na 1.0 e vive num único bloco no topo de `lib/core.sh`, coberta
-por `tests/test_compat.sh`. Código novo usa apenas os nomes `POWERTERMINAL_*`.
+Vive num único bloco no topo de `lib/core.sh`, coberta por
+`tests/test_compat.sh`. **Código novo usa apenas os nomes `POWERTERMINAL_*`** —
+não estenda a camada.
 
 ## Código de conduta
 
