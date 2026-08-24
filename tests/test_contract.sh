@@ -7,7 +7,7 @@ for m in "${POWERTERMINAL_HOME}"/lib/modules/*.sh; do
   source "$m"
 done
 
-MODULOS=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container)
+MODULOS=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container theme)
 
 it "todo modulo declara mod_X_cost"
 faltando=""

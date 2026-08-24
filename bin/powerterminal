@@ -21,12 +21,12 @@ done
 trap pn_cleanup EXIT
 
 # Lista canônica e ordenada
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container theme)
 
 _vf_profile_modules() {
   case "$1" in
     minimal) echo "apt fonts zsh helpers" ;;
-    dev)     echo "apt fonts zsh nvim astronvim kitty tools node helpers container" ;;
+    dev)     echo "apt fonts zsh nvim astronvim kitty tools node helpers container theme" ;;
     full)    echo "${_PN_ALL_MODULES[*]}" ;;
     *) return 1 ;;
   esac
@@ -291,6 +291,38 @@ cmd_share() {
   log_info "  tar -xzf $(basename "$outfile") -C \$HOME && \$HOME/PowerTerminal/bin/powerterminal install"
 }
 
+cmd_theme() {
+  local flavor="" acao="aplicar"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) DRY_RUN=1; shift ;;
+      status) acao="status"; shift ;;
+      -*) die "Flag desconhecida: $1 (rode 'powerterminal help theme')" ;;
+      *)
+        [[ -z "$flavor" ]] || die "theme aceita no máximo um flavor (rode 'powerterminal help theme')."
+        flavor="$1"; shift ;;
+    esac
+  done
+
+  log_section "Tema"
+  if [[ "$acao" == "status" ]]; then
+    mod_theme_doctor
+    return 0
+  fi
+
+  if [[ -z "$flavor" ]]; then
+    flavor="$(ui_choose "Qual flavor Catppuccin?" \
+      "mocha:escuro (default do PowerTerminal)" \
+      "macchiato:escuro, contraste médio" \
+      "frappe:escuro suave" \
+      "latte:claro")"
+  fi
+
+  _vf_theme_apply "$flavor"
+  _vf_theme_reload_kitty
+  log_info "Neovim e prompt: o flavor é lido no startup, então valem em sessão nova."
+}
+
 cmd_update() {
   local a
   for a in "$@"; do
@@ -335,6 +367,7 @@ ${C_B}Comandos:${C_R}
   unlink    remove os symlinks gerenciados (restaura backups)
   status    mostra o estado atual dos symlinks
   doctor    diagnostica todos os módulos
+  theme     troca o flavor Catppuccin (kitty + Neovim + prompt)
   share     empacota o repo num .tar.gz para compartilhar com colegas
   update    atualiza p10k e plugins zsh
   help      ajuda (use 'help <comando>' para detalhes)
@@ -349,6 +382,7 @@ ${C_B}Exemplos:${C_R}
   powerterminal install --profile full --yes       # tudo, sem perguntas
   powerterminal install --module zsh,fonts,helpers # só esses módulos
   powerterminal install --profile dev --dry-run    # simula sem mudar nada
+  powerterminal theme latte                        # tema claro em tudo
   powerterminal share dotfiles-2026-05.tar.gz      # gera pacote compartilhável
 EOF
     return 0
@@ -367,6 +401,25 @@ ${C_B}powerterminal install${C_R} [--profile P | --module a,b,c] [--yes] [--dry-
 Módulos disponíveis: ${_PN_ALL_MODULES[*]}
 EOF
       ;;
+    theme)
+      cat <<EOF
+${C_B}powerterminal theme${C_R} [flavor | status] [--dry-run]
+
+  (sem argumento)   menu para escolher o flavor
+  latte             claro
+  frappe            escuro suave
+  macchiato         escuro, contraste médio
+  mocha             escuro (default do PowerTerminal)
+  status            mostra o flavor em vigor e se os consumidores concordam
+
+Aplica em quatro lugares a partir de ~/.config/powerterminal/theme: cores do
+kitty (recarregadas nas janelas abertas), colorscheme do Neovim, cores do
+prompt e o tema do Claude Code (light no latte, dark nos demais).
+
+Neovim e prompt leem o flavor no startup, então valem em sessão nova. As cores
+das abas do kitty exigem uma janela nova.
+EOF
+      ;;
     link|unlink|status|doctor|share|update)
       printf "powerterminal %s — %s\n" "$topic" "Use 'powerterminal $topic --dry-run' (quando aplicável) para simular."
       ;;
@@ -382,6 +435,7 @@ main() {
     unlink)  cmd_unlink  "$@" ;;
     status)  cmd_status  "$@" ;;
     doctor)  cmd_doctor  "$@" ;;
+    theme)   cmd_theme   "$@" ;;
     share)   cmd_share   "$@" ;;
     update)  cmd_update  "$@" ;;
     help|-h|--help) cmd_help "${1:-}" ;;

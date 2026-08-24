@@ -27,6 +27,10 @@ source "$ZSH/oh-my-zsh.sh"
 # Rode `p10k configure` para regerar o ~/.p10k.zsh.
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
+# Ajusta as cores do prompt que não acompanham o tema do terminal.
+# Precisa vir depois do .p10k.zsh para sobrescrever.
+[[ -f ~/.config/powerterminal/p10k-theme.zsh ]] && source ~/.config/powerterminal/p10k-theme.zsh
+
 # ── Editor ───────────────────────────────────────────────────────────────────
 export EDITOR='nvim'
 export VISUAL='nvim'

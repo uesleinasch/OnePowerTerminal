@@ -158,6 +158,7 @@ section_config() {
   key "Ctrl+Shift+F11"       "alterna fullscreen"
   key "Ctrl+Shift+F10"       "alterna maximizado"
   note "Arquivo: ~/.config/kitty/kitty.conf"
+  note "Tema: powerterminal theme <latte|frappe|macchiato|mocha>"
   note "Docs: https://sw.kovidgoyal.net/kitty/conf/"
 }
 

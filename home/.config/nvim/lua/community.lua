@@ -6,6 +6,9 @@
 return {
   "AstroNvim/astrocommunity",
 
+  -- Colorscheme — o flavor é resolvido em plugins/catppuccin.lua
+  { import = "astrocommunity.colorscheme.catppuccin" },
+
   -- Lua (config development)
   { import = "astrocommunity.pack.lua" },
 

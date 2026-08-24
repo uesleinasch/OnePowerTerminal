@@ -90,7 +90,7 @@ cd ~/PowerTerminal && ./tests/run.sh
 ├── lib/
 │   ├── core.sh               # log, link_safe, backup, sudo wrapper, dry-run
 │   ├── ui.sh                 # TUI gum (vendorizado) + fallback texto
-│   └── modules/              # 10 módulos independentes
+│   └── modules/              # 13 módulos independentes
 │       ├── apt.sh            # base: curl, ripgrep, fzf, jq, …
 │       ├── fonts.sh          # MesloLGS NF (Powerlevel10k)
 │       ├── zsh.sh            # zsh + OMZ + p10k + plugins
@@ -102,11 +102,15 @@ cd ~/PowerTerminal && ./tests/run.sh
 │       ├── helpers.sh        # link de myastro / mykitty / myyazi
 │       ├── extras.sh         # btop, ranger, yazi, picom, flameshot, …
 │       ├── notiont.sh        # notion-t (CLI Notion via pipx)
-│       └── container.sh      # Docker OU Podman (escolha) + grupo/rootless
+│       ├── container.sh      # Docker OU Podman (escolha) + grupo/rootless
+│       └── theme.sh          # flavor Catppuccin (kitty + Neovim + prompt)
 ├── home/                     # estado canônico das configs
 │   ├── .zshrc                # template comum (sourceia .zshrc.local)
 │   ├── .p10k.zsh
-│   └── .config/{nvim,kitty,btop,ranger,yazi,…}
+│   └── .config/
+│       ├── powerterminal/    # flavor em vigor + override de cor do prompt
+│       ├── kitty/themes/     # as 4 paletas Catppuccin
+│       └── {nvim,btop,ranger,yazi,…}
 ├── home.local.example/       # personalização não versionada
 ├── bin-helpers/              # myastro, mykitty, myyazi
 ├── docker/                   # Dockerfile para testar isolado
@@ -176,7 +180,7 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 | Profile   | Inclui                                                                 |
 |-----------|------------------------------------------------------------------------|
 | `minimal` | apt + fonts + zsh + helpers                                            |
-| `dev`     | minimal + nvim + astronvim + kitty + tools + node + container          |
+| `dev`     | minimal + nvim + astronvim + kitty + tools + node + container + theme  |
 | `full`    | tudo (= dev + extras + notiont)                                        |
 
 ## Comandos
@@ -188,9 +192,49 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 | `unlink`           | Remove symlinks + restaura backups (`.pnbak.<timestamp>`)       |
 | `status`           | Mostra symlinks gerenciados                                     |
 | `doctor`           | Diagnóstico completo (versões, fontes, links, dependências)     |
+| `theme [flavor]`   | Troca o flavor Catppuccin em kitty + Neovim + prompt            |
 | `share [arquivo]`  | Empacota o repo em `.tar.gz` (sem `home.local`, sem `.pnbak.*`) |
 | `update`           | Atualiza P10k e plugins zsh (e dá hint para `:Lazy sync`)       |
 | `help [tópico]`    | Ajuda                                                           |
+
+## Tema (`powerterminal theme`)
+
+Os quatro flavors do [Catppuccin](https://catppuccin.com/palette/) — `latte`
+(claro), `frappe`, `macchiato` e `mocha` (escuros) — aplicados de uma vez no
+Kitty, no Neovim e no prompt.
+
+```bash
+powerterminal theme            # menu
+powerterminal theme latte      # tema claro
+powerterminal theme status     # o que está em vigor, e se todos concordam
+```
+
+A escolha vive num arquivo só, `~/.config/powerterminal/theme`. Cada ferramenta
+acompanha de um jeito:
+
+| Consumidor    | Como acompanha                                                                          |
+|---------------|-----------------------------------------------------------------------------------------|
+| Kitty         | `current-theme.conf` (derivado) faz `include themes/<flavor>.conf`, recarregado nas janelas abertas |
+| Barra de abas | `tab_bar.py` identifica o flavor pelo `background` em vigor e escolhe a paleta de 10 matizes |
+| Neovim        | `lua/plugins/catppuccin.lua` lê o arquivo no startup                                    |
+| Prompt        | 195 das 208 cores do `.p10k.zsh` usam índices ANSI 0-15, que o Kitty remapeia por flavor; `p10k-theme.zsh` corrige as três que usavam cor fixa do cubo 256 |
+| Claude Code   | `~/.claude/settings.json` recebe `light` no latte e `dark` nos outros — o syntax highlighting dele tem cor própria e sumiria sobre fundo claro |
+
+As paletas em `home/.config/kitty/themes/` são o porte oficial
+([catppuccin/kitty](https://github.com/catppuccin/kitty)), copiadas sem
+modificação — os embutidos no Kitty são de uma versão anterior, sem as cores de
+scrollbar e de marks.
+
+O Kitty muda na hora; Neovim e prompt leem o flavor no startup, então valem em
+sessão nova, e as cores das abas pedem uma janela nova (o `tab_bar.py` já está
+importado no processo). A moldura do split em foco é sobrescrita de propósito no
+`kitty.conf`: o lavender dos flavors não destaca o suficiente com
+`draw_minimal_borders no`.
+
+O `settings.json` do Claude Code é editado por substituição cirúrgica da chave
+`theme`, com validação do JSON antes de gravar e escrita atômica — nunca por
+round-trip, que reformataria os hooks e as permissões do arquivo. Se a chave não
+existir, o comando avisa e não toca no arquivo.
 
 ## Módulo `node` (nvm ou n)
 
