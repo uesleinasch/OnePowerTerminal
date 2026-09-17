@@ -57,9 +57,11 @@ _vf_is_registered() {
   return 1
 }
 
-# _vf_precisa_sudo MÓDULOS… — sucesso se algum deles declarar sudo no cost.
+# _vf_precisa_sudo MÓDULOS… — sucesso se algum deles declarar sudo no cost ou se
+# houver pré-requisito ausente (o apt dos requisitos também é root).
 _vf_precisa_sudo() {
   local m sudo
+  [[ -n "$(pn_missing_requires "$@")" ]] && return 0
   for m in "$@"; do
     declare -F "mod_${m}_cost" >/dev/null || continue
     sudo="$("mod_${m}_cost" | cut -f3)"
@@ -134,6 +136,9 @@ cmd_install() {
     declare -F "mod_${m}_install" >/dev/null || die "Módulo desconhecido: $m"
   done
 
+  local faltam
+  faltam="$(pn_missing_requires_cmds "${modules[@]}")"
+
   if [[ "$wizard" -eq 1 ]]; then
     # Todas as perguntas dos módulos acontecem aqui, antes de qualquer mudança —
     # o usuário responde tudo de uma vez em vez de ser interrompido no meio.
@@ -144,6 +149,7 @@ cmd_install() {
   else
     log_info "Profile: ${profile:-custom}"
     log_info "Módulos: ${modules[*]}"
+    [[ -n "$faltam" ]] && log_info "Pré-requisitos ausentes: $faltam (instalados via apt antes dos módulos)"
   fi
   [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nenhuma mudança real será feita."
 
@@ -165,6 +171,17 @@ cmd_install() {
     # se espalha por vários arquivos.
     _pn_resolve_log_file
     [[ "$DRY_RUN" == "1" ]] || log_info "Log completo: $(pn_log_file)"
+    # Requisitos antes do primeiro módulo; se falhar, segue — quem depender
+    # deles falha isolado no próprio passo, como qualquer módulo.
+    if [[ -n "$faltam" ]]; then
+      ui_step_begin "requisitos"
+      t0="$(date +%s)"
+      if ( pn_install_requires "${modules[@]}" ) >>"$(pn_log_file)" 2>&1; then
+        ui_step_ok "requisitos" "$(( $(date +%s) - t0 ))"
+      else
+        ui_step_fail "requisitos"
+      fi
+    fi
     for m in "${modules[@]}"; do
       ui_step_begin "$m"
       t0="$(date +%s)"
@@ -179,6 +196,11 @@ cmd_install() {
     done
     ui_final "${ok[*]:-}" "${failed[*]:-}"
   else
+    if [[ -n "$faltam" ]]; then
+      log_section "[requisitos] Ferramentas que os módulos escolhidos invocam"
+      ( pn_install_requires "${modules[@]}" ) \
+        || log_warn "Não consegui instalar os pré-requisitos ($faltam) — os módulos que dependem deles vão falhar."
+    fi
     for m in "${modules[@]}"; do
       log_section "[$m] $("mod_${m}_meta")"
       # subshell isola erros e permite "rerun é seguro"
@@ -255,6 +277,7 @@ cmd_status() {
 cmd_doctor() {
   log_section "Diagnóstico"
   is_supported_distro && status_line 1 "Distro suportada" || status_line 0 "Distro não suportada"
+  pn_requires_doctor "${_PN_ALL_MODULES[@]}"
   for m in "${_PN_ALL_MODULES[@]}"; do
     "mod_${m}_doctor"
   done

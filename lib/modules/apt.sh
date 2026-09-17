@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Module: apt — base system packages (sem git/npm).
+# Module: apt — base system packages (sem npm; git é pré-requisito dos módulos que clonam).
 
 mod_apt_meta() {
   echo "Pacotes base do sistema (curl, ripgrep, fzf, jq, unzip…)"
@@ -8,7 +8,9 @@ mod_apt_meta() {
 mod_apt_cost() { printf '2\t150\t1\n'; }
 
 # Pacotes considerados essenciais para o resto do toolchain.
-# IMPORTANTE: git/npm/nodejs ficam de fora por decisão de design.
+# IMPORTANTE: npm/nodejs ficam de fora por decisão de design. git também não
+# entra aqui: quem precisa dele declara em mod_X_requires, e o install o
+# instala só quando falta — assim `--module nvim` não arrasta git.
 _PN_APT_PKGS=(
   ca-certificates
   curl

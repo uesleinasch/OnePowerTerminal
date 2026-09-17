@@ -32,6 +32,9 @@ assert_contains "$saida" "Espaço"
 it "checa o shell padrao"
 assert_contains "$saida" "Shell"
 
+it "checa as ferramentas que os modulos invocam"
+assert_contains "$saida" "Ferramentas"
+
 it "numa distro suportada nao ha fatal"
 if is_supported_distro; then
   assert_eq "" "$(printf '%s\n' "$saida" | awk -F'\t' '$1 == "fatal"')"
@@ -60,6 +63,18 @@ assert_fail bash -c 'source "'"$POWERTERMINAL_HOME"'/lib/core.sh"; source "'"$PO
 
 it "pn_precheck_all imprime todas as linhas mesmo com fatal"
 saida="$( ( is_supported_distro() { return 1; }; pn_precheck_all ) || true)"
-assert_eq "5" "$(printf '%s\n' "$saida" | grep -c .)"
+assert_eq "6" "$(printf '%s\n' "$saida" | grep -c .)"
+
+# Só core+precheck estão carregados aqui: o módulo é simulado para o check
+# não depender de lib/modules/.
+it "_pn_check_ferramentas devolve warn e cita o que falta"
+assert_eq "warn	Ferramentas	faltam git — o install instala via apt" \
+  "$( ( _PN_ALL_MODULES=(zsh); mod_zsh_requires() { printf 'git\tgit\n'; }; has_cmd() { [[ "$1" != git ]]; }; _pn_check_ferramentas ) )"
+
+it "_pn_check_ferramentas devolve ok quando nada falta"
+assert_eq "ok" "$( ( _PN_ALL_MODULES=(zsh); mod_zsh_requires() { printf 'git\tgit\n'; }; has_cmd() { return 0; }; _pn_check_ferramentas ) | cut -f1)"
+
+it "_pn_check_ferramentas devolve ok sem modulos carregados"
+assert_eq "ok" "$( ( unset _PN_ALL_MODULES; _pn_check_ferramentas ) | cut -f1)"
 
 test_summary

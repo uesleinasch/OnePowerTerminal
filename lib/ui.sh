@@ -174,11 +174,14 @@ ui_summary() {
     [[ "$sudo" == "1" ]] && precisa_sudo=1
     printf '  %s✓%s %-11s %s%s%s\n' "$C_GREEN" "$C_R" "$m" "$C_GRAY" "$("mod_${m}_meta")" "$C_R"
   done
-  local plural="módulos"
+  local plural="módulos" faltam
   [[ "${#modulos[@]}" -eq 1 ]] && plural="módulo"
+  faltam="$(pn_missing_requires_cmds "${modulos[@]}")"
+  [[ -n "$faltam" ]] && precisa_sudo=1
   printf '\n  %d %s · ~%d min · %d MB\n' "${#modulos[@]}" "$plural" "$tot_min" "$tot_mb"
+  [[ -n "$faltam" ]] && printf '  %sPré-requisitos ausentes: %s — instalados via apt antes dos módulos.%s\n' "$C_YELLOW" "$faltam" "$C_R"
   [[ "$precisa_sudo" == "1" ]] && printf '  %sPede sua senha uma vez, agora.%s\n' "$C_YELLOW" "$C_R"
-  printf '  %sNão toca em: git, ~/.gitconfig, ~/.npmrc, GNOME.%s\n\n' "$C_GRAY" "$C_R"
+  printf '  %sNão toca em: ~/.gitconfig, ~/.npmrc, GNOME.%s\n\n' "$C_GRAY" "$C_R"
   return 0
 }
 

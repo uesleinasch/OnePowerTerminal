@@ -7,6 +7,8 @@ mod_tools_meta() {
 
 mod_tools_cost() { printf '3\t80\t0\n'; }
 
+mod_tools_requires() { printf 'curl\tcurl\n'; }
+
 mod_tools_install() {
   ensure_local_bin
   _vf_install_starship

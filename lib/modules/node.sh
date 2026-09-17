@@ -7,6 +7,8 @@ mod_node_meta() {
 
 mod_node_cost() { printf '3\t120\t0\n'; }
 
+mod_node_requires() { printf 'git\tgit\ncurl\tcurl\n'; }
+
 _PN_NVM_DIR="$HOME/.nvm"
 _PN_N_PREFIX="$HOME/n"
 _PN_NVM_VERSION="v0.40.1"

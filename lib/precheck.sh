@@ -60,6 +60,18 @@ _pn_check_shell() {
   fi
 }
 
+# Ferramentas que os módulos invocam e não instalam eles mesmos (git, curl…).
+# _PN_ALL_MODULES pode não existir quando só core+precheck estão carregados.
+_pn_check_ferramentas() {
+  local faltam
+  faltam="$(pn_missing_requires_cmds ${_PN_ALL_MODULES[@]+"${_PN_ALL_MODULES[@]}"})"
+  if [[ -z "$faltam" ]]; then
+    printf 'ok\tFerramentas\tnenhum pré-requisito ausente\n'
+  else
+    printf 'warn\tFerramentas\tfaltam %s — o install instala via apt\n' "$faltam"
+  fi
+}
+
 # pn_precheck_all — roda todos os checks. Retorna 1 se algum for fatal.
 # Chame sempre com `|| true` (ou dentro de um `if`): sob `set -e`, capturar a
 # saída de uma função que retorna 1 aborta o script antes de imprimir qualquer
@@ -72,6 +84,7 @@ pn_precheck_all() {
     _pn_check_rede
     _pn_check_espaco
     _pn_check_shell
+    _pn_check_ferramentas
   )"
   printf '%s\n' "$saida"
   ! printf '%s\n' "$saida" | grep -q '^fatal'

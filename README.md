@@ -25,7 +25,8 @@ o link move qualquer arquivo preexistente para `.pnbak.<timestamp>` antes de
 substituir, `doctor` diagnostica o que saiu do lugar e `unlink` desfaz
 restaurando os backups.
 
-> **Não toca em git.** Assume que o usuário já tem `~/.gitconfig`,
+> **Não configura git.** Instala o binário quando falta (é pré-requisito dos
+> módulos `zsh` e `node`), mas assume que o usuário já tem `~/.gitconfig`,
 > `~/.npmrc` e suas credenciais configuradas.
 >
 > **Node.js é opcional**: o módulo `node` instala o gerenciador de versões
@@ -41,6 +42,11 @@ curl -fsSL https://raw.githubusercontent.com/uesleinasch/OnePowerTerminal/main/i
 O script coloca o projeto em `~/PowerTerminal` e abre o assistente guiado. Ele usa
 `git clone` quando há git na máquina e cai para o pacote `.tar.gz` quando não há —
 o instalador não depende de git para funcionar.
+
+Antes do primeiro módulo, o `install` confere as ferramentas que os módulos
+escolhidos invocam (git, curl…) e instala via apt as que faltarem. O wizard
+mostra o que falta na abertura e no resumo; `--yes` instala sem perguntar;
+`doctor` aponta pré-requisitos ausentes.
 
 Para instalar sem responder perguntas, repasse as flags da CLI:
 
@@ -350,7 +356,8 @@ ou — mais tarde — git push) e rode `powerterminal link`.
 
 ## O que NÃO faz (por design)
 
-- Não instala / configura `git` (assumimos que você cuida).
+- Não configura `git` — instala o binário se faltar, mas identidade e
+  credenciais são suas.
 - Não toca em `~/.gitconfig`, `~/.gitignore_global`, `~/.npmrc`.
 - Não muda configurações do GNOME / desktop.
 - Não roda `:Lazy sync` automático no Neovim — o Lazy.nvim pega na

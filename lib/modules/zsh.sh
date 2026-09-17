@@ -7,6 +7,8 @@ mod_zsh_meta() {
 
 mod_zsh_cost() { printf '2\t80\t1\n'; }
 
+mod_zsh_requires() { printf 'git\tgit\ncurl\tcurl\n'; }
+
 _PN_OMZ_DIR="$HOME/.oh-my-zsh"
 _PN_OMZ_CUSTOM="${ZSH_CUSTOM:-$_PN_OMZ_DIR/custom}"
 

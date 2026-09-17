@@ -8,6 +8,8 @@ mod_kitty_meta() {
 
 mod_kitty_cost() { printf '2\t100\t0\n'; }
 
+mod_kitty_requires() { printf 'curl\tcurl\n'; }
+
 _PN_KITTY_DIR="$HOME/.local/kitty.app"
 _PN_KITTY_INSTALLER="https://sw.kovidgoyal.net/kitty/installer.sh"
 

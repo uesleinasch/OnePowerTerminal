@@ -67,6 +67,8 @@ docker run -it --rm \
 ## O que validar
 
 - [ ] `powerterminal install --dry-run --yes` lista as ações sem fazer nada.
+- [ ] A imagem não tem git: o passo `requisitos` deve instalá-lo antes do `zsh`
+      (confira com `git --version` depois).
 - [ ] `powerterminal install --profile full --yes` termina sem erro.
 - [ ] `powerterminal doctor` mostra `✓` em todos os módulos.
 - [ ] `ls -la ~/.config/nvim ~/.zshrc ~/.p10k.zsh` mostra symlinks para o repo.

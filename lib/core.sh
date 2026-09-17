@@ -275,6 +275,13 @@ ensure_curl() {
   apt_install curl
 }
 
+ensure_git() {
+  has_cmd git && return 0
+  log_info "git ausente — instalando…"
+  apt_update_once
+  apt_install git
+}
+
 # download_to URL DST — robust download with retries and timeouts.
 download_to() {
   local url="$1" dst="$2"
@@ -340,6 +347,7 @@ clone_or_pull() {
   # atribuído quando o default de name é expandido (resultaria em name vazio).
   local repo="$1" dst="$2"
   local name="${3:-$(basename "$dst")}"
+  ensure_git
   if [[ -d "$dst/.git" ]]; then
     log_info "Atualizando $name…"
     run git -C "$dst" pull --ff-only \
@@ -440,6 +448,58 @@ pn_expand_deps() {
     [[ -n "${want[$m]:-}" ]] && printf '%s\n' "$m"
   done
   return 0
+}
+
+# ---- Pré-requisitos ----------------------------------------------------------
+# mod_X_requires emite "comando<TAB>pacote-apt" por linha: ferramentas do sistema
+# que o install do módulo invoca e não instala ele mesmo (git é o caso clássico).
+# Diferente de mod_X_needs, que aponta para outro módulo.
+
+# pn_missing_requires MÓDULOS… — imprime "comando<TAB>pacote" de cada requisito
+# ausente, sem duplicatas, na ordem em que os módulos declaram.
+pn_missing_requires() {
+  local -A visto=()
+  local m cmd pkg
+  for m in "$@"; do
+    [[ -n "$m" ]] || continue
+    declare -F "mod_${m}_requires" >/dev/null || continue
+    while IFS=$'\t' read -r cmd pkg; do
+      [[ -n "$cmd" && -z "${visto[$cmd]:-}" ]] || continue
+      visto["$cmd"]=1
+      has_cmd "$cmd" || printf '%s\t%s\n' "$cmd" "$pkg"
+    done < <("mod_${m}_requires")
+  done
+  return 0
+}
+
+# pn_missing_requires_cmds MÓDULOS… — só os comandos ausentes, numa linha.
+pn_missing_requires_cmds() {
+  pn_missing_requires "$@" | cut -f1 | paste -sd' '
+}
+
+# pn_install_requires MÓDULOS… — instala via apt tudo que falta, numa chamada só.
+# Sucesso imediato quando nada falta.
+pn_install_requires() {
+  local faltando cmds
+  local -a pkgs=()
+  faltando="$(pn_missing_requires "$@")"
+  [[ -n "$faltando" ]] || return 0
+  cmds="$(cut -f1 <<<"$faltando" | paste -sd' ')"
+  while IFS= read -r pkg; do pkgs+=("$pkg"); done < <(cut -f2 <<<"$faltando" | awk '!visto[$0]++')
+  log_info "Pré-requisitos ausentes: $cmds — instalando via apt…"
+  apt_update_once
+  apt_install "${pkgs[@]}"
+}
+
+# pn_requires_doctor MÓDULOS… — uma linha de diagnóstico para o cmd_doctor.
+pn_requires_doctor() {
+  local faltam
+  faltam="$(pn_missing_requires_cmds "$@")"
+  if [[ -z "$faltam" ]]; then
+    status_line 1 "Pré-requisitos: todos presentes"
+  else
+    status_line 0 "Pré-requisitos: faltam $faltam (powerterminal install instala via apt)"
+  fi
 }
 
 # ---- Cleanup orquestrado -----------------------------------------------------
