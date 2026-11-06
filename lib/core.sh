@@ -115,6 +115,9 @@ sudo_ready() {
   [[ "$(id -u)" -eq 0 ]] || sudo -n true 2>/dev/null
 }
 
+# lib/receipt.sh pode não estar carregado (testes que sourceiam só o core).
+_pn_receipt() { ! declare -F pn_receipt_add >/dev/null || pn_receipt_add "$@"; }
+
 # ---- Apt ---------------------------------------------------------------------
 apt_install() {
   require_supported_distro
@@ -122,7 +125,15 @@ apt_install() {
     log_dry "apt-get install -y $*"
     return 0
   fi
-  as_sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
+  local pkg ausentes=()
+  for pkg in "$@"; do
+    [[ "$pkg" == -* ]] && continue
+    dpkg -s "$pkg" >/dev/null 2>&1 || ausentes+=("$pkg")
+  done
+  as_sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@" || return $?
+  for pkg in "${ausentes[@]}"; do
+    _pn_receipt apt "$pkg"
+  done
 }
 
 apt_update_once() {
@@ -176,6 +187,7 @@ apt_add_repo() {
   # A lista de fontes mudou: o cache do apt_update_once ficou obsoleto.
   _PN_APT_UPDATED=""
   apt_update_once
+  _pn_receipt apt_repo "$nome"
 }
 
 # ---- Sudo keepalive ----------------------------------------------------------
@@ -219,6 +231,7 @@ link_safe() {
     local cur; cur="$(readlink "$dst" 2>/dev/null || true)"
     if [[ "$cur" == "$src" ]]; then
       log_info "OK (symlink já correto): $dst"
+      _pn_receipt link "$dst"
       return 0
     fi
     # Symlink de terceiros (stow, chezmoi…) não gera .pnbak — o link em si é
@@ -231,6 +244,7 @@ link_safe() {
   fi
   log_info "Link: $dst → $src"
   run ln -s "$src" "$dst"
+  _pn_receipt link "$dst"
 }
 
 # unlink_safe DST — remove DST only if it's a symlink owned by PowerTerminal, then
@@ -272,14 +286,14 @@ ensure_local_bin() { run mkdir -p "$HOME/.local/bin"; }
 ensure_curl() {
   has_cmd curl && return 0
   log_info "curl ausente — instalando…"
-  apt_install curl
+  PN_RECEIPT_MODULE= apt_install curl
 }
 
 ensure_git() {
   has_cmd git && return 0
   log_info "git ausente — instalando…"
   apt_update_once
-  apt_install git
+  PN_RECEIPT_MODULE= apt_install git
 }
 
 # download_to URL DST — robust download with retries and timeouts.
@@ -313,6 +327,7 @@ install_github_binary() {
     die "install_github_binary: '$bin' não encontrado em $url"
   fi
   install -m 0755 "$found" "$HOME/.local/bin/$bin"
+  _pn_receipt file "$HOME/.local/bin/$bin"
   rm -rf "$tmp"
 }
 
@@ -325,7 +340,7 @@ install_github_zip() {
     log_dry "install_github_zip $url → ~/.local/bin/{$*}"
     return 0
   fi
-  has_cmd unzip || apt_install unzip
+  has_cmd unzip || PN_RECEIPT_MODULE= apt_install unzip
   local tmp; tmp="$(mktemp -d)"
   download_to "$url" "$tmp/pkg.zip"
   unzip -qo "$tmp/pkg.zip" -d "$tmp"
@@ -337,6 +352,7 @@ install_github_zip() {
       die "install_github_zip: '$bin' não encontrado em $url"
     fi
     install -m 0755 "$found" "$HOME/.local/bin/$bin"
+    _pn_receipt file "$HOME/.local/bin/$bin"
   done
   rm -rf "$tmp"
 }
