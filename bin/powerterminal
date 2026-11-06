@@ -159,6 +159,7 @@ cmd_install() {
 
   require_not_root
   require_supported_distro
+  pn_receipts_migrate
 
   local modules=()
   if [[ -n "$profile" ]]; then
