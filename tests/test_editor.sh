@@ -102,6 +102,7 @@ modulo_dry() {
     source '$POWERTERMINAL_HOME/lib/modules/$1.sh'
     has_cmd() { [[ \"\$1\" == curl ]]; }
     HOME=\$(mktemp -d)
+    _PN_APT_ETC=\$HOME/etc-apt
     DRY_RUN=1
     mod_$1_install" 2>&1
 }
