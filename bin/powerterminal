@@ -128,8 +128,9 @@ _vf_run_modules() {
     rc=0
     (
       PN_RECEIPT_MODULE="$m"; PN_EVENT_MODULE="$m"
-      # Update de módulo sem recibo (preexisting) não pode criar um: viraria "installed" e o remove desfaria o que era do usuário.
-      if [[ "$action" == update ]] && ! pn_receipt_has "$m"; then PN_RECEIPT_MODULE=""; fi
+      # O update reinstala por cima do que o install já registrou (ou não, se era do
+      # usuário): gravar aqui poria no recibo o que o remove não pode apagar.
+      if [[ "$action" == update ]]; then PN_RECEIPT_MODULE=""; fi
       "mod_${m}_${action}"
     ) || rc=$?
     if [[ "$rc" -eq 0 ]]; then

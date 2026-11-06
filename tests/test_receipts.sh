@@ -276,4 +276,93 @@ it "PN_RECEIPT_DIR redireciona os recibos"
   [[ -f "$TMP/outro/zsh" ]] && ! pn_receipt_has zsh
 ) && pass || fail "PN_RECEIPT_DIR ignorado"
 
+# ---- Recibo só do que o passo criou ------------------------------------------
+
+passo_env() {
+  reset
+  rm -rf "$HOME/.local" "$HOME/.nvm" "$HOME/n"
+  mkdir -p "$HOME/.local/bin"
+  POWERTERMINAL_HOME="$REPO_REAL"
+  source "$REPO_REAL/lib/modules/kitty.sh"
+  source "$REPO_REAL/lib/modules/tools.sh"
+  source "$REPO_REAL/lib/modules/node.sh"
+  PN_RECEIPT_MODULE="$1"
+}
+
+it "kitty.app novo entra no recibo"
+(
+  passo_env kitty
+  curl() { printf 'mkdir -p "%s/bin"\n' "$_PN_KITTY_DIR"; }
+  _vf_install_kitty_binary >/dev/null 2>&1
+  [[ "$(pn_receipt_entries kitty dir)" == $'dir\t'"$HOME/.local/kitty.app" ]]
+) && pass || fail "dir do kitty.app ausente: $(cat "$(pn_receipt_path kitty)" 2>&1)"
+
+it "kitty.app que já existia não entra no recibo, mesmo reinstalado"
+(
+  passo_env kitty
+  mkdir -p "$_PN_KITTY_DIR/bin"
+  curl() { printf ':\n'; }
+  _vf_install_kitty_binary force >/dev/null 2>&1
+  [[ -z "$(pn_receipt_entries kitty dir)" ]]
+) && pass || fail "kitty.app do usuário entrou no recibo"
+
+it "kitty.app que o instalador não criou não entra no recibo"
+(
+  passo_env kitty
+  curl() { printf ':\n'; }
+  _vf_install_kitty_binary >/dev/null 2>&1
+  [[ -z "$(pn_receipt_entries kitty dir)" ]]
+) && pass || fail "kitty.app ausente entrou no recibo"
+
+it "starship, lazydocker, uv e uvx novos entram no recibo"
+(
+  passo_env tools
+  curl_pipe() {
+    case "$1" in
+      *starship*) : >"$HOME/.local/bin/starship" ;;
+      *astral*) : >"$HOME/.local/bin/uv"; : >"$HOME/.local/bin/uvx" ;;
+    esac
+  }
+  curl() { printf ': >"%s"\n' "$HOME/.local/bin/lazydocker"; }
+  _vf_install_starship force >/dev/null 2>&1
+  _vf_install_lazydocker force >/dev/null 2>&1
+  _vf_install_uv force >/dev/null 2>&1
+  B="$HOME/.local/bin"
+  [[ "$(pn_receipt_entries tools file)" == "$(printf 'file\t%s\n' "$B/starship" "$B/lazydocker" "$B/uv" "$B/uvx")" ]]
+) && pass || fail "recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+
+it "starship, lazydocker, uv e uvx que já existiam não entram no recibo"
+(
+  passo_env tools
+  for b in starship lazydocker uv uvx; do printf 'meu\n' >"$HOME/.local/bin/$b"; done
+  curl_pipe() { :; }
+  curl() { printf ':\n'; }
+  _vf_install_starship force >/dev/null 2>&1
+  _vf_install_lazydocker force >/dev/null 2>&1
+  _vf_install_uv force >/dev/null 2>&1
+  ! pn_receipt_has tools
+) && pass || fail "binário do usuário entrou no recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+
+it "install_github_binary grava só o binário que não existia"
+(
+  passo_env tools
+  mkdir -p "$TMP/pkg"
+  printf '#!/bin/sh\n' >"$TMP/pkg/eza"; printf '#!/bin/sh\n' >"$TMP/pkg/lazygit"
+  download_to() { tar -czf "$2" -C "$TMP/pkg" eza lazygit; }
+  printf 'meu\n' >"$HOME/.local/bin/lazygit"
+  install_github_binary https://x/eza.tar.gz eza >/dev/null 2>&1
+  install_github_binary https://x/lazygit.tar.gz lazygit >/dev/null 2>&1
+  [[ "$(pn_receipt_entries tools file)" == $'file\t'"$HOME/.local/bin/eza" ]]
+) && pass || fail "recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+
+it "nvm cujo diretório já existia não entra no recibo"
+(
+  passo_env node
+  mkdir -p "$HOME/.nvm/versions"
+  bash() { : >"$HOME/.nvm/nvm.sh"; }
+  curl() { :; }
+  _vf_install_nvm >/dev/null 2>&1
+  ! pn_receipt_has node
+) && pass || fail "~/.nvm do usuário entrou no recibo"
+
 test_summary

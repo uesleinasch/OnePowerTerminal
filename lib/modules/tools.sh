@@ -48,8 +48,10 @@ mod_tools_update() {
 _vf_install_starship() {
   if [[ "${1:-}" != force ]] && has_cmd starship; then log_info "OK: starship presente"; return 0; fi
   log_info "Instalando starship…"
+  local existia=0
+  _pn_existe "$HOME/.local/bin/starship" && existia=1
   curl_pipe https://starship.rs/install.sh -y -b "$HOME/.local/bin"
-  _pn_receipt file "$HOME/.local/bin/starship"
+  _pn_receipt_criado "$existia" file "$HOME/.local/bin/starship"
 }
 
 _vf_install_eza() {
@@ -100,18 +102,23 @@ _vf_install_lazydocker() {
     log_dry "DIR=~/.local/bin curl .../install_update_linux.sh | bash"
     return 0
   fi
+  local existia=0
+  _pn_existe "$HOME/.local/bin/lazydocker" && existia=1
   DIR="$HOME/.local/bin" curl -fsSL --connect-timeout 15 --max-time 300 \
     https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh \
     | bash
-  _pn_receipt file "$HOME/.local/bin/lazydocker"
+  _pn_receipt_criado "$existia" file "$HOME/.local/bin/lazydocker"
 }
 
 _vf_install_uv() {
   if [[ "${1:-}" != force ]] && has_cmd uv; then log_info "OK: uv presente"; return 0; fi
   log_info "Instalando uv (Astral)…"
+  local uv=0 uvx=0
+  _pn_existe "$HOME/.local/bin/uv" && uv=1
+  _pn_existe "$HOME/.local/bin/uvx" && uvx=1
   curl_pipe https://astral.sh/uv/install.sh
-  _pn_receipt file "$HOME/.local/bin/uv"
-  _pn_receipt file "$HOME/.local/bin/uvx"
+  _pn_receipt_criado "$uv" file "$HOME/.local/bin/uv"
+  _pn_receipt_criado "$uvx" file "$HOME/.local/bin/uvx"
 }
 
 mod_tools_doctor() {

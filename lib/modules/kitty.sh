@@ -47,10 +47,12 @@ _vf_install_kitty_binary() {
     log_dry "curl -L $_PN_KITTY_INSTALLER | sh /dev/stdin"
     return 0
   fi
+  local existia=0
+  _pn_existe "$_PN_KITTY_DIR" && existia=1
   # -f: sem ele, uma página de erro HTTP seria canalizada para o sh.
   curl -fL --connect-timeout 15 --max-time 600 "$_PN_KITTY_INSTALLER" | sh /dev/stdin \
     || die "Kitty installer falhou."
-  _pn_receipt dir "$_PN_KITTY_DIR"
+  _pn_receipt_criado "$existia" dir "$_PN_KITTY_DIR"
 }
 
 # Passo 2 do guia oficial: symlinks dos binários para o PATH do usuário.
