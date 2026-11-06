@@ -11,27 +11,33 @@ Stream<CliEvent> tailEvents(File file, Future<void> stop) async* {
   var pending = <int>[];
   while (true) {
     final last = stopped;
-    if (await file.exists()) {
-      final raf = await file.open();
-      try {
-        final length = await raf.length();
-        if (length > offset) {
-          await raf.setPosition(offset);
-          final bytes = await raf.read(length - offset);
-          offset += bytes.length;
-          pending = [...pending, ...bytes];
+    try {
+      if (await file.exists()) {
+        final raf = await file.open();
+        try {
+          final length = await raf.length();
+          if (length < offset) {
+            offset = 0;
+            pending = [];
+          }
+          if (length > offset) {
+            await raf.setPosition(offset);
+            final bytes = await raf.read(length - offset);
+            offset += bytes.length;
+            pending = [...pending, ...bytes];
+          }
+        } finally {
+          await raf.close();
         }
-      } finally {
-        await raf.close();
       }
-      var nl = pending.indexOf(10);
-      while (nl >= 0) {
-        final line = utf8.decode(pending.sublist(0, nl), allowMalformed: true);
-        pending = pending.sublist(nl + 1);
-        final event = CliEvent.parse(line);
-        if (event != null) yield event;
-        nl = pending.indexOf(10);
-      }
+    } on FileSystemException catch (_) {}
+    var nl = pending.indexOf(10);
+    while (nl >= 0) {
+      final line = utf8.decode(pending.sublist(0, nl), allowMalformed: true);
+      pending = pending.sublist(nl + 1);
+      final event = CliEvent.parse(line);
+      if (event != null) yield event;
+      nl = pending.indexOf(10);
     }
     if (last) return;
     await Future.any([

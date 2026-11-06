@@ -56,6 +56,32 @@ void main() {
       final s = MarkerScanner();
       expect((s.feed('ação\n').single as OutputLine).text, 'ação');
     });
+
+    test('progresso com \\r fica só com o último trecho', () {
+      final s = MarkerScanner();
+      expect((s.feed('10%\r20%\r30%\n').single as OutputLine).text, '30%');
+      expect((s.feed('1/3\r2/3\r3/3\r\n').single as OutputLine).text, '3/3');
+      final hits = s.feed('baixando\r__PN_RC__ 0\r\n');
+      expect(hits.single, isA<RcMarker>());
+    });
+
+    test('linha parcial gigante é despejada sem perder o marcador', () {
+      final s = MarkerScanner();
+      final hits = s.feed('x' * 70000);
+      expect(hits.single, isA<OutputLine>());
+      final first = (hits.single as OutputLine).text;
+      expect(first.length, lessThan(70000));
+      final rest = s.feed('__PN_RC__ 0\r\n');
+      expect(rest.last, isA<RcMarker>());
+      final tail = rest.whereType<OutputLine>().map((h) => h.text).join();
+      expect(first.length + tail.length, 70000);
+    });
+
+    test('marcador partido perto do limite da linha parcial', () {
+      final s = MarkerScanner();
+      expect(s.feed('${'x' * 70000}__PN_R').whereType<RcMarker>(), isEmpty);
+      expect(s.feed('C__ 4\n').last, isA<RcMarker>());
+    });
   });
 
   test('actionCommandLine', () {
@@ -92,6 +118,22 @@ void main() {
       await finished;
       expect(got, hasLength(2));
       expect((got[1] as Done).ok, ['a']);
+    });
+
+    test('arquivo truncado volta a ler do começo', () async {
+      final f = File('${dir.path}/ev.jsonl');
+      final stop = Completer<void>();
+      final got = <CliEvent>[];
+      final finished = tailEvents(f, stop.future).forEach(got.add);
+      f.writeAsStringSync(
+        '{"event":"note","module":"um-modulo-de-nome-longo","text":"t"}\n',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      f.writeAsStringSync('{"event":"done"}\n');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      stop.complete();
+      await finished;
+      expect(got.map((e) => e.runtimeType), [Note, Done]);
     });
   });
 
@@ -150,12 +192,24 @@ void main() {
       const pw = 'pa ss\'"\$\\é';
       final s = await start(password: pw);
       expect(await s.unlockSudo(pw), SudoResult.ok);
+      expect(lines.where((l) => l.contains('pa ss')), isEmpty);
     });
 
     test('senha errada e a sessão continua utilizável', () async {
       final s = await start();
       expect(await s.unlockSudo('errada'), SudoResult.wrongPassword);
       expect(File('${state.path}/ticket').existsSync(), isFalse);
+      expect(lines.where((l) => l.contains('errada')), isEmpty);
+      expect((await s.run('true')).exitCode, 0);
+    });
+
+    test('prompt que não é o do sudo esgota o tempo e volta', () async {
+      final s = await start(extra: {'FAKE_SUDO_ALT_PROMPT': '1'});
+      final r = await s.unlockSudo(
+        'segredo',
+        timeout: const Duration(seconds: 1),
+      );
+      expect(r, SudoResult.notAllowed);
       expect((await s.run('true')).exitCode, 0);
     });
 
@@ -169,6 +223,26 @@ void main() {
       final r = await s.run('(exit 3)');
       expect(r.exitCode, 3);
       expect(r.sudoPromptSeen, isFalse);
+    });
+
+    test('# e & no comando não engolem o marcador', () async {
+      final s = await start();
+      expect((await s.run('echo a # comentário')).exitCode, 0);
+      expect(lines, contains('a'));
+      expect((await s.run('(exit 6) # x')).exitCode, 6);
+    });
+
+    test('comando com quebra de linha é recusado', () async {
+      final s = await start();
+      await expectLater(s.run('true\nfalse'), throwsArgumentError);
+      expect((await s.run('true')).exitCode, 0);
+    });
+
+    test('output termina quando o shell sai', () async {
+      final s = await start();
+      final ended = s.output.drain<void>();
+      await expectLater(s.run('exit 0'), throwsStateError);
+      await ended;
     });
 
     test('prompt do sudo no meio da operação manda Ctrl-C', () async {
@@ -250,14 +324,24 @@ void main() {
       ]);
     });
 
-    test('close não trava atrás de um comando preso', () async {
+    test('close interrompe o comando preso e ainda roda sudo -k', () async {
       final s = await start();
+      expect(await s.unlockSudo('segredo'), SudoResult.ok);
       final stuck = s.run('sleep 60');
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await s.close();
+      expect((await stuck).exitCode, isNot(0));
+      expect(File('${state.path}/ticket').existsSync(), isFalse);
+      await expectLater(s.run('true'), throwsStateError);
+    });
+
+    test('close mata o shell quando o Ctrl-C não adianta', () async {
+      final s = await start();
+      final stuck = s.run("bash -c 'trap \"\" INT; sleep 60'");
       final failed = expectLater(stuck, throwsStateError);
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await s.close();
       await failed;
-      await expectLater(s.run('true'), throwsStateError);
     });
   });
 }
