@@ -63,6 +63,7 @@ assert_contains "$out" "claude update"
 
 it "update --module vscode --dry-run usa --only-upgrade code"
 reset
+mkshim code
 out="$(pt update --module vscode --dry-run --yes 2>&1)"
 assert_contains "$out" "apt-get install --only-upgrade -y code"
 

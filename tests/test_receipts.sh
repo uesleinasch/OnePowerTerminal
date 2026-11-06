@@ -19,7 +19,7 @@ reset() { rm -rf "$XDG_STATE_HOME" "$HOME/.zshrc"; DRY_RUN=0; }
 
 it "fora de um módulo, pn_receipt_add não grava"
 reset
-PN_RECEIPT_MODULE= pn_receipt_add file /x
+PN_RECEIPT_MODULE="" pn_receipt_add file /x
 assert_fail pn_receipt_has zsh
 
 it "a primeira entrada cria o recibo com origin installed"
@@ -93,6 +93,10 @@ it "zsh grava o shell de login anterior antes do chsh"
 reset
 (
   source "$REPO_REAL/lib/modules/zsh.sh"
+  mkdir -p "$TMP/shims"
+  printf '#!/bin/sh\nexit 0\n' >"$TMP/shims/zsh"
+  chmod +x "$TMP/shims/zsh"
+  PATH="$TMP/shims:$PATH"
   has_cmd() { return 0; }
   login_shell() { echo /bin/bash; }
   sudo_ready() { return 0; }
