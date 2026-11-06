@@ -33,10 +33,17 @@ mod_zsh_install() {
     if [[ "$DRY_RUN" == "1" ]]; then
       log_dry "curl https://.../ohmyzsh/install.sh | sh (RUNZSH=no CHSH=no KEEP_ZSHRC=yes)"
     else
+      local tinha_zshrc=0
+      [[ -e "$HOME/.zshrc" || -L "$HOME/.zshrc" ]] && tinha_zshrc=1
       RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
         sh -c "$(curl -fsSL --connect-timeout 15 --max-time 300 \
           https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
       _pn_receipt dir "$_PN_OMZ_DIR"
+      # Sem ~/.zshrc prévio o instalador do OMZ grava um de template; o link_safe
+      # o guardaria como .pnbak e o remove o "restauraria" como se fosse do usuário.
+      if [[ "$tinha_zshrc" == 0 && -f "$HOME/.zshrc" && ! -L "$HOME/.zshrc" ]]; then
+        run rm -f "$HOME/.zshrc"
+      fi
     fi
   else
     log_info "OK: Oh-My-Zsh já instalado"
@@ -121,6 +128,42 @@ mod_zsh_doctor() {
   [[ -d "$_PN_OMZ_CUSTOM/themes/powerlevel10k" ]] && status_line 1 "powerlevel10k: presente" || status_line 0 "powerlevel10k: ausente"
   [[ -L "$HOME/.zshrc" ]] && status_line 1 "~/.zshrc: linkado" || status_line 0 "~/.zshrc: não linkado por PowerTerminal"
   [[ -L "$HOME/.p10k.zsh" ]] && status_line 1 "~/.p10k.zsh: linkado" || status_line 0 "~/.p10k.zsh: não linkado"
+}
+
+_vf_zsh_recibo_tem() {
+  [[ $'\n'"$(pn_receipt_entries zsh "$1")"$'\n' == *$'\n'"$1"$'\t'"$2"$'\n'* ]]
+}
+
+# Sem login_shell no recibo o shell anterior é desconhecido. Só voltamos para o
+# bash quando o pacote zsh vai ser purgado (o login quebraria); com o zsh
+# ficando, o shell de login pode ser escolha do próprio usuário e não é tocado.
+_vf_zsh_precisa_voltar_bash() {
+  pn_receipt_has zsh || return 1
+  [[ -z "$(pn_receipt_entries zsh login_shell)" ]] || return 1
+  _vf_zsh_recibo_tem apt zsh || return 1
+  [[ "$(basename -- "$(login_shell)")" == zsh ]]
+}
+
+_vf_zsh_volta_bash() {
+  local usuario
+  if ! grep -qxF /bin/bash /etc/shells 2>/dev/null; then
+    log_warn "/bin/bash não está em /etc/shells — o shell padrão continua o zsh e nada do zsh foi removido."
+    return 1
+  fi
+  usuario="$(id -un)"
+  log_info "Voltando o shell padrão para /bin/bash…"
+  if ! as_sudo chsh -s /bin/bash "$usuario"; then
+    log_warn "chsh falhou — o shell padrão continua o zsh e nada do zsh foi removido."
+    return 1
+  fi
+  [[ "$DRY_RUN" == "1" ]] || pn_session_restart "o shell padrão voltar a ser /bin/bash"
+}
+
+mod_zsh_remove() {
+  if _vf_zsh_precisa_voltar_bash; then
+    _vf_zsh_volta_bash || return 1
+  fi
+  pn_receipt_undo zsh
 }
 
 mod_zsh_deduce() {

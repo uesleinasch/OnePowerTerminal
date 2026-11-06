@@ -23,19 +23,41 @@ $corpo
 EOF
   chmod +x "$SHIMS/$nome"
 }
-mkshim sudo 'case "${1:-}" in -n) exit 1 ;; esac; exit 0'
+mkshim sudo "case \"\${1:-}\" in
+  -n) exit 1 ;;
+  chsh) [[ -f '$TMP/chsh-falha' ]] && exit 1 ;;
+  debconf-set-selections) cat >>'$TMP/debconf' ;;
+esac
+exit 0"
 for c in apt-get dpkg chsh gpasswd usermod; do mkshim "$c"; done
 mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
 mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
 
+# getent falso só para o shell de login (sem log: não polui as asserções do LOG).
+GETENT_REAL="$(command -v getent)"
+cat >"$SHIMS/getent" <<EOF
+#!/usr/bin/env bash
+if [[ "\${1:-}" == passwd && -f '$TMP/login-shell' ]]; then
+  printf '%s:x:1000:1000::%s:%s\n' "\$(id -un)" '$TMP/home' "\$(cat '$TMP/login-shell')"
+  exit 0
+fi
+exec '$GETENT_REAL' "\$@"
+EOF
+chmod +x "$SHIMS/getent"
+
 reset() {
-  command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir"
+  command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir" \
+    "$TMP/login-shell" "$TMP/debconf" "$TMP/chsh-falha" "$SHIMS/code" "$SHIMS/podman"
   mkdir -p "$TMP/home" "$TMP/state" "$TMP/outside"
   : >"$LOG"
 }
 
+NORUN="$TMP/norun"
+mkdir -p "$NORUN"
+for c in docker podman; do printf '#!/bin/sh\nexit 1\n' >"$NORUN/$c"; chmod +x "$NORUN/$c"; done
+
 pt() {
-  PATH="$SHIMS:$PATH" HOME="$TMP/home" XDG_STATE_HOME="$TMP/state" \
+  PATH="$SHIMS:$NORUN:$PATH" HOME="$TMP/home" XDG_STATE_HOME="$TMP/state" \
     POWERTERMINAL_UI=text POWERTERMINAL_NONINTERACTIVE=0 "$REPO/bin/powerterminal" "$@"
 }
 
@@ -492,5 +514,280 @@ it "sem recibo, pn_receipt_undo avisa e retorna 0"
   undo_env
   out="$(pn_receipt_undo nada 2>&1)" && [[ "$out" == *"Nada do PowerTerminal para desfazer em nada."* ]]
 ) && pass || fail "sem recibo deveria ser no-op"
+
+# ---- zsh, vscode e container -------------------------------------------------
+
+U="$(id -un)"
+linha_de() { grep -nF -- "$1" "$LOG" | head -1 | cut -d: -f1; }
+
+it "remove de vscode preexisting não chama apt-get"
+reset
+mkshim code 'echo 1.99.0'
+out="$(pt remove --module vscode --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -eq 0 ]] && ! grep -q apt-get "$LOG" && [[ ! -e "$TMP/debconf" ]] && pass || fail "rc=$rc $(cat "$LOG")"
+it "e diz que não há nada do PowerTerminal"
+assert_contains "$out" "Nada do PowerTerminal"
+
+it "remove de vscode purga o code e apaga o repositório"
+reset
+recibo vscode 'origin	installed' 'apt_repo	vscode' 'apt	code'
+pt remove --module vscode --yes >/dev/null 2>&1 || true
+grep -qxF 'sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y code' "$LOG" \
+  && grep -qxF 'sudo rm -f /etc/apt/keyrings/vscode.asc /etc/apt/sources.list.d/vscode.list' "$LOG" \
+  && [[ ! -e "$R/vscode" ]] && pass || fail "$(cat "$LOG")"
+it "e repõe a resposta padrão do debconf depois da purga"
+assert_eq "code code/add-microsoft-repo boolean true" "$(cat "$TMP/debconf" 2>/dev/null)"
+it "o debconf vem depois do apt-get purge"
+[[ "$(linha_de 'apt-get purge')" -lt "$(linha_de 'sudo debconf-set-selections')" ]] && pass || fail "$(cat "$LOG")"
+
+it "vscode sem apt code no recibo não mexe no debconf"
+reset
+recibo vscode 'origin	installed' 'apt_repo	vscode'
+pt remove --module vscode --yes >/dev/null 2>&1 || true
+[[ ! -e "$TMP/debconf" && ! -e "$R/vscode" ]] && pass || fail "$(cat "$LOG")"
+
+it "remove de zsh volta o shell de login do recibo"
+reset
+echo /usr/bin/zsh >"$TMP/login-shell"
+recibo zsh 'origin	installed' 'apt	zsh' 'login_shell	/bin/bash'
+out="$(pt remove --module zsh --yes 2>&1)" || true
+grep -qxF "sudo chsh -s /bin/bash $U" "$LOG" && pass || fail "$(cat "$LOG") $out"
+it "o chsh vem antes da purga do zsh"
+[[ "$(linha_de 'sudo chsh')" -lt "$(linha_de 'apt-get purge')" ]] && pass || fail "$(cat "$LOG")"
+it "e pede um login novo"
+assert_contains "$out" "próximo login"
+
+it "zsh sem login_shell no recibo, com apt zsh e shell zsh, volta para /bin/bash"
+reset
+echo /usr/bin/zsh >"$TMP/login-shell"
+recibo zsh 'origin	installed' 'apt	zsh'
+out="$(pt remove --module zsh --yes 2>&1)" || true
+grep -qxF "sudo chsh -s /bin/bash $U" "$LOG" && [[ "$(linha_de 'sudo chsh')" -lt "$(linha_de 'apt-get purge')" ]] \
+  && [[ "$out" == *"login novo"* && ! -e "$R/zsh" ]] && pass || fail "$(cat "$LOG") $out"
+
+it "zsh sem login_shell e sem apt zsh não troca o shell de login"
+reset
+echo /usr/bin/zsh >"$TMP/login-shell"
+mkdir -p "$TMP/home/.oh-my-zsh"
+recibo zsh 'origin	installed' "dir	$TMP/home/.oh-my-zsh"
+pt remove --module zsh --yes >/dev/null 2>&1 || true
+! grep -q chsh "$LOG" && [[ ! -e "$TMP/home/.oh-my-zsh" ]] && pass || fail "$(cat "$LOG")"
+
+it "zsh com shell bash e sem login_shell não roda chsh"
+reset
+echo /bin/bash >"$TMP/login-shell"
+recibo zsh 'origin	installed' 'apt	zsh'
+pt remove --module zsh --yes >/dev/null 2>&1 || true
+! grep -q chsh "$LOG" && grep -q 'apt-get purge -y zsh' "$LOG" && pass || fail "$(cat "$LOG")"
+
+it "chsh de volta que falha não remove nada do zsh"
+reset
+echo /usr/bin/zsh >"$TMP/login-shell"
+: >"$TMP/chsh-falha"
+mkdir -p "$TMP/home/.oh-my-zsh"
+recibo zsh 'origin	installed' 'apt	zsh' "dir	$TMP/home/.oh-my-zsh"
+pt remove --module zsh --yes >/dev/null 2>&1 && rc=0 || rc=$?
+[[ "$rc" -ne 0 && -d "$TMP/home/.oh-my-zsh" ]] && ! grep -q purge "$LOG" \
+  && [[ "$(wc -l <"$R/zsh")" -eq 3 ]] && pass || fail "rc=$rc $(cat "$LOG")"
+
+it "--purge-data só vale para container"
+reset
+recibo zsh 'origin	installed' "dir	$TMP/home/.oh-my-zsh"
+out="$(pt remove --module zsh --purge-data --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$out" == *"--purge-data só vale com --module container"* && ! -s "$LOG" && -f "$R/zsh" ]] \
+  && pass || fail "rc=$rc $out"
+
+DOCKER_RECIBO=('origin	installed' 'apt_repo	docker' 'apt	docker-ce' 'apt	containerd.io' 'group	docker')
+
+it "container sem --purge-data não apaga /var/lib/docker"
+reset
+recibo container "${DOCKER_RECIBO[@]}"
+pt remove --module container --yes >/dev/null 2>&1 || true
+grep -q 'apt-get purge -y' "$LOG" && ! grep -q '/var/lib/docker\|/var/lib/containerd' "$LOG" \
+  && [[ ! -e "$R/container" ]] && pass || fail "$(cat "$LOG")"
+
+it "--purge-data com Docker apaga /var/lib/docker e /var/lib/containerd"
+reset
+recibo container "${DOCKER_RECIBO[@]}"
+pt remove --module container --purge-data --yes >/dev/null 2>&1 || true
+grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd' "$LOG" && pass || fail "$(cat "$LOG")"
+it "os dados do Docker saem depois dos pacotes (com o daemon parado)"
+[[ "$(linha_de 'apt-get purge')" -lt "$(linha_de '/var/lib/docker')" ]] && pass || fail "$(cat "$LOG")"
+
+it "--purge-data sem --yes pede confirmação"
+reset
+recibo container "${DOCKER_RECIBO[@]}"
+out="$(printf 'y\nn\n' | pt remove --module container --purge-data 2>&1)" || true
+assert_contains "$out" "Apagar imagens, containers e volumes? Não dá para desfazer."
+it "recusar a segunda confirmação cancela sem mexer em nada"
+[[ "$out" == *Cancelado* && ! -s "$LOG" && -f "$R/container" ]] && pass || fail "$(cat "$LOG") $out"
+
+it "--purge-data sem Docker nem Podman no recibo não apaga dados"
+reset
+recibo container 'origin	installed' 'group	docker'
+out="$(pt remove --module container --purge-data --yes 2>&1)" || true
+! grep -q '/var/lib/docker\|system reset' "$LOG" && [[ "$out" == *"os dados ficam"* ]] && pass || fail "$(cat "$LOG") $out"
+
+it "--purge-data com Podman roda podman system reset antes da purga"
+reset
+mkshim podman 'exit 0'
+recibo container 'origin	installed' 'apt	podman' 'apt	uidmap'
+pt remove --module container --purge-data --yes >/dev/null 2>&1 || true
+grep -qxF 'podman system reset -f' "$LOG" && [[ "$(linha_de 'podman system reset')" -lt "$(linha_de 'apt-get purge')" ]] \
+  && ! grep -q '/var/lib/docker' "$LOG" && pass || fail "$(cat "$LOG")"
+
+it "podman system reset que falha não remove nada"
+reset
+mkshim podman 'exit 1'
+recibo container 'origin	installed' 'apt	podman'
+pt remove --module container --purge-data --yes >/dev/null 2>&1 && rc=0 || rc=$?
+[[ "$rc" -ne 0 && -f "$R/container" ]] && ! grep -q purge "$LOG" && pass || fail "rc=$rc $(cat "$LOG")"
+
+it "--purge-data em dry-run mostra o rm sem executar nada"
+reset
+recibo container "${DOCKER_RECIBO[@]}"
+out="$(pt remove --module container --purge-data --dry-run --yes 2>&1)" || true
+[[ "$out" == *"rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd"* && -f "$R/container" ]] \
+  && ! grep -v '^dpkg -s ' "$LOG" | grep -q . \
+  && pass || fail "$(cat "$LOG") $out"
+
+# ---- mod_container_data_mb ---------------------------------------------------
+
+DSHIMS="$TMP/dshims"
+mkdir -p "$DSHIMS"
+fake_runtime() {
+  local nome="$1" versao="$2" df="$3"
+  cat >"$DSHIMS/$nome" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "$nome \$*" >>"$LOG"
+[[ "\${1:-}" == --version ]] && { echo "$versao"; exit 0; }
+[[ "\${1:-} \${2:-}" == "system df" ]] && { $df; }
+exit 0
+EOF
+  chmod +x "$DSHIMS/$nome"
+}
+data_mb() {
+  (
+    export PATH="$DSHIMS:$SHIMS:$PATH"
+    source "$REPO/lib/modules/container.sh"
+    mod_container_data_mb
+  )
+}
+
+it "data_mb soma o docker system df em MB"
+reset; command rm -f "$DSHIMS"/*
+fake_runtime docker "Docker version 24.0.7" "printf '1.5GB\n230.4MB\n0B\n12kB\n'; exit 0"
+assert_eq 1730 "$(data_mb)"
+it "data_mb nunca usa sudo"
+assert_eq "" "$(grep '^sudo' "$LOG" || true)"
+it "data_mb pede o formato com o tamanho"
+assert_contains "$(cat "$LOG")" "docker system df --format {{.Size}}"
+
+it "data_mb com docker system df falhando não imprime nada"
+reset; command rm -f "$DSHIMS"/*
+fake_runtime docker "Docker version 24.0.7" "echo 'permission denied' >&2; exit 1"
+assert_eq "" "$(data_mb)"
+
+it "data_mb com saída que não é tamanho não imprime nada"
+reset; command rm -f "$DSHIMS"/*
+fake_runtime docker "Docker version 24.0.7" "printf '1.5GB\nlixo\n'; exit 0"
+assert_eq "" "$(data_mb)"
+
+it "data_mb usa o podman quando o docker é o shim do podman"
+reset; command rm -f "$DSHIMS"/*
+fake_runtime docker "podman version 4.6.2" "exit 1"
+fake_runtime podman "podman version 4.6.2" "printf '2GB\n500MB\n1TB\n'; exit 0"
+assert_eq 1002500 "$(data_mb)"
+
+# ---- Recibo só do que o módulo criou -----------------------------------------
+
+mod_env() {
+  undo_env
+  PN_RECEIPT_MODULE="$1"
+  source "$REPO/lib/modules/container.sh"
+  sudo_ready() { return 0; }
+  as_sudo() { [[ "$1" != tee ]] || cat >/dev/null; printf 'sudo %s\n' "$*" >>"$LOG"; }
+}
+
+repo_novo() {
+  mod_env vscode
+  download_to() { :; }
+  dpkg() { echo amd64; }
+  apt_update_once() { :; }
+  EXISTE_RC="$1"
+  _pn_apt_repo_existe() { return "$EXISTE_RC"; }
+  apt_add_repo vscode https://k https://r stable main >/dev/null 2>&1
+}
+
+it "apt_add_repo com a lista já existente não grava apt_repo"
+( repo_novo 0; [[ -z "$(pn_receipt_entries vscode apt_repo)" ]] ) && pass || fail "$(cat "$R/vscode" 2>/dev/null)"
+it "apt_add_repo sem lista prévia grava apt_repo"
+( repo_novo 1; [[ "$(pn_receipt_entries vscode apt_repo)" == $'apt_repo\tvscode' ]] ) && pass || fail "recibo sem apt_repo"
+
+grupo() {
+  mod_env container
+  GRUPOS="$U"
+  [[ "$1" == sim ]] && GRUPOS="$U docker"
+  id() { [[ "${1:-}" == -nG ]] && { echo "$GRUPOS"; return 0; }; command id "$@"; }
+  getent() { return 0; }
+  _vf_add_docker_group >/dev/null 2>&1
+}
+
+it "grupo docker em que o usuário já estava não entra no recibo"
+( grupo sim; [[ -z "$(pn_receipt_entries container group)" && ! -s "$LOG" ]] ) && pass || fail "$(cat "$LOG")"
+it "grupo docker novo entra no recibo"
+( grupo nao; [[ "$(pn_receipt_entries container group)" == $'group\tdocker' ]] && grep -qxF "sudo usermod -aG docker $U" "$LOG" ) \
+  && pass || fail "$(cat "$LOG")"
+
+subid() {
+  mod_env container
+  _vf_tem_subid() { [[ "$1" == subuid ]] && return "$UID_RC"; return "$GID_RC"; }
+  _vf_ensure_subid >/dev/null 2>&1
+}
+
+it "subids já configurados não entram no recibo"
+( UID_RC=0 GID_RC=0; subid; [[ -z "$(pn_receipt_entries container subids)" && ! -s "$LOG" ]] ) && pass || fail "$(cat "$LOG")"
+it "subuid preexistente: só acrescenta o subgid e não grava recibo"
+( UID_RC=0 GID_RC=1; subid; [[ -z "$(pn_receipt_entries container subids)" ]] \
+  && [[ "$(cat "$LOG")" == "sudo usermod --add-subgids 100000-165535 $U" ]] ) && pass || fail "$(cat "$LOG")"
+it "subids novos entram no recibo"
+( UID_RC=1 GID_RC=1; subid; [[ "$(pn_receipt_entries container subids)" == $'subids\t'"$U" ]] \
+  && [[ "$(cat "$LOG")" == "sudo usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $U" ]] ) && pass || fail "$(cat "$LOG")"
+
+socket() {
+  mod_env container
+  _vf_tem_systemd() { return 0; }
+  systemctl() { printf 'systemctl %s\n' "$*" >>"$LOG"; [[ "$2" == is-enabled ]] && return "$ENABLED_RC"; return 0; }
+  _vf_enable_podman_socket >/dev/null 2>&1
+}
+
+ZSH_MOD="${ZSH_MOD:-$REPO/lib/modules/zsh.sh}"
+omz() {
+  undo_env
+  PN_RECEIPT_MODULE=zsh
+  source "$ZSH_MOD"
+  has_cmd() { [[ "$1" == zsh ]] || command -v "$1" >/dev/null 2>&1; }
+  curl() { printf '%s\n' 'mkdir -p "$HOME/.oh-my-zsh"; [ -e "$HOME/.zshrc" ] || echo template >"$HOME/.zshrc"'; }
+  clone_or_pull() { :; }
+  _vf_set_default_shell() { :; }
+  mod_zsh_install >/dev/null 2>&1
+}
+
+it "o ~/.zshrc de template do instalador do OMZ não vira .pnbak"
+( omz; [[ -L "$HOME/.zshrc" ]] && ! compgen -G "$HOME/.zshrc.pnbak.*" >/dev/null ) && pass || fail "$(ls -la "$TMP/home")"
+
+it "o ~/.zshrc que o usuário já tinha vira .pnbak"
+( undo_env; printf 'meu\n' >"$HOME/.zshrc"
+  PN_RECEIPT_MODULE=zsh; source "$ZSH_MOD"
+  has_cmd() { [[ "$1" == zsh ]] || command -v "$1" >/dev/null 2>&1; }
+  curl() { printf '%s\n' 'mkdir -p "$HOME/.oh-my-zsh"'; }
+  clone_or_pull() { :; }; _vf_set_default_shell() { :; }
+  mod_zsh_install >/dev/null 2>&1
+  [[ -L "$HOME/.zshrc" && "$(cat "$HOME"/.zshrc.pnbak.*)" == meu ]] ) && pass || fail "$(ls -la "$TMP/home")"
+
+it "podman.socket já habilitado não entra no recibo"
+( ENABLED_RC=0; socket; [[ -z "$(pn_receipt_entries container user_unit)" ]] ) && pass || fail "$(cat "$LOG")"
+it "podman.socket novo entra no recibo"
+( ENABLED_RC=1; socket; [[ "$(pn_receipt_entries container user_unit)" == $'user_unit\tpodman.socket' ]] ) && pass || fail "$(cat "$LOG")"
 
 test_summary

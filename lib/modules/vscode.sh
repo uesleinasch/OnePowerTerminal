@@ -16,6 +16,7 @@ mod_vscode_installed() { has_cmd code; }
 _PN_VSCODE_KEY="https://packages.microsoft.com/keys/microsoft.asc"
 _PN_VSCODE_REPO="https://packages.microsoft.com/repos/code"
 _PN_VSCODE_DEBCONF="code code/add-microsoft-repo boolean false"
+_PN_VSCODE_DEBCONF_PADRAO="code code/add-microsoft-repo boolean true"
 
 mod_vscode_install() {
   if has_cmd code; then
@@ -37,6 +38,26 @@ mod_vscode_install() {
   pn_step 2 2 "Instalando o VS Code…"
   apt_install code
   [[ "$DRY_RUN" == "1" ]] || log_success "VS Code instalado: $(code --version 2>/dev/null | head -1)"
+}
+
+_vf_vscode_recibo_tem_code() {
+  [[ $'\n'"$(pn_receipt_entries vscode apt)"$'\n' == *$'\n'"apt"$'\t'"code"$'\n'* ]]
+}
+
+mod_vscode_remove() {
+  local rc=0
+  if ! _vf_vscode_recibo_tem_code; then
+    pn_receipt_undo vscode
+    return
+  fi
+  pn_receipt_undo vscode || rc=$?
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log_dry "echo '$_PN_VSCODE_DEBCONF_PADRAO' | sudo debconf-set-selections"
+  elif ! _vf_vscode_recibo_tem_code; then
+    as_sudo debconf-set-selections <<<"$_PN_VSCODE_DEBCONF_PADRAO" \
+      || log_warn "debconf-set-selections falhou — a pergunta do repositório da Microsoft continua respondida com false."
+  fi
+  return "$rc"
 }
 
 mod_vscode_doctor() {

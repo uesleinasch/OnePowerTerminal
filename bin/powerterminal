@@ -339,12 +339,14 @@ _vf_remove_preview_receipts() {
 }
 
 cmd_remove() {
-  local modules_csv="" yes=0 m i deps lista=""
+  local modules_csv="" yes=0 purge=0 m i deps lista=""
+  unset PN_PURGE_DATA
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
       --yes|-y) yes=1; POWERTERMINAL_NONINTERACTIVE=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
+      --purge-data) purge=1; shift ;;
       --events-fd) pn_events_open "${2:?--events-fd requer um número}"; shift 2 ;;
       -h|--help) cmd_help remove; return 0 ;;
       *) die "Flag desconhecida: $1 (rode 'powerterminal help remove')" ;;
@@ -360,6 +362,9 @@ cmd_remove() {
     declare -F "mod_${m}_remove" >/dev/null || die "O módulo $m não pode ser removido."
     pedido[$m]=1
   done
+  if [[ "$purge" -eq 1 && -z "${pedido[container]:-}" ]]; then
+    die "--purge-data só vale com --module container."
+  fi
 
   require_not_root
   require_supported_distro
@@ -382,11 +387,16 @@ cmd_remove() {
     [[ -n "$deps" ]] && log_warn "$deps dependem de $m e vão parar de funcionar."
     lista+="${lista:+, }$m"
   done
+  [[ "$purge" -eq 1 ]] && log_warn "--purge-data: imagens, containers e volumes do runtime também serão apagados."
   [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será apagado."
 
   if [[ "$yes" -eq 0 ]]; then
     ui_confirm "Remover $lista?" || { log_info "Cancelado."; exit 0; }
+    if [[ "$purge" -eq 1 ]]; then
+      ui_confirm "Apagar imagens, containers e volumes? Não dá para desfazer." || { log_info "Cancelado."; exit 0; }
+    fi
   fi
+  [[ "$purge" -eq 1 ]] && export PN_PURGE_DATA=1
 
   if [[ "$DRY_RUN" != "1" ]] && _vf_remove_precisa_sudo "${alvos[@]}"; then
     setup_sudo_keepalive
@@ -695,11 +705,14 @@ EOF
       ;;
     remove)
       cat <<EOF
-${C_B}powerterminal remove${C_R} --module a,b [--yes] [--dry-run] [--events-fd N]
+${C_B}powerterminal remove${C_R} --module a,b [--yes] [--dry-run] [--purge-data] [--events-fd N]
 
   --module a,b       módulos a desfazer (na ordem inversa da instalação)
   --yes / -y         não pedir confirmação (pede sudo upfront se precisar)
   --dry-run          simula: nada é apagado, nem o recibo
+  --purge-data       só com container: apaga também imagens, containers e
+                     volumes do runtime que o PowerTerminal instalou
+                     (confirmação própria, pulada só com --yes)
   --events-fd N      eventos JSON Lines no descritor N
 
 Desfaz só o que o recibo do módulo registra (links, arquivos, pacotes apt,

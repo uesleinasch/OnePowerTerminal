@@ -169,6 +169,9 @@ apt_add_repo() {
     return 0
   fi
 
+  local existia=0
+  _pn_apt_repo_existe "$nome" && existia=1
+
   as_sudo install -m 0755 -d /etc/apt/keyrings
 
   # A chave tem de terminar legível por _apt (0644). Rodar o curl como root para
@@ -187,8 +190,10 @@ apt_add_repo() {
   # A lista de fontes mudou: o cache do apt_update_once ficou obsoleto.
   _PN_APT_UPDATED=""
   apt_update_once
-  _pn_receipt apt_repo "$nome"
+  [[ "$existia" == 1 ]] || _pn_receipt apt_repo "$nome"
 }
+
+_pn_apt_repo_existe() { [[ -e "/etc/apt/sources.list.d/$1.list" ]]; }
 
 # ---- Sudo keepalive ----------------------------------------------------------
 # Acquires a sudo timestamp now and refreshes it in the background. Required for
