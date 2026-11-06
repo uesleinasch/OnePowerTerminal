@@ -368,11 +368,11 @@ it "dir symlink com barra no fim remove só o link"
   [[ ! -L "$HOME/.atalho" && -d "$TMP/outside/dados/x" ]]
 ) && pass || fail "barra no fim seguiu o symlink"
 
-recusa() { [[ -n "$(_pn_undo_path_motivo "$(_pn_norm_path "$1")" /home/u)" ]]; }
-for p in / /home/u /home/u/ /home/u/. /home/u/./x /home/u/a/../b /home/u/.. /opt /opt/ /usr/local \
-  /usr/local/bin /usr/local/share /etc /etc/passwd /usr/bin/x relativo/x '' /home/u/.config \
-  /home/u/.local /home/u/.local/bin /home/u/.local/share/ /home/u/.ssh /home/u/.cache /home/uu/x \
-  /home/u/.local/share/fonts /home/u/.local/share/applications/ /home/u/.config/systemd/user \
+recusa() { [[ -n "$(_pn_undo_path_motivo "$(_pn_norm_path "$1")" "/home/user")" ]]; }
+for p in / /home/user /home/user/ /home/user/. /home/user/./x /home/user/a/../b /home/user/.. /opt /opt/ /usr/local \
+  /usr/local/bin /usr/local/share /etc /etc/passwd /usr/bin/x relativo/x '' /home/user/.config \
+  /home/user/.local /home/user/.local/bin /home/user/.local/share/ /home/user/.ssh /home/user/.cache /home/username/x \
+  /home/user/.local/share/fonts /home/user/.local/share/applications/ /home/user/.config/systemd/user \
   ; do
   it "guard recusa '$p'"
   assert_ok recusa "$p"
@@ -380,14 +380,14 @@ done
 
 it "guard recusa o repositório e o que o contém, mesmo sob o HOME"
 (
-  POWERTERMINAL_HOME=/home/u/src/PowerTerminal
-  for p in /home/u/src/PowerTerminal /home/u/src/PowerTerminal/home /home/u/src; do
-    [[ -n "$(_pn_undo_path_motivo "$p" /home/u)" ]] || exit 1
+  POWERTERMINAL_HOME=/home/user/src/PowerTerminal
+  for p in /home/user/src/PowerTerminal /home/user/src/PowerTerminal/home /home/user/src; do
+    [[ -n "$(_pn_undo_path_motivo "$p" "/home/user")" ]] || exit 1
   done
-  [[ -z "$(_pn_undo_path_motivo /home/u/src2 /home/u)" ]]
+  [[ -z "$(_pn_undo_path_motivo /home/user/src2 /home/user)" ]]
 ) && pass || fail "repositório não protegido"
-for p in /home/u/.nvm /home/u/n /home/u/.local/kitty.app /home/u/.local/bin/uv \
-  /home/u/.local/share/fonts/x.ttf /opt/nvim-linux-x86_64 /usr/local/bin/nvim; do
+for p in /home/user/.nvm /home/user/n /home/user/.local/kitty.app /home/user/.local/bin/uv \
+  /home/user/.local/share/fonts/x.ttf /opt/nvim-linux-x86_64 /usr/local/bin/nvim; do
   it "guard aceita '$p'"
   assert_fail recusa "$p"
 done
@@ -658,7 +658,7 @@ pt remove --module zsh --yes >/dev/null 2>&1 && rc=0 || rc=$?
 it "zsh não é purgado quando outra conta usa zsh como shell de login"
 reset
 echo /bin/bash >"$TMP/login-shell"
-printf 'outra-pn:x:1001:1001::/home/outra-pn:/usr/bin/zsh\n' >"$TMP/outros-passwd"
+printf 'outra-pn:x:1001:1001::/home/dev/outra:/usr/bin/zsh\n' >"$TMP/outros-passwd"
 recibo zsh 'origin	installed' 'apt	zsh'
 out="$(pt remove --module zsh --yes 2>&1)" && rc=0 || rc=$?
 [[ "$rc" -ne 0 ]] && ! grep -q 'apt-get purge' "$LOG" && grep -qxF $'apt\tzsh' "$R/zsh" && pass || fail "rc=$rc $(cat "$LOG")"
@@ -667,14 +667,14 @@ assert_contains "$out" "outra-pn"
 it "e o shell do usuário atual não volta para o bash à toa"
 reset
 echo /usr/bin/zsh >"$TMP/login-shell"
-printf 'outra-pn:x:1001:1001::/home/outra-pn:/bin/zsh\n' >"$TMP/outros-passwd"
+printf 'outra-pn:x:1001:1001::/home/dev/outra:/bin/zsh\n' >"$TMP/outros-passwd"
 recibo zsh 'origin	installed' 'apt	zsh'
 pt remove --module zsh --yes >/dev/null 2>&1 || true
 ! grep -q chsh "$LOG" && ! grep -q 'apt-get purge' "$LOG" && pass || fail "$(cat "$LOG")"
 it "conta com outro shell não segura o zsh"
 reset
 echo /bin/bash >"$TMP/login-shell"
-printf 'outra-pn:x:1001:1001::/home/outra-pn:/bin/bash\n' >"$TMP/outros-passwd"
+printf 'outra-pn:x:1001:1001::/home/dev/outra:/bin/bash\n' >"$TMP/outros-passwd"
 recibo zsh 'origin	installed' 'apt	zsh'
 pt remove --module zsh --yes >/dev/null 2>&1 || true
 grep -q 'apt-get purge -y zsh' "$LOG" && [[ ! -e "$R/zsh" ]] && pass || fail "$(cat "$LOG")"
