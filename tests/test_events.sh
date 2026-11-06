@@ -24,6 +24,15 @@ pn_event t n=3 neg=-2 b=true s=olá "l:=$(pn_json_array a 'b"c')"
 exec 7>&-; unset PN_EVENTS_FD
 assert_eq '{"event":"t","n":3,"neg":-2,"b":true,"s":"olá","l":["a","b\"c"]}' "$(cat "$EV")"
 
+it "pn_event trata zeros à esquerda como string e mantém 0 e negativos como número"
+EV="$TMP/ev00"; exec 7>"$EV"; PN_EVENTS_FD=7
+pn_event t reason=007 z=-0 n=0 neg=-12
+exec 7>&-; unset PN_EVENTS_FD
+assert_eq '{"event":"t","reason":"007","z":"-0","n":0,"neg":-12}' "$(cat "$EV")"
+
+it "a linha com zeros à esquerda é JSON válido"
+assert_ok python3 -c 'import json,sys;[json.loads(l) for l in sys.stdin]' <"$EV"
+
 it "pn_event sem fd não faz nada"
 assert_ok pn_event x a=1
 
