@@ -73,6 +73,14 @@ assert_contains "$(tail -n1 "$EV")" '"failed":[]'
 it "fd fechado falha com mensagem clara"
 assert_contains "$(./bin/powerterminal install --module helpers --dry-run --yes --events-fd 9 2>&1 || true)" "--events-fd 9 não está aberto"
 
+it "o fd de eventos fecha logo que o install termina (o keepalive do sudo não o herda)"
+mkdir -p "$TMP/shims"
+printf '#!/bin/sh\nexit 0\n' >"$TMP/shims/sudo"; chmod +x "$TMP/shims/sudo"
+rc=0
+timeout 5 bash -c 'PATH="$1:$PATH" ./bin/powerterminal install --module helpers --yes --events-fd 3 3>&1 >/dev/null 2>&1 | cat >/dev/null' \
+  _ "$TMP/shims" || rc=$?
+assert_eq 0 "$rc"
+
 it "sem --events-fd a saída humana não tem JSON de evento"
 out="$(./bin/powerterminal install --module helpers --dry-run --yes 2>&1 || true)"
 [[ "$out" != *'"event"'* ]] && pass || fail "vazou evento"

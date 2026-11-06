@@ -79,4 +79,14 @@ assert_eq 2512 "$(campo '[m for m in d["modules"] if m["id"]=="container"][0]["d
 it "catalog sem --json falha"
 assert_fail "$CLI" catalog
 
+it "catalog com argumento extra falha sem imprimir JSON"
+rc=0; "$CLI" catalog --json --tudo >"$TMP/x.out" 2>"$TMP/x.err" || rc=$?
+[[ "$rc" -ne 0 && ! -s "$TMP/x.out" && "$(cat "$TMP/x.err")" == *--tudo* ]] && pass || fail "rc=$rc $(cat "$TMP/x.err")"
+
+it "origin de recibo editado à mão continua JSON válido"
+printf 'origin\tde"du\\zido\n' >"$XDG_STATE_HOME/powerterminal/receipts/fonts"
+"$CLI" catalog --json >"$TMP/o.json" 2>/dev/null || true
+assert_eq 'de"du\zido' "$(campo '[m for m in d["modules"] if m["id"]=="fonts"][0]["origin"]' <"$TMP/o.json" 2>&1)"
+rm -f "$XDG_STATE_HOME/powerterminal/receipts/fonts"
+
 test_summary

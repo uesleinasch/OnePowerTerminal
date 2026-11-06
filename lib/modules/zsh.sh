@@ -153,6 +153,7 @@ _vf_zsh_precisa_voltar_bash() {
   pn_receipt_has zsh || return 1
   [[ -z "$(pn_receipt_entries zsh login_shell)" ]] || return 1
   _vf_zsh_recibo_tem apt zsh || return 1
+  [[ -z "$(_pn_contas_com_shell zsh)" ]] || return 1
   [[ "$(basename -- "$(login_shell)")" == zsh ]]
 }
 
