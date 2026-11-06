@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -u
+ticket="${FAKE_SUDO_STATE:?}/ticket"
+
+case "${1:-}" in
+  -k)
+    rm -f "$ticket"
+    exit 0
+    ;;
+  -n)
+    [[ ${2:-} == true && -f $ticket ]]
+    exit
+    ;;
+  -v)
+    [[ -f $ticket ]] && exit 0
+    for _ in 1 2 3; do
+      printf '%s' "${SUDO_PROMPT:-[sudo] password: }" >/dev/tty
+      IFS= read -r -s pw </dev/tty || exit 1
+      printf '\n' >/dev/tty
+      if [[ $pw == "${FAKE_SUDO_PASSWORD:-}" ]]; then
+        if [[ ${FAKE_SUDO_DENY:-0} == 1 ]]; then
+          echo "${USER:-user} is not in the sudoers file." >&2
+          exit 1
+        fi
+        : >"$ticket"
+        exit 0
+      fi
+      echo 'Sorry, try again.' >&2
+    done
+    echo 'sudo: 3 incorrect password attempts' >&2
+    exit 1
+    ;;
+esac
+
+echo "sudo falso: argumentos não suportados: $*" >&2
+exit 1
