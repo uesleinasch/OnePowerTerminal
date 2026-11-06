@@ -151,6 +151,39 @@ apt_upgrade() {
   as_sudo env DEBIAN_FRONTEND=noninteractive apt-get install --only-upgrade -y "$@"
 }
 
+# pn_dpkg_estado PACOTE — installed, absent ou unknown. O dpkg sai 1 só para
+# pacote que ele não conhece; outro código (ou dpkg ausente) é erro, não ausência.
+pn_dpkg_estado() {
+  local saida rc=0
+  saida="$(LC_ALL=C dpkg -s "$1" 2>/dev/null)" || rc=$?
+  if (( rc == 1 )); then echo absent; return 0; fi
+  if (( rc != 0 )); then echo unknown; return 0; fi
+  case "$(awk '/^Status:/ { print $NF; exit }' <<<"$saida")" in
+    installed) echo installed ;;
+    config-files|not-installed) echo absent ;;
+    *) echo unknown ;;
+  esac
+}
+
+# apt_upgrade_instalados PACOTE… — atualiza só o que o dpkg diz estar instalado:
+# o mesmo programa vindo de snap, de outro pacote ou de fora do apt não é deste módulo.
+apt_upgrade_instalados() {
+  local pkg
+  local -a instalados=()
+  for pkg in "$@"; do
+    if [[ "$(pn_dpkg_estado "$pkg")" == installed ]]; then
+      instalados+=("$pkg")
+    else
+      log_info "$pkg não está instalado pelo apt — pulado."
+    fi
+  done
+  if (( ${#instalados[@]} == 0 )); then
+    log_info "Nada a atualizar: não gerenciado pelo apt deste módulo (veio de snap, de outro pacote ou de fora do apt)."
+    return 0
+  fi
+  apt_upgrade "${instalados[@]}"
+}
+
 apt_update_once() {
   [[ "${_PN_APT_UPDATED:-}" == "1" ]] && return 0
   if [[ "$DRY_RUN" == "1" ]]; then

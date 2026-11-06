@@ -19,7 +19,8 @@ EOF
   chmod +x "$SHIMS/$nome"
 }
 for c in sudo apt-get chsh gpasswd usermod pipx git curl tar; do mkshim "$c"; done
-mkshim dpkg
+# dpkg -s responde "instalado", salvo para os pacotes listados em $TMP/dpkg-nao ("*" = todos).
+mkshim dpkg "if [[ \"\${1:-}\" == -s ]]; then grep -qxF -e \"\${2:-}\" -e '*' '$TMP/dpkg-nao' 2>/dev/null && exit 1; echo 'Status: install ok installed'; fi; exit 0"
 NORUN="$TMP/norun"
 mkdir -p "$NORUN"
 for c in docker podman; do printf '#!/bin/sh\nexit 1\n' >"$NORUN/$c"; chmod +x "$NORUN/$c"; done
@@ -30,7 +31,7 @@ pt() {
 }
 
 reset() {
-  command rm -rf "$TMP/home" "$TMP/state" "$LOG" "$TMP/ev"
+  command rm -rf "$TMP/home" "$TMP/state" "$LOG" "$TMP/ev" "$TMP/dpkg-nao" "$TMP/out"
   mkdir -p "$TMP/home" "$TMP/state"
   : >"$LOG"
 }
@@ -56,6 +57,7 @@ assert_contains "rc=$rc $out" "Módulo desconhecido: naoexiste"
 
 it "update --module claude --dry-run mostra claude update"
 reset
+mkshim claude
 out="$(pt update --module claude --dry-run --yes 2>&1)"
 assert_contains "$out" "claude update"
 
@@ -65,10 +67,11 @@ out="$(pt update --module vscode --dry-run --yes 2>&1)"
 assert_contains "$out" "apt-get install --only-upgrade -y code"
 
 it "update --dry-run não executa sudo nem apt de verdade"
-assert_eq "" "$(cat "$LOG")"
+assert_eq "" "$(grep -v '^dpkg -s ' "$LOG" || true)"
 
 it "update --module zsh --dry-run faz pull --ff-only dos três clones"
 reset
+mkshim zsh
 C="$TMP/home/.oh-my-zsh/custom"
 mkdir -p "$C/themes/powerlevel10k/.git" "$C/plugins/zsh-autosuggestions/.git" "$C/plugins/zsh-syntax-highlighting/.git"
 out="$(pt update --module zsh --dry-run --yes 2>&1)"
@@ -80,41 +83,111 @@ reset
 mkdir -p "$TMP/home/.oh-my-zsh/custom/plugins/zsh-autosuggestions/.git"
 out="$(pt update --module zsh --dry-run --yes 2>&1)"
 assert_eq "1" "$(grep -c 'pull --ff-only' <<<"$out" || true)"
+command rm -f "$SHIMS/zsh"
 
 it "update --module notiont --dry-run mostra pipx upgrade notion-t"
 reset
+mkshim notion-t
 out="$(pt update --module notiont --dry-run --yes 2>&1)"
+command rm -f "$SHIMS/notion-t"
 assert_contains "$out" "pipx upgrade notion-t"
+
+it "update --module de módulo que não está instalado não instala nada"
+reset
+PATH="/usr/bin:/bin" pt update --module notiont --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+[[ "$rc" -eq 0 ]] && ! grep -q pipx "$LOG" && pass || fail "rc=$rc $(cat "$LOG")"
+it "e diz que o módulo não está instalado"
+assert_contains "$(cat "$TMP/out")" "notiont não está instalado"
 
 it "update --module node --dry-run mostra a atualização do LTS"
 reset
 mkdir -p "$TMP/home/.nvm"
 printf '# nvm\n' >"$TMP/home/.nvm/nvm.sh"
+recibo node 'origin	installed' "dir	$TMP/home/.nvm"
 out="$(pt update --module node --dry-run --yes 2>&1)"
 assert_contains "$out" "nvm install --lts"
+
+it "update de node com o nvm do usuário (sem recibo) não mexe nele"
+reset
+mkdir -p "$TMP/home/.nvm"
+printf '# nvm\n' >"$TMP/home/.nvm/nvm.sh"
+out="$(pt update --module node --dry-run --yes 2>&1)"
+[[ "$out" != *"nvm install"* && "$out" == *"não foi instalado pelo PowerTerminal"* ]] && pass || fail "$out"
+
+it "update de node com o n do sistema (sem recibo) não roda n lts"
+reset
+mkshim n 'echo 9.0.0'
+pt update --module node --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+command rm -f "$SHIMS/n"
+[[ "$rc" -eq 0 ]] && ! grep -q '^n lts' "$LOG" && pass || fail "rc=$rc $(cat "$LOG")"
 
 it "update --module apt --dry-run faz upgrade dos pacotes base"
 reset
 out="$(pt update --module apt --dry-run --yes 2>&1)"
 assert_contains "$out" "apt-get install --only-upgrade -y ca-certificates"
 
+it "update --module apt só atualiza os pacotes que o dpkg diz instalados"
+reset
+echo htop >"$TMP/dpkg-nao"
+recibo apt 'origin	installed' 'apt	jq'
+out="$(pt update --module apt --dry-run --yes 2>&1)"
+up="$(grep -- '--only-upgrade' <<<"$out" || true)"
+[[ "$up" == *ca-certificates* && "$up" != *htop* && "$out" == *htop* ]] && pass || fail "$out"
+
+it "update --module vscode com o code fora do dpkg (snap) sai 0 sem chamar o apt"
+reset
+mkshim code
+echo code >"$TMP/dpkg-nao"
+pt update --module vscode --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+[[ "$rc" -eq 0 ]] && ! grep -q 'apt-get' "$LOG" && pass || fail "rc=$rc $(cat "$LOG")"
+it "e diz que não é gerenciado pelo apt do módulo"
+assert_contains "$(cat "$TMP/out")" "não gerenciado pelo apt deste módulo"
+
+it "update de container com docker.io (sem docker-ce) não chama o apt"
+reset
+mkshim docker 'echo "Docker version 24.0.7"'
+printf '%s\n' docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >"$TMP/dpkg-nao"
+pt update --module container --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+command rm -f "$SHIMS/docker"
+[[ "$rc" -eq 0 ]] && ! grep -q 'apt-get' "$LOG" && grep -q 'não gerenciado pelo apt deste módulo' "$TMP/out" \
+  && pass || fail "rc=$rc $(cat "$LOG") $(cat "$TMP/out")"
+
+it "update sem --module com VS Code snap sai 0 sem chamar o apt"
+reset
+echo '*' >"$TMP/dpkg-nao"
+PATH="/usr/bin:/bin" pt update --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+command rm -f "$SHIMS/code"
+[[ "$rc" -eq 0 ]] && ! grep -q 'apt-get' "$LOG" && pass || fail "rc=$rc $(cat "$LOG") $(cat "$TMP/out")"
+
 it "update --module kitty --dry-run roda o instalador oficial de novo"
 reset
 mkdir -p "$TMP/home/.local/kitty.app/bin"
 printf '#!/bin/sh\n' >"$TMP/home/.local/kitty.app/bin/kitty"; chmod +x "$TMP/home/.local/kitty.app/bin/kitty"
+recibo kitty 'origin	installed' "dir	$TMP/home/.local/kitty.app"
 out="$(pt update --module kitty --dry-run --yes 2>&1)"
 assert_contains "$out" "sh /dev/stdin"
+
+it "update de kitty sem o kitty.app no recibo não roda o instalador"
+reset
+mkdir -p "$TMP/home/.local/kitty.app/bin"
+printf '#!/bin/sh\n' >"$TMP/home/.local/kitty.app/bin/kitty"; chmod +x "$TMP/home/.local/kitty.app/bin/kitty"
+pt update --module kitty --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+[[ "$rc" -eq 0 ]] && ! grep -q '^curl' "$LOG" && grep -q 'não foi instalado pelo PowerTerminal' "$TMP/out" \
+  && pass || fail "rc=$rc $(cat "$LOG") $(cat "$TMP/out")"
 
 it "update --module tools --dry-run reinstala mesmo com as seis ferramentas no PATH"
 reset
 for c in starship eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
+B="$TMP/home/.local/bin"
+recibo tools 'origin	installed' "file	$B/starship" 'apt	eza' "file	$B/yazi" "file	$B/ya" \
+  "file	$B/lazygit" "file	$B/lazydocker" "file	$B/uv" "file	$B/uvx"
 out="$(pt update --module tools --dry-run --yes 2>&1)"
 for c in starship eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
 if grep -q 'OK: .* presente' <<<"$out"; then fail "atalho 'já presente' não foi ignorado"; else pass; fi
 it "a reinstalação do starship roda o instalador"
 assert_contains "$out" "starship.rs/install.sh"
-it "a reinstalação do eza passa pelo apt"
-assert_contains "$out" "apt-get install -y eza"
+it "o eza instalado pelo apt é atualizado pelo apt"
+assert_contains "$out" "apt-get install --only-upgrade -y eza"
 it "o uv usa uv self update"
 assert_contains "$out" "uv self update"
 it "a reinstalação do lazydocker roda o instalador"
@@ -125,9 +198,40 @@ if [[ "$(uname -m)" == x86_64 ]]; then
   assert_contains "$out" "install lazygit"
 fi
 
+it "update de tools sem recibo não reinstala nada"
+reset
+for c in starship eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
+pt update --module tools --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
+[[ "$rc" -eq 0 ]] && ! grep -q '^curl\|^uv \|^sudo env' "$LOG" && grep -q 'não foram instaladas pelo PowerTerminal' "$TMP/out" \
+  && pass || fail "rc=$rc $(cat "$LOG") $(cat "$TMP/out")"
+
+it "update de tools só reinstala o que está no recibo"
+reset
+recibo tools 'origin	installed' "file	$TMP/home/.local/bin/starship"
+out="$(pt update --module tools --dry-run --yes 2>&1)"
+[[ "$out" == *starship.rs/install.sh* && "$out" != *install_update_linux.sh* && "$out" != *"self update"* \
+  && "$out" != *"only-upgrade -y eza"* ]] && pass || fail "$out"
+
+it "uv do PowerTerminal cujo self update falha é reinstalado"
+reset
+mkdir -p "$TMP/home/.local/bin"
+printf '#!/usr/bin/env bash\nprintf "pt-uv %%s\\n" "$*" >>"%s"\nexit 1\n' "$LOG" >"$TMP/home/.local/bin/uv"
+chmod +x "$TMP/home/.local/bin/uv"
+recibo tools 'origin	installed' "file	$TMP/home/.local/bin/uv"
+pt update --module tools --yes >"$TMP/out" 2>&1 || true
+grep -qx 'pt-uv self update' "$LOG" && grep -q 'astral.sh/uv/install.sh' "$LOG" && ! grep -q '^uv ' "$LOG" \
+  && pass || fail "$(cat "$LOG")"
+
+it "uv que não está no recibo não é tocado"
+reset
+recibo tools 'origin	installed' "file	$TMP/home/.local/bin/starship"
+pt update --module tools --yes >"$TMP/out" 2>&1 || true
+! grep -q '^uv \|astral.sh' "$LOG" && pass || fail "$(cat "$LOG")"
+for c in starship eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
+
 it "update sem --module não inclui módulos available"
 reset
-mkshim dpkg "exit 1"
+echo '*' >"$TMP/dpkg-nao"
 pt install --module helpers --yes >/dev/null 2>&1 || true
 pt update --dry-run --yes --events-fd 3 3>"$TMP/ev" >/dev/null 2>&1 || true
 catalogo="$(pt catalog --json 2>/dev/null)"
@@ -140,7 +244,6 @@ for linha in sys.argv[2].splitlines():
         print(ev["module"])
 PY
 )"
-mkshim dpkg
 assert_eq "" "$ruim"
 
 it "update sem --module inclui o módulo com recibo"

@@ -570,10 +570,11 @@ cmd_update() {
 
   for m in "${_PN_ALL_MODULES[@]}"; do
     declare -F "mod_${m}_update" >/dev/null || continue
-    if [[ -n "$modules_csv" ]]; then
-      [[ -n "${pedido[$m]:-}" ]] && alvos+=("$m")
-    elif pn_receipt_has "$m" || "mod_${m}_installed"; then
+    [[ -z "$modules_csv" || -n "${pedido[$m]:-}" ]] || continue
+    if pn_receipt_has "$m" || "mod_${m}_installed"; then
       alvos+=("$m")
+    elif [[ -n "$modules_csv" ]]; then
+      log_info "$m não está instalado — o update não instala; use 'powerterminal install --module $m'."
     fi
   done
 
@@ -789,7 +790,8 @@ ${C_B}powerterminal update${C_R} [--module a,b] [--yes] [--dry-run] [--events-fd
 
 Módulos com atualização própria: apt, zsh, nvim, vscode, kitty, tools, node,
 claude, container, notiont. Os demais mudam junto com a release do PowerTerminal.
-Um módulo que já existia antes do PowerTerminal é atualizado, mas não ganha recibo.
+O update só reinstala o que o recibo diz ser do PowerTerminal e só faz upgrade de
+pacote apt já instalado; módulo ausente não é instalado, e o recibo não muda.
 EOF
       ;;
     link|unlink|status|doctor|share)

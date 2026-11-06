@@ -57,7 +57,7 @@ mod_apt_install() {
 
 mod_apt_update() {
   log_info "Atualizando pacotes base via apt-get…"
-  apt_upgrade "${_PN_APT_PKGS[@]}"
+  apt_upgrade_instalados "${_PN_APT_PKGS[@]}"
 }
 
 mod_apt_doctor() {

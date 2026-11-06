@@ -42,7 +42,7 @@ mod_vscode_install() {
 
 mod_vscode_update() {
   log_info "Atualizando o VS Code via apt-get…"
-  apt_upgrade code
+  apt_upgrade_instalados code
 }
 
 _vf_vscode_recibo_tem_code() {

@@ -293,10 +293,10 @@ _vf_enable_podman_socket() {
 mod_container_update() {
   if _vf_is_real_docker; then
     log_info "Atualizando Docker Engine via apt-get…"
-    apt_upgrade "${_PN_DOCKER_PKGS[@]}"
+    apt_upgrade_instalados "${_PN_DOCKER_PKGS[@]}"
   elif has_cmd podman; then
     log_info "Atualizando Podman via apt-get…"
-    apt_upgrade podman
+    apt_upgrade_instalados podman
   else
     log_warn "Nenhum runtime de container encontrado para atualizar."
   fi

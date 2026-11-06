@@ -32,6 +32,10 @@ mod_kitty_install() {
 }
 
 mod_kitty_update() {
+  if ! pn_receipt_has_entry kitty dir "$_PN_KITTY_DIR"; then
+    log_info "O Kitty em $_PN_KITTY_DIR não foi instalado pelo PowerTerminal — nada a atualizar."
+    return 0
+  fi
   log_info "Atualizando o Kitty (instalador oficial)…"
   _vf_install_kitty_binary force
 }
