@@ -24,7 +24,7 @@ it "container esta registrado em _PN_ALL_MODULES"
 assert_ok grep -q '_PN_ALL_MODULES=(.*container' "${POWERTERMINAL_HOME}/bin/powerterminal"
 
 it "o perfil dev inclui container"
-assert_ok grep -qE 'dev\).*container' "${POWERTERMINAL_HOME}/bin/powerterminal"
+assert_contains "$("${POWERTERMINAL_HOME}/bin/powerterminal" install --profile dev --dry-run --yes 2>/dev/null | grep 'Módulos:')" "container"
 
 it "o Compose v2 vem no conjunto de pacotes do Docker"
 assert_contains "${_PN_DOCKER_PKGS[*]}" "docker-compose-plugin"

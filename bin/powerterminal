@@ -21,15 +21,58 @@ done
 trap pn_cleanup EXIT
 
 # Lista canônica e ordenada
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont container theme)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim vscode kitty tools node claude helpers extras notiont container theme)
 
-_vf_profile_modules() {
+_vf_editor_modules() {
   case "$1" in
-    minimal) echo "apt fonts zsh helpers" ;;
-    dev)     echo "apt fonts zsh nvim astronvim kitty tools node helpers container theme" ;;
-    full)    echo "${_PN_ALL_MODULES[*]}" ;;
+    nvim)   echo "nvim astronvim" ;;
+    vscode) echo "vscode" ;;
+    both)   echo "nvim astronvim vscode" ;;
     *) return 1 ;;
   esac
+}
+
+_vf_is_editor_module() {
+  [[ " $(_vf_editor_modules both) " == *" $1 "* ]]
+}
+
+# Editor sem perguntar: POWERTERMINAL_EDITOR válida, senão o default do perfil.
+_vf_editor_default() {
+  local perfil="$1"
+  if [[ -n "${POWERTERMINAL_EDITOR:-}" ]]; then
+    if _vf_editor_modules "$POWERTERMINAL_EDITOR" >/dev/null; then
+      echo "$POWERTERMINAL_EDITOR"
+      return 0
+    fi
+    log_warn "POWERTERMINAL_EDITOR inválido: '$POWERTERMINAL_EDITOR' (use nvim|vscode|both)"
+  fi
+  if [[ "$perfil" == "full" ]]; then echo both; else echo nvim; fi
+}
+
+_vf_perfil_tem_editor() { [[ "$1" == "dev" || "$1" == "full" ]]; }
+
+# _vf_profile_modules PERFIL [EDITOR] — módulos do perfil na ordem canônica.
+_vf_profile_modules() {
+  local perfil="$1" editor="${2:-}" m
+  local -A quer=()
+  case "$perfil" in
+    minimal) echo "apt fonts zsh helpers"; return 0 ;;
+    dev)
+      for m in apt fonts zsh kitty tools node claude helpers container theme; do quer[$m]=1; done ;;
+    full)
+      for m in "${_PN_ALL_MODULES[@]}"; do
+        _vf_is_editor_module "$m" || quer[$m]=1
+      done ;;
+    *) return 1 ;;
+  esac
+  [[ -n "$editor" ]] || editor="$(_vf_editor_default "$perfil")"
+  for m in $(_vf_editor_modules "$editor"); do quer[$m]=1; done
+
+  local out=()
+  for m in "${_PN_ALL_MODULES[@]}"; do
+    [[ -n "${quer[$m]:-}" ]] && out+=("$m")
+  done
+  echo "${out[*]}"
 }
 
 _vf_module_pairs() {
@@ -122,8 +165,15 @@ cmd_install() {
       while IFS= read -r m; do pedidos+=("$m"); done < <(ui_select_modules "${pairs[@]}")
       [[ ${#pedidos[@]} -gt 0 ]] || die "Nenhum módulo selecionado."
     else
+      local editor=""
+      if _vf_perfil_tem_editor "$perfil" && [[ -z "${POWERTERMINAL_EDITOR:-}" ]]; then
+        editor="$(ui_choose "Qual editor?" \
+          nvim:"Neovim + AstroNvim (config versionada)" \
+          vscode:"Visual Studio Code (só o editor)" \
+          both:"os dois")"
+      fi
       # shellcheck disable=SC2207
-      pedidos=( $(_vf_profile_modules "$perfil") )
+      pedidos=( $(_vf_profile_modules "$perfil" "$editor") )
       profile="$perfil"
     fi
 
@@ -397,8 +447,12 @@ ${C_B}Comandos:${C_R}
 
 ${C_B}Profiles:${C_R}
   minimal   apt + fonts + zsh + helpers
-  dev       minimal + nvim + astronvim + kitty + tools
-  full      tudo (= minimal + dev + extras)
+  dev       minimal + editor + kitty + tools + node + claude + container + theme
+  full      tudo (= dev + extras + notiont), com os dois editores
+
+  editor = nvim + astronvim, vscode ou ambos: o assistente pergunta;
+  fora dele vale POWERTERMINAL_EDITOR=nvim|vscode|both (default: dev → nvim,
+  full → both). Para acrescentar depois: install --module vscode
 
 ${C_B}Exemplos:${C_R}
   powerterminal install                            # menu interativo
@@ -420,6 +474,8 @@ ${C_B}powerterminal install${C_R} [--profile P | --module a,b,c] [--yes] [--dry-
   --all                          equivale a --profile full
   --yes / -y                     não pedir confirmação (pede sudo upfront)
   --dry-run                      simula (logs em cinza, nada é executado)
+
+  POWERTERMINAL_EDITOR=nvim|vscode|both   editor dos perfis dev/full sem perguntar
 
 Módulos disponíveis: ${_PN_ALL_MODULES[*]}
 EOF

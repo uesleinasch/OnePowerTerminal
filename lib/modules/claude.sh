@@ -1,0 +1,48 @@
+# shellcheck shell=bash
+# Module: claude — Claude Code (CLI da Anthropic) pelo instalador nativo.
+
+mod_claude_meta() {
+  echo "Claude Code (CLI da Anthropic, instalador nativo em ~/.local/bin)"
+}
+
+mod_claude_cost() { printf '1\t200\t0\n'; }
+
+_PN_CLAUDE_INSTALLER="https://claude.ai/install.sh"
+
+mod_claude_install() {
+  if has_cmd claude || [[ -x "$HOME/.local/bin/claude" ]]; then
+    log_info "OK: Claude Code presente"
+    return 0
+  fi
+  if [[ "$DRY_RUN" == "1" ]]; then
+    log_dry "curl -fsSL $_PN_CLAUDE_INSTALLER | bash"
+    return 0
+  fi
+
+  # O instalador é bash, não sh: curl_pipe não serve aqui.
+  local tmp; tmp="$(mktemp)"
+  if ! download_to "$_PN_CLAUDE_INSTALLER" "$tmp"; then
+    rm -f "$tmp"
+    die "Falha ao baixar o instalador do Claude Code."
+  fi
+  if ! bash "$tmp"; then
+    rm -f "$tmp"
+    die "O instalador do Claude Code falhou."
+  fi
+  rm -f "$tmp"
+  post_install_note "Rode 'claude' para fazer login na sua conta Anthropic."
+}
+
+mod_claude_doctor() {
+  local bin=""
+  if has_cmd claude; then
+    bin="$(command -v claude)"
+  elif [[ -x "$HOME/.local/bin/claude" ]]; then
+    bin="$HOME/.local/bin/claude"
+  fi
+  if [[ -n "$bin" ]]; then
+    status_line 1 "claude: $("$bin" --version 2>/dev/null | head -1) ($bin)"
+  else
+    status_line 0 "claude: ausente"
+  fi
+}
