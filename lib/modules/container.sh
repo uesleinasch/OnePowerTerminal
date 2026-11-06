@@ -168,7 +168,8 @@ _vf_add_docker_group() {
   if as_sudo usermod -aG docker "$usuario"; then
     _pn_receipt group docker
     log_success "$usuario adicionado ao grupo docker."
-    post_install_note "Reinicie a máquina (ou saia da sessão e entre de novo) para o grupo docker valer — a mudança só se aplica num login novo. Para testar já nesta sessão: 'newgrp docker'."
+    pn_session_restart "o grupo docker valer"
+    post_install_note "Para testar já nesta sessão: 'newgrp docker'."
   else
     log_warn "usermod falhou — grupo docker vai para as tarefas manuais."
     _vf_nota_grupo_docker "$usuario"
@@ -200,17 +201,18 @@ _vf_install_docker() {
   [[ -n "$suite" ]] \
     || die "Não consegui descobrir o codename da distro em /etc/os-release."
 
-  log_info "Repositório oficial do Docker: linux/$base suite=$suite"
+  pn_step 1 3 "Adicionando o repositório oficial do Docker (linux/$base, $suite)…"
   apt_add_repo docker \
     "https://download.docker.com/linux/${base}/gpg" \
     "https://download.docker.com/linux/${base}" \
     "$suite" \
     stable
 
-  log_info "Instalando Docker Engine, Compose v2 e buildx…"
+  pn_step 2 3 "Instalando Docker Engine, Compose v2 e buildx…"
   apt_install "${_PN_DOCKER_PKGS[@]}"
 
   _vf_enable_docker_service
+  pn_step 3 3 "Adicionando o usuário ao grupo docker…"
   _vf_add_docker_group
 }
 
@@ -279,7 +281,7 @@ _vf_enable_podman_socket() {
 }
 
 _vf_install_podman() {
-  log_info "Instalando Podman (rootless)…"
+  pn_step 1 2 "Instalando Podman (rootless)…"
   apt_install podman
 
   # podman-docker e podman-compose não existem em toda suite suportada (o Ubuntu
@@ -291,6 +293,7 @@ _vf_install_podman() {
       || log_warn "$opcional indisponível nesta distro (segue sem)."
   done
 
+  pn_step 2 2 "Configurando o mapeamento rootless…"
   _vf_ensure_subid
   _vf_enable_podman_socket
 

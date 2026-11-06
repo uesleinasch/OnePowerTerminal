@@ -12,6 +12,8 @@ source "$POWERTERMINAL_ROOT/lib/ui.sh"
 # shellcheck source=/dev/null
 source "$POWERTERMINAL_ROOT/lib/receipt.sh"
 # shellcheck source=/dev/null
+source "$POWERTERMINAL_ROOT/lib/events.sh"
+# shellcheck source=/dev/null
 source "$POWERTERMINAL_ROOT/lib/precheck.sh"
 
 for m in "$POWERTERMINAL_ROOT"/lib/modules/*.sh; do
@@ -115,6 +117,28 @@ _vf_precisa_sudo() {
   return 1
 }
 
+_vf_run_modules() {
+  local action="$1" m i=0 total rc
+  shift
+  total=$#
+  for m in "$@"; do
+    i=$((i + 1))
+    log_section "[$m] $("mod_${m}_meta")"
+    pn_event module_begin "module=$m" "action=$action" "index=$i" "total=$total"
+    rc=0
+    ( PN_RECEIPT_MODULE="$m"; PN_EVENT_MODULE="$m"; "mod_${m}_${action}" ) || rc=$?
+    if [[ "$rc" -eq 0 ]]; then
+      ok+=("$m")
+      pn_event module_end "module=$m" "action=$action" ok=true
+    else
+      log_error "Módulo $m falhou (rc=$rc)."
+      failed+=("$m")
+      pn_event module_end "module=$m" "action=$action" ok=false
+    fi
+  done
+  pn_event done "ok:=$(pn_json_array "${ok[@]+"${ok[@]}"}")" "failed:=$(pn_json_array "${failed[@]+"${failed[@]}"}")"
+}
+
 cmd_install() {
   local profile="" modules_csv="" yes=0 wizard=0
   while [[ $# -gt 0 ]]; do
@@ -124,6 +148,7 @@ cmd_install() {
       --all) profile="full"; shift ;;
       --yes|-y) yes=1; POWERTERMINAL_NONINTERACTIVE=1; shift ;;
       --dry-run) DRY_RUN=1; shift ;;
+      --events-fd) pn_events_open "${2:?--events-fd requer um número}"; shift 2 ;;
       -h|--help) cmd_help install; return 0 ;;
       *) die "Flag desconhecida: $1 (rode 'powerterminal help install')" ;;
     esac
@@ -237,7 +262,7 @@ cmd_install() {
     for m in "${modules[@]}"; do
       ui_step_begin "$m"
       t0="$(date +%s)"
-      if ( PN_RECEIPT_MODULE="$m"; "mod_${m}_install" ) >>"$(pn_log_file)" 2>&1; then
+      if ( PN_RECEIPT_MODULE="$m"; PN_EVENT_MODULE="$m"; "mod_${m}_install" ) >>"$(pn_log_file)" 2>&1; then
         dt=$(( $(date +%s) - t0 ))
         ui_step_ok "$m" "$dt"
         ok+=("$m")
@@ -253,16 +278,7 @@ cmd_install() {
       ( pn_install_requires "${modules[@]}" ) \
         || log_warn "Não consegui instalar os pré-requisitos ($faltam) — os módulos que dependem deles vão falhar."
     fi
-    for m in "${modules[@]}"; do
-      log_section "[$m] $("mod_${m}_meta")"
-      # subshell isola erros e permite "rerun é seguro"
-      if ( PN_RECEIPT_MODULE="$m"; "mod_${m}_install" ); then
-        ok+=("$m")
-      else
-        log_error "Módulo $m falhou (rc=$?)."
-        failed+=("$m")
-      fi
-    done
+    _vf_run_modules install "${modules[@]}"
     print_post_install_notes
   fi
 

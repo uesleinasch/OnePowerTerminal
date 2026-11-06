@@ -32,8 +32,9 @@ mod_vscode_install() {
     printf '%s\n' "$_PN_VSCODE_DEBCONF" | as_sudo debconf-set-selections
   fi
 
+  pn_step 1 2 "Adicionando o repositório da Microsoft e atualizando o índice do apt…"
   apt_add_repo vscode "$_PN_VSCODE_KEY" "$_PN_VSCODE_REPO" stable main
-  log_info "Instalando o VS Code…"
+  pn_step 2 2 "Instalando o VS Code…"
   apt_install code
   [[ "$DRY_RUN" == "1" ]] || log_success "VS Code instalado: $(code --version 2>/dev/null | head -1)"
 }

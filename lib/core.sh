@@ -399,6 +399,7 @@ fi
 
 post_install_note() {
   printf '%s\n' "$*" >> "$POWERTERMINAL_NOTES_FILE"
+  ! declare -F pn_event >/dev/null || pn_event note "module=${PN_EVENT_MODULE:-}" "text=$*"
 }
 
 print_post_install_notes() {
