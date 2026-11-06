@@ -206,6 +206,7 @@ it "migração não toca módulo que já tem recibo"
 it "zsh só deduz oh-my-zsh com powerlevel10k clonado"
 (
   mig_setup
+  ln -s "$TMP/repo/home/.zshrc" "$HOME/.zshrc"
   mkdir -p "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/.git"
   pn_receipts_migrate
   [[ "$(pn_receipt_entries zsh dir)" == $'dir\t'"$HOME/.oh-my-zsh" ]]
@@ -214,6 +215,7 @@ it "zsh só deduz oh-my-zsh com powerlevel10k clonado"
 it "kitty só deduz link cujo alvo literal está em kitty.app/bin"
 (
   mig_setup
+  ln -s "$TMP/repo/home/.zshrc" "$HOME/.zshrc"
   mkdir -p "$HOME/.local/kitty.app/bin" "$HOME/.local/bin"
   ln -s "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/bin/kitty"
   ln -s /usr/bin/true "$HOME/.local/bin/kitten"
@@ -224,10 +226,54 @@ it "kitty só deduz link cujo alvo literal está em kitty.app/bin"
 it "node deduz ~/.nvm e ~/n pelos binários"
 (
   mig_setup
+  ln -s "$TMP/repo/home/.zshrc" "$HOME/.zshrc"
   mkdir -p "$HOME/.nvm" "$HOME/n/bin"
   : >"$HOME/.nvm/nvm.sh"; : >"$HOME/n/bin/n"
   pn_receipts_migrate
   [[ "$(pn_receipt_entries node dir)" == $'dir\t'"$HOME/.nvm"$'\ndir\t'"$HOME/n" ]]
 ) && pass || fail "dirs do node errados"
+
+it "sem link do PowerTerminal na máquina a migração não deduz nada"
+(
+  mig_setup
+  mkdir -p "$HOME/.nvm" "$HOME/.local/kitty.app/bin" "$HOME/.oh-my-zsh/custom/themes/powerlevel10k/.git"
+  printf 'nvm\n' >"$HOME/.nvm/nvm.sh"
+  pn_receipts_migrate
+  ! pn_receipt_has node && ! pn_receipt_has kitty && ! pn_receipt_has zsh
+) && pass || fail "deduziu sem evidência de install do PowerTerminal"
+
+it "sem evidência a migração ainda grava o marcador"
+(
+  mig_setup
+  pn_receipts_migrate
+  [[ -e "$(pn_receipt_dir)/.migrated-v1" ]]
+) && pass || fail "marcador ausente"
+
+it "um link do PowerTerminal basta como evidência para deduzir os outros módulos"
+(
+  mig_setup
+  mkdir -p "$HOME/.nvm"
+  printf 'nvm\n' >"$HOME/.nvm/nvm.sh"
+  ln -s "$TMP/repo/home/.zshrc" "$HOME/.zshrc"
+  pn_receipts_migrate
+  [[ "$(pn_receipt_origin node)" == deduced && "$(pn_receipt_entries node dir)" == $'dir\t'"$HOME/.nvm" ]]
+) && pass || fail "node não deduzido com evidência"
+
+it "link de fora do repo não conta como evidência"
+(
+  mig_setup
+  mkdir -p "$HOME/.nvm"
+  printf 'nvm\n' >"$HOME/.nvm/nvm.sh"
+  ln -s "$TMP/outside/zshrc" "$HOME/.zshrc"
+  pn_receipts_migrate
+  ! pn_receipt_has node
+) && pass || fail "link externo serviu de evidência"
+
+it "PN_RECEIPT_DIR redireciona os recibos"
+(
+  reset
+  PN_RECEIPT_DIR="$TMP/outro" PN_RECEIPT_MODULE=zsh pn_receipt_add file /x
+  [[ -f "$TMP/outro/zsh" ]] && ! pn_receipt_has zsh
+) && pass || fail "PN_RECEIPT_DIR ignorado"
 
 test_summary
