@@ -11,7 +11,7 @@ Debian / Pop!_OS**.
 Montar esse ambiente à mão custa horas — instalar pacote por pacote, buscar os
 binários que o apt não tem na versão certa, copiar dotfiles de algum backup e
 descobrir na primeira semana o que ficou faltando. O PowerTerminal reduz isso a
-um comando. São doze módulos independentes e idempotentes: rodar de novo
+um comando. São quinze módulos independentes e idempotentes: rodar de novo
 atualiza em vez de duplicar, e você escolhe entre um perfil pronto
 (`minimal`/`dev`/`full`) ou um subset via `--module`.
 
@@ -96,15 +96,17 @@ cd ~/PowerTerminal && ./tests/run.sh
 ├── lib/
 │   ├── core.sh               # log, link_safe, backup, sudo wrapper, dry-run
 │   ├── ui.sh                 # TUI gum (vendorizado) + fallback texto
-│   └── modules/              # 13 módulos independentes
+│   └── modules/              # 15 módulos independentes
 │       ├── apt.sh            # base: curl, ripgrep, fzf, jq, …
 │       ├── fonts.sh          # MesloLGS NF (Powerlevel10k)
 │       ├── zsh.sh            # zsh + OMZ + p10k + plugins
 │       ├── nvim.sh           # binário Neovim em /opt
 │       ├── astronvim.sh      # link de ~/.config/nvim
+│       ├── vscode.sh         # VS Code (repositório apt da Microsoft)
 │       ├── kitty.sh          # Kitty + link da kitty.conf
 │       ├── tools.sh          # eza, starship, lazygit, lazydocker, uv, yazi
 │       ├── node.sh           # nvm OU n (escolha) + Node LTS
+│       ├── claude.sh         # Claude Code (instalador nativo)
 │       ├── helpers.sh        # link de myastro / mykitty / myyazi
 │       ├── extras.sh         # btop, ranger, yazi, picom, flameshot, …
 │       ├── notiont.sh        # notion-t (CLI Notion via pipx)
@@ -160,7 +162,8 @@ uso do começo ao fim:
 1. **Boas-vindas com verificação do ambiente** — distro, sudo, conexão, espaço
    em disco e shell padrão. Só distro não suportada impede seguir; o resto é
    informativo.
-2. **Escolha do perfil** — `dev`, `minimal`, `full` ou módulo a módulo.
+2. **Escolha do perfil** — `dev`, `minimal`, `full` ou módulo a módulo. Em
+   `dev` e `full` vem em seguida a escolha do editor: Neovim, VS Code ou ambos.
 3. **Ajuste fino** (só se você escolher módulo a módulo), com as dependências
    marcadas automaticamente: pedir `astronvim` traz o `nvim` junto.
 4. **Todas as perguntas de uma vez**, antes de qualquer mudança no sistema.
@@ -186,8 +189,32 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 | Profile   | Inclui                                                                 |
 |-----------|------------------------------------------------------------------------|
 | `minimal` | apt + fonts + zsh + helpers                                            |
-| `dev`     | minimal + nvim + astronvim + kitty + tools + node + container + theme  |
-| `full`    | tudo (= dev + extras + notiont)                                        |
+| `dev`     | minimal + editor + kitty + tools + node + claude + container + theme   |
+| `full`    | tudo (= dev + extras + notiont), com os dois editores                  |
+
+### Editor: Neovim, VS Code ou ambos
+
+| Escolha  | Módulos             | O que entra                                         |
+|----------|---------------------|-----------------------------------------------------|
+| `nvim`   | `nvim` + `astronvim`| Neovim em `/opt` e a config AstroNvim versionada    |
+| `vscode` | `vscode`            | só o editor, pelo repositório apt da Microsoft      |
+| `both`   | os três             | os dois                                             |
+
+O assistente pergunta. Fora dele, `POWERTERMINAL_EDITOR=nvim|vscode|both`
+decide; sem a variável, `dev` instala o Neovim e `full` instala os dois.
+
+Mudou de ideia? Cada editor é um módulo como qualquer outro, então dá para
+acrescentar depois sem mexer no resto:
+
+```bash
+powerterminal install --module vscode            # VS Code
+powerterminal install --module nvim,astronvim    # Neovim + AstroNvim
+powerterminal install --module claude            # Claude Code
+```
+
+O módulo `claude` instala o Claude Code pelo instalador nativo da Anthropic
+(binário em `~/.local/bin/claude`, sem Node, com atualização automática). No
+primeiro uso, rode `claude` para fazer login.
 
 ## Comandos
 
