@@ -225,6 +225,7 @@ primeiro uso, rode `claude` para fazer login.
 | `unlink`           | Remove symlinks + restaura backups (`.pnbak.<timestamp>`)       |
 | `status`           | Mostra symlinks gerenciados                                     |
 | `doctor`           | Diagnóstico completo (versões, fontes, links, dependências)     |
+| `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher)          |
 | `theme [flavor]`   | Troca o flavor Catppuccin em kitty + Neovim + prompt            |
 | `share [arquivo]`  | Empacota o repo em `.tar.gz` (sem `home.local`, sem `.pnbak.*`) |
 | `update`           | Atualiza P10k e plugins zsh (e dá hint para `:Lazy sync`)       |
