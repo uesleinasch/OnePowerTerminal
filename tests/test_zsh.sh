@@ -2,6 +2,8 @@
 set -euo pipefail
 source "${POWERTERMINAL_HOME}/tests/lib.sh"
 source "${POWERTERMINAL_HOME}/lib/core.sh"
+source "${POWERTERMINAL_HOME}/lib/receipt.sh"
+source "${POWERTERMINAL_HOME}/lib/events.sh"
 source "${POWERTERMINAL_HOME}/lib/modules/zsh.sh"
 
 # zsh falso à frente do PATH: o teste não pode depender de a máquina ter zsh,
@@ -36,7 +38,7 @@ it "apos gravar, avisa que e preciso reiniciar"
 assert_contains "$_notas" "Reinicie a máquina"
 
 it "e explica que a troca so vale no proximo login"
-assert_contains "$_notas" "próximo login"
+assert_contains "$_notas" "login novo"
 
 it "apos gravar, nao pede o chsh manual"
 assert_eq "nao" "$(printf '%s' "$_notas" | grep -q 'chsh -s' && echo sim || echo nao)"
