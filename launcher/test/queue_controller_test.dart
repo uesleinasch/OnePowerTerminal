@@ -17,16 +17,23 @@ void main() {
   late int catalogCalls;
   late FakeShell shell;
   late int factoryCalls;
+  late List<FakeShell> created;
 
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('qc_');
     catalogCalls = 0;
     factoryCalls = 0;
+    created = [];
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
-  Future<QueueController> make(FakeShell s) async {
+  Future<QueueController> make(
+    FakeShell s, {
+    List<FakeShell> next = const [],
+    Future<void> Function()? factoryHook,
+  }) async {
     shell = s;
+    final all = [s, ...next];
     final cli = Cli(
       '/repo',
       runner: (exe, args, {workingDirectory, environment}) async {
@@ -37,8 +44,12 @@ void main() {
     final q = QueueController(
       cli: cli,
       shellFactory: () async {
-        factoryCalls++;
-        return shell;
+        await factoryHook?.call();
+        final i = factoryCalls++;
+        final sh = all[i < all.length ? i : all.length - 1];
+        created.add(sh);
+        shell = sh;
+        return sh;
       },
       repoDir: '/repo',
       eventsDir: Directory('${tmp.path}/events'),
@@ -49,6 +60,13 @@ void main() {
   }
 
   QueueItem inst(String id) => QueueItem(id, OpKind.install);
+
+  Future<void> until(bool Function() cond) async {
+    for (var i = 0; i < 200 && !cond(); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(cond(), isTrue, reason: 'condição não atingida');
+  }
 
   test('módulo sem sudo não pede senha, termina idle e faz refresh', () async {
     final q = await make(FakeShell());
@@ -172,10 +190,10 @@ void main() {
     final q = await make(
       FakeShell(results: {"'helpers'": const RunResult(2, false)}),
     );
-    await q.enqueue(
-      [inst('helpers'), inst('theme')],
-      askPassword: ({error}) async => null,
-    );
+    await q.enqueue([
+      inst('helpers'),
+      inst('theme'),
+    ], askPassword: ({error}) async => null);
     await q.whenIdle();
     expect(q.status('helpers').phase, CardPhase.failed);
     expect(q.status('helpers').error, 'Falhou. Veja o log.');
@@ -221,15 +239,15 @@ void main() {
         },
       ),
     );
-    await q.enqueue(
-      [inst('helpers'), inst('theme')],
-      askPassword: ({error}) async => null,
-    );
+    await q.enqueue([
+      inst('helpers'),
+      inst('theme'),
+    ], askPassword: ({error}) async => null);
     await q.whenIdle();
-    expect(
-      q.pendingRestarts.map((r) => '${r.module}:${r.reason}'),
-      ['helpers:grupo docker', 'theme:shell'],
-    );
+    expect(q.pendingRestarts.map((r) => '${r.module}:${r.reason}'), [
+      'helpers:grupo docker',
+      'theme:shell',
+    ]);
     q.clearPendingRestarts();
     expect(q.pendingRestarts, isEmpty);
   });
@@ -243,6 +261,8 @@ void main() {
         during = q.current;
         q.dequeue('helpers');
         q.dequeue('theme');
+        expect(q.pending.map((i) => i.id), isNot(contains('theme')));
+        expect(q.status('theme').phase, CardPhase.idle);
         await q.enqueue([
           inst('theme'),
           inst('helpers'),
@@ -250,10 +270,11 @@ void main() {
       },
     );
     q = await make(s);
-    await q.enqueue(
-      [inst('helpers'), inst('theme'), inst('helpers')],
-      askPassword: ({error}) async => null,
-    );
+    await q.enqueue([
+      inst('helpers'),
+      inst('theme'),
+      inst('helpers'),
+    ], askPassword: ({error}) async => null);
     await q.whenIdle();
     expect(during?.id, 'helpers');
     expect(shell.runs.where((r) => r.contains("'helpers'")).length, 1);
@@ -262,8 +283,10 @@ void main() {
   });
 
   test('linhas da sessão vão para o log e ele é limitado', () async {
-    final q = await make(FakeShell());
+    final gate = Completer<void>();
+    final q = await make(FakeShell(onRun: (_) => gate.future));
     await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await until(() => shell.runs.isNotEmpty);
     shell.emit('olá');
     expect(q.log.last, 'olá');
     for (var i = 0; i < 5100; i++) {
@@ -271,7 +294,156 @@ void main() {
     }
     expect(q.log.length, 5000);
     expect(q.log.last, 'l5099');
+    gate.complete();
     await q.whenIdle();
+  });
+
+  test(
+    'senha pedida com item sem sudo rodando: nvim usa a sessão liberada',
+    () async {
+      final gate = Completer<void>();
+      final s1 = FakeShell(
+        onRun: (c) => c.contains("'node'") ? gate.future : Future.value(),
+        onUnlock: () => Future.delayed(const Duration(milliseconds: 60)),
+      );
+      final s2 = FakeShell();
+      final q = await make(s1, next: [s2]);
+      await q.enqueue([inst('node')], askPassword: ({error}) async => null);
+      await until(() => s1.runs.isNotEmpty);
+      final ok = q.enqueue([
+        inst('nvim'),
+      ], askPassword: ({error}) async => 'pw');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      gate.complete();
+      expect(await ok, isTrue);
+      await q.whenIdle();
+      expect(s1.passwords, ['pw']);
+      expect(s1.runs.where((r) => r.contains("'nvim'")).length, 1);
+      expect(s2.runs, isEmpty);
+      expect(factoryCalls, 1);
+      expect(q.status('nvim').phase, CardPhase.idle);
+      expect(s1.closed, 1);
+    },
+  );
+
+  test('dispose com run preso não notifica nem abre nova sessão', () async {
+    final gate = Completer<void>();
+    final q = await make(FakeShell(onRun: (_) => gate.future));
+    await q.enqueue([
+      inst('helpers'),
+      inst('theme'),
+    ], askPassword: ({error}) async => null);
+    await until(() => shell.runs.isNotEmpty);
+    q.dispose();
+    gate.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(factoryCalls, 1);
+    expect(shell.runs.length, 1);
+    expect(q.pending, isEmpty);
+    expect(shell.closed, 1);
+  });
+
+  test(
+    'shellFactory que falha: com sudo devolve false, sem sudo falha o item',
+    () async {
+      var fail = true;
+      final q = await make(
+        FakeShell(),
+        factoryHook: () async {
+          if (fail) throw StateError('sem shell');
+        },
+      );
+      final ok = await q.enqueue([
+        inst('nvim'),
+      ], askPassword: ({error}) async => 'pw');
+      expect(ok, isFalse);
+      expect(q.pending, isEmpty);
+      await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+      await q.whenIdle();
+      expect(q.status('helpers').phase, CardPhase.failed);
+      fail = false;
+      await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+      await q.whenIdle();
+      expect(q.status('helpers').phase, CardPhase.idle);
+      expect(q.status('helpers').error, isNull);
+    },
+  );
+
+  test('unlockSudo que lança devolve false e fecha a sessão', () async {
+    final q = await make(
+      FakeShell(onUnlock: () async => throw StateError('morreu')),
+    );
+    final ok = await q.enqueue([
+      inst('nvim'),
+    ], askPassword: ({error}) async => 'pw');
+    expect(ok, isFalse);
+    expect(q.pending, isEmpty);
+    expect(shell.closed, 1);
+  });
+
+  test('askPassword que lança fecha a sessão e relança', () async {
+    final q = await make(FakeShell());
+    await expectLater(
+      q.enqueue([inst('nvim')], askPassword: ({error}) async => throw 'boom'),
+      throwsA('boom'),
+    );
+    expect(shell.closed, 1);
+    expect(q.pending, isEmpty);
+  });
+
+  test(
+    'StateError no run derruba a sessão e o próximo item abre outra',
+    () async {
+      final s1 = FakeShell(
+        onRun: (c) async {
+          if (c.contains("'helpers'")) throw StateError('shell morreu');
+        },
+      );
+      final s2 = FakeShell();
+      final q = await make(s1, next: [s2]);
+      await q.enqueue([
+        inst('helpers'),
+        inst('theme'),
+      ], askPassword: ({error}) async => null);
+      await q.whenIdle();
+      expect(q.status('helpers').phase, CardPhase.failed);
+      expect(q.status('theme').phase, CardPhase.idle);
+      expect(factoryCalls, 2);
+      expect(s2.runs.single, contains("'theme'"));
+    },
+  );
+
+  test('falha é zerada por novo enqueue e por sucesso posterior', () async {
+    final gate = Completer<void>();
+    final q = await make(
+      FakeShell(results: {"'helpers'": const RunResult(2, false)}),
+      next: [FakeShell(onRun: (_) => gate.future)],
+    );
+    await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await q.whenIdle();
+    expect(q.status('helpers').phase, CardPhase.failed);
+    await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await until(() => q.status('helpers').phase == CardPhase.running);
+    expect(q.status('helpers').error, isNull);
+    gate.complete();
+    await q.whenIdle();
+    expect(q.status('helpers').phase, CardPhase.idle);
+    expect(q.status('helpers').error, isNull);
+  });
+
+  test('refresh captura qualquer erro em catalogError', () async {
+    final q = QueueController(
+      cli: Cli(
+        '/repo',
+        runner: (exe, args, {workingDirectory, environment}) async =>
+            throw const FormatException('x'),
+      ),
+      shellFactory: () async => FakeShell(),
+      repoDir: '/repo',
+      eventsDir: Directory('${tmp.path}/events'),
+    );
+    await q.refresh();
+    expect(q.catalogError, isNotNull);
   });
 
   group('SessionEnder', () {

@@ -18,10 +18,14 @@ void main() {
   });
 
   test('PnColors expõe as cores de sucesso por tema', () {
-    expect(AppTheme.light().extension<PnColors>()!.successContainer,
-        const Color(0xFFB5F2A3));
-    expect(AppTheme.dark().extension<PnColors>()!.success,
-        const Color(0xFF9AD688));
+    expect(
+      AppTheme.light().extension<PnColors>()!.successContainer,
+      const Color(0xFFB5F2A3),
+    );
+    expect(
+      AppTheme.dark().extension<PnColors>()!.success,
+      const Color(0xFF9AD688),
+    );
   });
 
   group('themeModeFromFlavor', () {

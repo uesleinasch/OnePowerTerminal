@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,14 +12,21 @@ import '../session/pty_shell.dart';
 
 enum CardPhase { idle, queued, running, failed }
 
+@immutable
 class CardStatus {
-  CardStatus({this.phase = CardPhase.idle});
+  const CardStatus({
+    this.phase = CardPhase.idle,
+    this.kind,
+    this.step,
+    this.progress,
+    this.error,
+  });
 
-  CardPhase phase;
-  OpKind? kind;
-  String? step;
-  double? progress;
-  String? error;
+  final CardPhase phase;
+  final OpKind? kind;
+  final String? step;
+  final double? progress;
+  final String? error;
 }
 
 class QueueItem {
@@ -44,9 +52,12 @@ class QueueController extends ChangeNotifier {
     required this.shellFactory,
     required this.repoDir,
     required this.eventsDir,
-  });
+  }) {
+    _logView = UnmodifiableListView(_log);
+  }
 
   static const _maxLog = 5000;
+  static const _closedMsg = 'A sessão do shell foi encerrada.';
 
   final Cli cli;
   final ShellFactory shellFactory;
@@ -59,21 +70,33 @@ class QueueController extends ChangeNotifier {
   final _pending = <QueueItem>[];
   final _statuses = <String, CardStatus>{};
   final _log = <String>[];
+  late final List<String> _logView;
   final _restarts = <PendingRestart>[];
   QueueItem? _current;
   ShellSession? _session;
+  Future<ShellSession>? _sessionFuture;
   StreamSubscription<String>? _outputSub;
   Future<void>? _loop;
+  Future<void> _enqueueTail = Future.value();
+  var _enqueuing = 0;
+  var _generation = 0;
   var _sudoUnlocked = false;
   var _opCounter = 0;
+  var _disposed = false;
+  var _logNotifyScheduled = false;
 
   List<QueueItem> get pending => List.unmodifiable(_pending);
   QueueItem? get current => _current;
   bool get sudoUnlocked => _sudoUnlocked;
-  List<String> get log => List.unmodifiable(_log);
+  List<String> get log => _logView;
   List<PendingRestart> get pendingRestarts => List.unmodifiable(_restarts);
 
-  CardStatus status(String id) => _statuses[id] ?? CardStatus();
+  CardStatus status(String id) => _statuses[id] ?? const CardStatus();
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   Future<void> whenIdle() async {
     while (_loop != null) {
@@ -85,7 +108,7 @@ class QueueController extends ChangeNotifier {
     try {
       catalog = await cli.catalog();
       catalogError = null;
-    } on CatalogError catch (e) {
+    } catch (e) {
       catalogError = e;
     }
     notifyListeners();
@@ -100,14 +123,23 @@ class QueueController extends ChangeNotifier {
     final before = _pending.length;
     _pending.removeWhere((i) => i.id == id);
     if (_pending.length == before) return;
-    _statuses[id] = CardStatus();
+    _statuses[id] = const CardStatus();
     notifyListeners();
   }
 
   Future<bool> enqueue(
     List<QueueItem> items, {
     required PasswordPrompt askPassword,
-  }) async {
+  }) {
+    _enqueuing++;
+    final result = _enqueueTail.then((_) => _enqueue(items, askPassword));
+    _enqueueTail = result.then<void>((_) {}, onError: (_) {}).whenComplete(() {
+      _enqueuing--;
+    });
+    return result;
+  }
+
+  List<QueueItem> _fresh(List<QueueItem> items) {
     final fresh = <QueueItem>[];
     for (final i in items) {
       final known =
@@ -116,18 +148,36 @@ class QueueController extends ChangeNotifier {
           fresh.any((p) => p.id == i.id);
       if (!known) fresh.add(i);
     }
-    if (fresh.isEmpty) return true;
+    return fresh;
+  }
 
-    final needsSudo = fresh.any((i) => catalog?.byId(i.id)?.sudo == true);
-    if (needsSudo && !_sudoUnlocked) {
-      if (!await _unlock(askPassword)) {
+  bool _needsSudo(List<QueueItem> fresh) =>
+      fresh.any((i) => catalog?.byId(i.id)?.sudo == true);
+
+  Future<bool> _enqueue(
+    List<QueueItem> items,
+    PasswordPrompt askPassword,
+  ) async {
+    if (_disposed) return false;
+    var fresh = _fresh(items);
+    if (fresh.isEmpty) return true;
+    if (_needsSudo(fresh) && !_sudoUnlocked) {
+      final bool unlocked;
+      try {
+        unlocked = await _unlock(askPassword);
+      } catch (_) {
+        await _closeIfIdle();
+        rethrow;
+      }
+      if (!unlocked) {
         await _closeIfIdle();
         return false;
       }
+      fresh = _fresh(items);
     }
-
+    if (_disposed) return false;
     for (final i in fresh) {
-      _statuses[i.id] = CardStatus(phase: CardPhase.queued)..kind = i.kind;
+      _statuses[i.id] = CardStatus(phase: CardPhase.queued, kind: i.kind);
       _pending.add(i);
     }
     notifyListeners();
@@ -136,15 +186,15 @@ class QueueController extends ChangeNotifier {
   }
 
   Future<bool> _unlock(PasswordPrompt askPassword) async {
-    final ShellSession session;
-    try {
-      session = await _ensureSession();
-    } catch (e) {
-      _addLog('[launcher] Não foi possível abrir o shell: $e');
-      return false;
-    }
     String? error;
     while (true) {
+      final ShellSession session;
+      try {
+        session = await _ensureSession();
+      } catch (e) {
+        _addLog('[launcher] Não foi possível abrir o shell: $e');
+        return false;
+      }
       final password = await askPassword(error: error);
       if (password == null) return false;
       final SudoResult result;
@@ -152,10 +202,15 @@ class QueueController extends ChangeNotifier {
         result = await session.unlockSudo(password);
       } catch (e) {
         _addLog('[launcher] Falha ao liberar o sudo: $e');
+        if (e is StateError) _dropSession();
         return false;
       }
       switch (result) {
         case SudoResult.ok:
+          if (!identical(_session, session)) {
+            error = null;
+            continue;
+          }
           _sudoUnlocked = true;
           notifyListeners();
           return true;
@@ -168,26 +223,56 @@ class QueueController extends ChangeNotifier {
     }
   }
 
-  Future<ShellSession> _ensureSession() async {
-    final existing = _session;
-    if (existing != null) return existing;
-    final session = await shellFactory();
-    _session = session;
-    _outputSub = session.output.listen(_addLog);
-    return session;
+  Future<ShellSession> _ensureSession() {
+    if (_disposed) return Future.error(StateError(_closedMsg));
+    return _sessionFuture ??= _createSession();
+  }
+
+  Future<ShellSession> _createSession() async {
+    final generation = _generation;
+    try {
+      final session = await shellFactory();
+      if (generation != _generation || _disposed) {
+        try {
+          await session.close();
+        } catch (_) {}
+        throw StateError(_closedMsg);
+      }
+      _session = session;
+      _outputSub = session.output.listen(_addLog);
+      return session;
+    } catch (_) {
+      if (generation == _generation) _sessionFuture = null;
+      rethrow;
+    }
   }
 
   Future<void> _closeIfIdle() async {
-    if (_loop != null || _pending.isNotEmpty) return;
+    if (_loop != null || _pending.isNotEmpty || _enqueuing > 1) return;
     await _closeSession();
   }
 
-  Future<void> _closeSession() async {
-    final session = _session;
-    final sub = _outputSub;
+  (ShellSession?, StreamSubscription<String>?) _detachSession() {
+    final taken = (_session, _outputSub);
+    _generation++;
     _session = null;
+    _sessionFuture = null;
     _outputSub = null;
     _sudoUnlocked = false;
+    return taken;
+  }
+
+  void _dropSession() {
+    final (session, sub) = _detachSession();
+    unawaited(sub?.cancel());
+    if (session != null) {
+      unawaited(session.close().catchError((Object _) {}));
+    }
+    notifyListeners();
+  }
+
+  Future<void> _closeSession() async {
+    final (session, sub) = _detachSession();
     if (session != null) {
       try {
         await session.close();
@@ -199,17 +284,26 @@ class QueueController extends ChangeNotifier {
 
   Future<void> _runLoop() async {
     try {
-      while (true) {
-        while (_pending.isNotEmpty) {
+      while (!_disposed) {
+        while (_pending.isNotEmpty && !_disposed) {
           final item = _pending.removeAt(0);
           _current = item;
           notifyListeners();
           await _runItem(item);
           _current = null;
-          await refresh();
+          if (_disposed) break;
+          try {
+            await refresh();
+          } catch (e) {
+            _addLog('[launcher] Erro ao atualizar o catálogo: $e');
+          }
         }
+        while (_enqueuing > 0 && !_disposed) {
+          await _enqueueTail;
+        }
+        if (_pending.isNotEmpty && !_disposed) continue;
         await _closeSession();
-        if (_pending.isEmpty) break;
+        if (_pending.isEmpty || _disposed) break;
       }
     } finally {
       _current = null;
@@ -219,8 +313,12 @@ class QueueController extends ChangeNotifier {
   }
 
   Future<void> _runItem(QueueItem item) async {
-    final status = _statuses[item.id] = CardStatus(phase: CardPhase.running)
-      ..kind = item.kind;
+    void setStatus(CardStatus s) {
+      _statuses[item.id] = s;
+      notifyListeners();
+    }
+
+    setStatus(CardStatus(phase: CardPhase.running, kind: item.kind));
     _addLog('[launcher] ${_verb(item.kind)} ${item.id}');
     var failed = false;
     String? error;
@@ -233,27 +331,30 @@ class QueueController extends ChangeNotifier {
       final tail = tailEvents(file, stop.future).listen((e) {
         switch (e) {
           case Step(:final text, :final n, :final m):
-            status
-              ..step = text
-              ..progress = (n != null && m != null && m > 0) ? n / m : null;
+            setStatus(
+              CardStatus(
+                phase: CardPhase.running,
+                kind: item.kind,
+                step: text,
+                progress: (n != null && m != null && m > 0) ? n / m : null,
+              ),
+            );
           case SessionRestart(:final module, :final reason):
             _restarts.add(PendingRestart(module, reason));
+            notifyListeners();
           case ModuleEnd(:final ok) when !ok:
             failed = true;
           default:
         }
-        notifyListeners();
       });
       final RunResult result;
       try {
         result = await session.run(
           actionCommandLine(
             repoDir: repoDir,
-            args: Cli.actionArgs(
-              item.kind,
-              [item.id],
-              purgeData: item.purgeData,
-            ),
+            args: Cli.actionArgs(item.kind, [
+              item.id,
+            ], purgeData: item.purgeData),
             eventsFile: file.path,
           ),
         );
@@ -271,22 +372,17 @@ class QueueController extends ChangeNotifier {
       failed = true;
       error = 'Falhou. Veja o log.';
       _addLog('[launcher] Erro: $e');
+      if (e is StateError) _dropSession();
     } finally {
       try {
         await file?.delete();
       } catch (_) {}
     }
-    status
-      ..step = null
-      ..progress = null;
-    if (failed) {
-      status
-        ..phase = CardPhase.failed
-        ..error = error;
-    } else {
-      status.phase = CardPhase.idle;
-    }
-    notifyListeners();
+    setStatus(
+      failed
+          ? CardStatus(phase: CardPhase.failed, kind: item.kind, error: error)
+          : CardStatus(kind: item.kind),
+    );
   }
 
   String _verb(OpKind k) => switch (k) {
@@ -298,11 +394,19 @@ class QueueController extends ChangeNotifier {
   void _addLog(String line) {
     _log.add(line);
     if (_log.length > _maxLog) _log.removeRange(0, _log.length - _maxLog);
-    notifyListeners();
+    if (_logNotifyScheduled) return;
+    _logNotifyScheduled = true;
+    scheduleMicrotask(() {
+      _logNotifyScheduled = false;
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _pending.clear();
     unawaited(_closeSession());
     super.dispose();
   }

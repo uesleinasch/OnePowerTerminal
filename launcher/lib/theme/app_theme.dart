@@ -19,21 +19,27 @@ class PnColors extends ThemeExtension<PnColors> {
     Color? success,
     Color? successContainer,
     Color? onSuccessContainer,
-  }) =>
-      PnColors(
-        success: success ?? this.success,
-        successContainer: successContainer ?? this.successContainer,
-        onSuccessContainer: onSuccessContainer ?? this.onSuccessContainer,
-      );
+  }) => PnColors(
+    success: success ?? this.success,
+    successContainer: successContainer ?? this.successContainer,
+    onSuccessContainer: onSuccessContainer ?? this.onSuccessContainer,
+  );
 
   @override
   PnColors lerp(ThemeExtension<PnColors>? other, double t) {
     if (other is! PnColors) return this;
     return PnColors(
       success: Color.lerp(success, other.success, t)!,
-      successContainer: Color.lerp(successContainer, other.successContainer, t)!,
-      onSuccessContainer:
-          Color.lerp(onSuccessContainer, other.onSuccessContainer, t)!,
+      successContainer: Color.lerp(
+        successContainer,
+        other.successContainer,
+        t,
+      )!,
+      onSuccessContainer: Color.lerp(
+        onSuccessContainer,
+        other.onSuccessContainer,
+        t,
+      )!,
     );
   }
 }
@@ -138,11 +144,34 @@ class AppTheme {
       scaffoldBackgroundColor: scheme.surfaceContainerLow,
       extensions: [success],
       textTheme: const TextTheme(
-        titleLarge: TextStyle(fontSize: 22, height: 28 / 22, fontWeight: FontWeight.w400),
-        titleMedium: TextStyle(fontSize: 16, height: 24 / 16, fontWeight: FontWeight.w500, letterSpacing: 0.15),
-        bodyMedium: TextStyle(fontSize: 14, height: 20 / 14, letterSpacing: 0.25),
-        labelLarge: TextStyle(fontSize: 14, height: 20 / 14, fontWeight: FontWeight.w500, letterSpacing: 0.1),
-        labelMedium: TextStyle(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+        titleLarge: TextStyle(
+          fontSize: 22,
+          height: 28 / 22,
+          fontWeight: FontWeight.w400,
+        ),
+        titleMedium: TextStyle(
+          fontSize: 16,
+          height: 24 / 16,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.15,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 14,
+          height: 20 / 14,
+          letterSpacing: 0.25,
+        ),
+        labelLarge: TextStyle(
+          fontSize: 14,
+          height: 20 / 14,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.1,
+        ),
+        labelMedium: TextStyle(
+          fontSize: 12,
+          height: 16 / 12,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.5,
+        ),
       ),
       cardTheme: CardThemeData(
         color: scheme.surfaceContainerLowest,
@@ -156,10 +185,18 @@ class AppTheme {
         backgroundColor: scheme.surfaceContainerHigh,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       ),
-      filledButtonTheme: const FilledButtonThemeData(style: ButtonStyle(shape: WidgetStatePropertyAll(pill))),
-      elevatedButtonTheme: const ElevatedButtonThemeData(style: ButtonStyle(shape: WidgetStatePropertyAll(pill))),
-      outlinedButtonTheme: const OutlinedButtonThemeData(style: ButtonStyle(shape: WidgetStatePropertyAll(pill))),
-      textButtonTheme: const TextButtonThemeData(style: ButtonStyle(shape: WidgetStatePropertyAll(pill))),
+      filledButtonTheme: const FilledButtonThemeData(
+        style: ButtonStyle(shape: WidgetStatePropertyAll(pill)),
+      ),
+      elevatedButtonTheme: const ElevatedButtonThemeData(
+        style: ButtonStyle(shape: WidgetStatePropertyAll(pill)),
+      ),
+      outlinedButtonTheme: const OutlinedButtonThemeData(
+        style: ButtonStyle(shape: WidgetStatePropertyAll(pill)),
+      ),
+      textButtonTheme: const TextButtonThemeData(
+        style: ButtonStyle(shape: WidgetStatePropertyAll(pill)),
+      ),
     );
   }
 }
