@@ -7,6 +7,17 @@ mod_apt_meta() {
 
 mod_apt_cost() { printf '2\t150\t1\n'; }
 
+mod_apt_name() { echo "Pacotes base"; }
+
+mod_apt_category() { echo base; }
+
+mod_apt_installed() {
+  local p
+  for p in "${_PN_APT_PKGS[@]}"; do
+    dpkg -s "$p" >/dev/null 2>&1 || return 1
+  done
+}
+
 # Pacotes considerados essenciais para o resto do toolchain.
 # IMPORTANTE: npm/nodejs ficam de fora por decisão de design. git também não
 # entra aqui: quem precisa dele declara em mod_X_requires, e o install o

@@ -7,6 +7,12 @@ mod_extras_meta() {
 
 mod_extras_cost() { printf '1\t5\t0\n'; }
 
+mod_extras_name() { echo "Configs extras"; }
+
+mod_extras_category() { echo extras; }
+
+mod_extras_installed() { pn_links_installed extras; }
+
 _PN_EXTRA_DIRS=(btop ranger yazi lazygit lazydocker picom flameshot)
 
 # Itera somente sobre os módulos cuja config existe no repo.

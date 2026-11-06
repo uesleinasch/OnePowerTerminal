@@ -7,6 +7,17 @@ mod_tools_meta() {
 
 mod_tools_cost() { printf '3\t80\t0\n'; }
 
+mod_tools_name() { echo "CLIs modernas"; }
+
+mod_tools_category() { echo dev; }
+
+mod_tools_installed() {
+  local c
+  for c in starship eza yazi lazygit lazydocker uv; do
+    has_cmd "$c" || return 1
+  done
+}
+
 mod_tools_requires() { printf 'curl\tcurl\n'; }
 
 mod_tools_install() {
@@ -23,6 +34,7 @@ _vf_install_starship() {
   if has_cmd starship; then log_info "OK: starship presente"; return 0; fi
   log_info "Instalando starship…"
   curl_pipe https://starship.rs/install.sh -y -b "$HOME/.local/bin"
+  _pn_receipt file "$HOME/.local/bin/starship"
 }
 
 _vf_install_eza() {
@@ -76,12 +88,15 @@ _vf_install_lazydocker() {
   DIR="$HOME/.local/bin" curl -fsSL --connect-timeout 15 --max-time 300 \
     https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh \
     | bash
+  _pn_receipt file "$HOME/.local/bin/lazydocker"
 }
 
 _vf_install_uv() {
   if has_cmd uv; then log_info "OK: uv presente"; return 0; fi
   log_info "Instalando uv (Astral)…"
   curl_pipe https://astral.sh/uv/install.sh
+  _pn_receipt file "$HOME/.local/bin/uv"
+  _pn_receipt file "$HOME/.local/bin/uvx"
 }
 
 mod_tools_doctor() {

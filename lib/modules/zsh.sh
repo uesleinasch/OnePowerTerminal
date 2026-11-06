@@ -7,6 +7,14 @@ mod_zsh_meta() {
 
 mod_zsh_cost() { printf '2\t80\t1\n'; }
 
+mod_zsh_name() { echo "Zsh + Powerlevel10k"; }
+
+mod_zsh_category() { echo shell; }
+
+mod_zsh_installed() {
+  has_cmd zsh && [[ -d "$_PN_OMZ_DIR" ]]
+}
+
 mod_zsh_requires() { printf 'git\tgit\ncurl\tcurl\n'; }
 
 _PN_OMZ_DIR="$HOME/.oh-my-zsh"
@@ -27,6 +35,7 @@ mod_zsh_install() {
       RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
         sh -c "$(curl -fsSL --connect-timeout 15 --max-time 300 \
           https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+      _pn_receipt dir "$_PN_OMZ_DIR"
     fi
   else
     log_info "OK: Oh-My-Zsh já instalado"
@@ -87,6 +96,7 @@ _vf_set_default_shell() {
     return 0
   fi
 
+  _pn_receipt login_shell "$(login_shell)"
   if as_sudo chsh -s "$zsh_path" "$usuario"; then
     log_success "zsh definido como shell padrão."
     post_install_note "Reinicie a máquina (ou saia da sessão e entre de novo) para o zsh assumir como shell padrão — a troca só vale no próximo login."

@@ -11,6 +11,12 @@ mod_theme_meta() {
 
 mod_theme_cost() { printf '0\t0\t0\n'; }
 
+mod_theme_name() { echo "Tema Catppuccin"; }
+
+mod_theme_category() { echo shell; }
+
+mod_theme_installed() { pn_links_installed theme; }
+
 _PN_THEME_FLAVORS=(latte frappe macchiato mocha)
 _PN_THEME_DEFAULT="mocha"
 _PN_THEME_STATE_DIR="$HOME/.config/powerterminal"

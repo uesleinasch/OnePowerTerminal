@@ -7,6 +7,12 @@ mod_helpers_meta() {
 
 mod_helpers_cost() { printf '1\t1\t0\n'; }
 
+mod_helpers_name() { echo "Cheatsheets"; }
+
+mod_helpers_category() { echo shell; }
+
+mod_helpers_installed() { pn_links_installed helpers; }
+
 _PN_HELPERS=(myastro mykitty myyazi)
 
 mod_helpers_install() {

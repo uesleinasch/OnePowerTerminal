@@ -8,6 +8,12 @@ mod_kitty_meta() {
 
 mod_kitty_cost() { printf '2\t100\t0\n'; }
 
+mod_kitty_name() { echo "Kitty"; }
+
+mod_kitty_category() { echo terminal; }
+
+mod_kitty_installed() { [[ -x "$_PN_KITTY_DIR/bin/kitty" ]]; }
+
 mod_kitty_requires() { printf 'curl\tcurl\n'; }
 
 _PN_KITTY_DIR="$HOME/.local/kitty.app"
@@ -35,6 +41,7 @@ _vf_install_kitty_binary() {
   # -f: sem ele, uma página de erro HTTP seria canalizada para o sh.
   curl -fL --connect-timeout 15 --max-time 600 "$_PN_KITTY_INSTALLER" | sh /dev/stdin \
     || die "Kitty installer falhou."
+  _pn_receipt dir "$_PN_KITTY_DIR"
 }
 
 # Passo 2 do guia oficial: symlinks dos binários para o PATH do usuário.
@@ -60,6 +67,7 @@ _vf_install_kitty_desktop() {
   for f in "$apps_src"/*.desktop; do
     [[ -f "$f" ]] || continue
     cp -f "$f" "$apps_dst/$(basename "$f")"
+    _pn_receipt file "$apps_dst/$(basename "$f")"
   done
 
   # Substituições recomendadas pelo upstream para que o launcher use o caminho real.

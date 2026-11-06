@@ -7,6 +7,12 @@ mod_nvim_meta() {
 
 mod_nvim_cost() { printf '1\t60\t1\n'; }
 
+mod_nvim_name() { echo "Neovim"; }
+
+mod_nvim_category() { echo editor; }
+
+mod_nvim_installed() { has_cmd nvim; }
+
 _PN_NVIM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
 _PN_NVIM_PREFIX="/opt"
 
@@ -32,6 +38,8 @@ mod_nvim_install() {
   as_sudo rm -rf "$_PN_NVIM_PREFIX/nvim" "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
   as_sudo tar -C "$_PN_NVIM_PREFIX" -xzf "$tmp/nvim.tar.gz"
   as_sudo ln -sf "$_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim" /usr/local/bin/nvim
+  _pn_receipt dir "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
+  _pn_receipt file /usr/local/bin/nvim
   rm -rf "$tmp"
   log_success "Neovim instalado: $(nvim --version 2>/dev/null | head -1 || echo '(verifique o PATH)')"
 }
