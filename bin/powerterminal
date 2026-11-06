@@ -2,6 +2,10 @@
 # powerterminal — replicador de ambiente (Neovim/AstroNvim/Zsh/Kitty/helpers) para Ubuntu/Debian/Pop!_OS.
 set -euo pipefail
 
+# Estado interno entre funções e subshells; herdado do ambiente, desviaria os
+# recibos, os eventos e a purga de dados de uma execução real.
+unset PN_RECEIPT_DIR PN_RECEIPT_MODULE PN_EVENT_MODULE PN_EVENTS_FD PN_PURGE_DATA
+
 POWERTERMINAL_ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 export POWERTERMINAL_HOME="$POWERTERMINAL_ROOT"
 
@@ -346,7 +350,6 @@ _vf_remove_preview_receipts() {
 
 cmd_remove() {
   local modules_csv="" yes=0 purge=0 m i deps lista=""
-  unset PN_PURGE_DATA
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
