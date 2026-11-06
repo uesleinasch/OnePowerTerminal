@@ -10,6 +10,12 @@ mod_container_meta() {
 # um valor dinâmico criaria um caminho que só serve para embelezar o resumo.
 mod_container_cost() { printf '4\t520\t1\n'; }
 
+mod_container_name() { echo "Docker ou Podman"; }
+
+mod_container_category() { echo dev; }
+
+mod_container_installed() { has_cmd docker || has_cmd podman; }
+
 mod_container_needs() { echo apt; }
 
 _PN_DOCKER_PKGS=(docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin)
@@ -160,6 +166,7 @@ _vf_add_docker_group() {
   fi
 
   if as_sudo usermod -aG docker "$usuario"; then
+    _pn_receipt group docker
     log_success "$usuario adicionado ao grupo docker."
     post_install_note "Reinicie a máquina (ou saia da sessão e entre de novo) para o grupo docker valer — a mudança só se aplica num login novo. Para testar já nesta sessão: 'newgrp docker'."
   else
@@ -241,6 +248,7 @@ _vf_ensure_subid() {
     --add-subuids "${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END}" \
     --add-subgids "${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END}" \
     "$usuario"; then
+    _pn_receipt subids "$usuario"
     log_success "subuid/subgid configurados para $usuario."
   else
     log_warn "usermod --add-subuids falhou — vai para as tarefas manuais."
@@ -262,6 +270,7 @@ _vf_enable_podman_socket() {
     return 0
   fi
   if systemctl --user enable --now podman.socket 2>/dev/null; then
+    _pn_receipt user_unit podman.socket
     log_success "podman.socket habilitado para o usuário."
   else
     log_warn "não consegui habilitar podman.socket (sessão systemd de usuário ausente?)."

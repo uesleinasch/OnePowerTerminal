@@ -7,6 +7,12 @@ mod_vscode_meta() {
 
 mod_vscode_cost() { printf '2\t400\t1\n'; }
 
+mod_vscode_name() { echo "Visual Studio Code"; }
+
+mod_vscode_category() { echo editor; }
+
+mod_vscode_installed() { has_cmd code; }
+
 _PN_VSCODE_KEY="https://packages.microsoft.com/keys/microsoft.asc"
 _PN_VSCODE_REPO="https://packages.microsoft.com/repos/code"
 _PN_VSCODE_DEBCONF="code code/add-microsoft-repo boolean false"

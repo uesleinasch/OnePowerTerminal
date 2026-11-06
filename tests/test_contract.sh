@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "${POWERTERMINAL_HOME}/tests/lib.sh"
+TMP_HOME="$(mktemp -d)"
+trap 'rm -rf "$TMP_HOME"' EXIT
+export HOME="$TMP_HOME" XDG_STATE_HOME="$TMP_HOME/state"
 source "${POWERTERMINAL_HOME}/lib/core.sh"
+source "${POWERTERMINAL_HOME}/lib/receipt.sh"
 for m in "${POWERTERMINAL_HOME}"/lib/modules/*.sh; do
   # shellcheck source=/dev/null
   source "$m"
@@ -15,6 +19,43 @@ for m in "${MODULOS[@]}"; do
   declare -F "mod_${m}_cost" >/dev/null || faltando="$faltando $m"
 done
 assert_eq "" "$faltando"
+
+it "todo modulo declara installed, name e category"
+faltando=""
+for m in "${MODULOS[@]}"; do
+  for f in installed name category; do
+    declare -F "mod_${m}_${f}" >/dev/null || faltando="$faltando ${m}:${f}"
+  done
+done
+assert_eq "" "$faltando"
+
+it "category e uma das seis"
+ruim=""
+for m in "${MODULOS[@]}"; do
+  declare -F "mod_${m}_category" >/dev/null || { ruim="$ruim $m"; continue; }
+  case "$("mod_${m}_category")" in
+    base|shell|editor|terminal|dev|extras) ;;
+    *) ruim="$ruim $m" ;;
+  esac
+done
+assert_eq "" "$ruim"
+
+it "name tem uma linha nao vazia"
+ruim=""
+for m in "${MODULOS[@]}"; do
+  declare -F "mod_${m}_name" >/dev/null || { ruim="$ruim $m"; continue; }
+  [[ "$("mod_${m}_name" | wc -l)" == "1" && -n "$("mod_${m}_name")" ]] || ruim="$ruim $m"
+done
+assert_eq "" "$ruim"
+
+it "installed nao imprime nada"
+ruim=""
+for m in "${MODULOS[@]}"; do
+  declare -F "mod_${m}_installed" >/dev/null || { ruim="$ruim $m"; continue; }
+  saida="$("mod_${m}_installed" 2>&1 || true)"
+  [[ -z "$saida" ]] || ruim="$ruim $m"
+done
+assert_eq "" "$ruim"
 
 it "todo cost tem 3 campos separados por TAB"
 ruim=""

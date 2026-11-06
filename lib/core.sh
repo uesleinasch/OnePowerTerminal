@@ -541,3 +541,14 @@ status_line() {
     printf "  %s✗%s %s\n" "$C_RED" "$C_R" "$label"
   fi
 }
+
+# Verdadeiro quando todo destino de mod_<m>_links é symlink cujo alvo literal é a origem.
+pn_links_installed() {
+  local src dst achou=0
+  while IFS=$'\t' read -r src dst; do
+    [[ -n "$dst" ]] || continue
+    achou=1
+    [[ -L "$dst" && "$(readlink "$dst")" == "$src" ]] || return 1
+  done < <("mod_${1}_links")
+  [[ "$achou" == 1 ]]
+}

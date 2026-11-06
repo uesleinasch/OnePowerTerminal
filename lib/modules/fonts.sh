@@ -9,6 +9,17 @@ mod_fonts_needs() { echo apt; }
 
 mod_fonts_cost() { printf '1\t30\t1\n'; }
 
+mod_fonts_name() { echo "MesloLGS NF"; }
+
+mod_fonts_category() { echo base; }
+
+mod_fonts_installed() {
+  local entry
+  for entry in "${_PN_FONTS[@]}"; do
+    [[ -f "$_PN_FONTS_DIR/${entry%%|*}" ]] || return 1
+  done
+}
+
 _PN_FONTS_DIR="$HOME/.local/share/fonts"
 _PN_FONTS=(
   "MesloLGS NF Regular.ttf|https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
@@ -27,6 +38,7 @@ mod_fonts_install() {
       log_info "OK: $file"
     else
       download_to "$url" "$dst"
+      _pn_receipt file "$dst"
     fi
   done
   log_info "Atualizando cache de fontes…"

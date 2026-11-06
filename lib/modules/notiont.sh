@@ -7,6 +7,12 @@ mod_notiont_meta() {
 
 mod_notiont_cost() { printf '1\t20\t0\n'; }
 
+mod_notiont_name() { echo "notion-t"; }
+
+mod_notiont_category() { echo extras; }
+
+mod_notiont_installed() { has_cmd notion-t; }
+
 _PN_NOTIONT_GIT="git+https://github.com/uesleinasch/notion-t.git"
 
 mod_notiont_install() {
@@ -22,6 +28,7 @@ mod_notiont_install() {
     return 0
   fi
   pipx install "$_PN_NOTIONT_GIT" || die "Falha ao instalar notion-t."
+  _pn_receipt pipx notion-t
   post_install_note "Rode 'notion-t' para iniciar o setup wizard (token Notion + database)."
 }
 

@@ -7,6 +7,14 @@ mod_claude_meta() {
 
 mod_claude_cost() { printf '1\t200\t0\n'; }
 
+mod_claude_name() { echo "Claude Code"; }
+
+mod_claude_category() { echo dev; }
+
+mod_claude_installed() {
+  has_cmd claude || [[ -x "$HOME/.local/bin/claude" ]]
+}
+
 _PN_CLAUDE_INSTALLER="https://claude.ai/install.sh"
 
 mod_claude_install() {
@@ -30,6 +38,8 @@ mod_claude_install() {
     die "O instalador do Claude Code falhou."
   fi
   rm -f "$tmp"
+  _pn_receipt file "$HOME/.local/bin/claude"
+  _pn_receipt dir "$HOME/.local/share/claude"
   post_install_note "Rode 'claude' para fazer login na sua conta Anthropic."
 }
 

@@ -4,6 +4,7 @@ source "${POWERTERMINAL_HOME}/tests/lib.sh"
 source "${POWERTERMINAL_HOME}/lib/core.sh"
 source "${POWERTERMINAL_HOME}/lib/receipt.sh"
 
+REPO_REAL="$POWERTERMINAL_HOME"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home" XDG_STATE_HOME="$TMP/state"
@@ -86,5 +87,29 @@ reset
   PN_RECEIPT_MODULE=vscode apt_add_repo vscode http://k http://r stable main </dev/null
   [[ "$(pn_receipt_entries vscode apt_repo)" == $'apt_repo\tvscode' ]]
 ) && pass || fail "apt_repo vscode ausente"
+
+it "zsh grava o shell de login anterior antes do chsh"
+reset
+(
+  source "$REPO_REAL/lib/modules/zsh.sh"
+  has_cmd() { return 0; }
+  login_shell() { echo /bin/bash; }
+  sudo_ready() { return 0; }
+  as_sudo() { return 0; }
+  post_install_note() { :; }
+  log_success() { :; }
+  PN_RECEIPT_MODULE=zsh _vf_set_default_shell
+  [[ "$(pn_receipt_entries zsh login_shell)" == $'login_shell\t/bin/bash' ]]
+) && pass || fail "login_shell /bin/bash ausente"
+
+it "helpers instalado em HOME temporario fica installed"
+reset
+mkdir -p "$TMP/repo/bin-helpers"
+for h in myastro mykitty myyazi; do : >"$TMP/repo/bin-helpers/$h"; chmod +x "$TMP/repo/bin-helpers/$h"; done
+(
+  source "$REPO_REAL/lib/modules/helpers.sh"
+  PN_RECEIPT_MODULE=helpers mod_helpers_install
+  mod_helpers_installed
+) && pass || fail "helpers não ficou installed"
 
 test_summary

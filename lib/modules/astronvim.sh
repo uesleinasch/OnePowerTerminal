@@ -9,6 +9,12 @@ mod_astronvim_needs() { echo nvim; }
 
 mod_astronvim_cost() { printf '1\t5\t0\n'; }
 
+mod_astronvim_name() { echo "AstroNvim"; }
+
+mod_astronvim_category() { echo editor; }
+
+mod_astronvim_installed() { pn_links_installed astronvim; }
+
 mod_astronvim_install() {
   local src="$POWERTERMINAL_HOME/home/.config/nvim"
   [[ -d "$src" ]] || die "PowerTerminal/home/.config/nvim não existe no repo."

@@ -7,6 +7,14 @@ mod_node_meta() {
 
 mod_node_cost() { printf '3\t120\t0\n'; }
 
+mod_node_name() { echo "Node.js LTS"; }
+
+mod_node_category() { echo dev; }
+
+mod_node_installed() {
+  [[ -s "$_PN_NVM_DIR/nvm.sh" ]] || [[ -x "$_PN_N_PREFIX/bin/n" ]] || _vf_is_real_n
+}
+
 mod_node_requires() { printf 'git\tgit\ncurl\tcurl\n'; }
 
 _PN_NVM_DIR="$HOME/.nvm"
@@ -78,6 +86,7 @@ _vf_install_nvm() {
     "$(curl -fsSL --connect-timeout 15 --max-time 300 \
       "https://raw.githubusercontent.com/nvm-sh/nvm/${_PN_NVM_VERSION}/install.sh")" \
     || die "Falha ao instalar nvm."
+  _pn_receipt dir "$_PN_NVM_DIR"
 }
 
 _vf_install_n() {
@@ -95,6 +104,7 @@ _vf_install_n() {
     https://raw.githubusercontent.com/mklement0/n-install/master/bin/n-install \
     | env N_PREFIX="$_PN_N_PREFIX" bash -s -- -y -n \
     || die "Falha ao instalar n."
+  _pn_receipt dir "$_PN_N_PREFIX"
 }
 
 _vf_install_node_via_nvm() {
