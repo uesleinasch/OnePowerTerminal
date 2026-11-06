@@ -379,13 +379,40 @@ _vf_container_recibo_tem_apt() {
   [[ $'\n'"$(pn_receipt_entries container apt)"$'\n' == *$'\n'"apt"$'\t'"$1"$'\n'* ]]
 }
 
-# /var/lib/docker e /var/lib/containerd nunca estão no recibo e não passam pelo
-# guard de caminhos do pn_receipt_undo: são estes dois caminhos fixos, só com
-# --purge-data (confirmado à parte) e só quando o docker-ce foi instalado pelo
-# módulo — dados de um Docker que o usuário já tinha nunca são apagados.
+# Pacote → diretório de dados que o --purge-data apaga. Estes caminhos fixos nunca
+# estão no recibo e não passam pelo guard do pn_receipt_undo: cada um só sai se o
+# pacote dele estava no recibo (foi o módulo que instalou) e já não está
+# instalado — um containerd.io do próprio usuário (nerdctl, k8s) nunca é tocado.
+_PN_DOCKER_DADOS=("docker-ce:/var/lib/docker" "containerd.io:/var/lib/containerd")
+
+# Na dúvida conta como instalado: o rm dos dados só vale com o pacote fora.
+_vf_pkg_instalado() {
+  local st
+  st="$(dpkg -s "$1" 2>/dev/null)" || return 1
+  [[ "$st" != *"Status: "*" config-files"* && "$st" != *"Status: "*" not-installed"* ]]
+}
+
+# _vf_purge_docker_data PACOTE… — os pacotes que estavam no recibo antes do undo.
 _vf_purge_docker_data() {
-  log_info "Apagando imagens, containers e volumes do Docker…"
-  as_sudo rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd
+  local par pkg dir rc=0
+  local -a falharam=()
+  for par in "${_PN_DOCKER_DADOS[@]}"; do
+    pkg="${par%%:*}" dir="${par#*:}"
+    [[ " $* " == *" $pkg "* ]] || continue
+    if [[ "$DRY_RUN" != "1" ]] && _vf_pkg_instalado "$pkg"; then
+      log_warn "$pkg continua instalado — $dir fica (apagar com o serviço no ar corromperia os dados)."
+      rc=1
+      continue
+    fi
+    log_info "Apagando $dir…"
+    as_sudo rm -rf --one-file-system -- "$dir" || falharam+=("$dir")
+  done
+  if (( ${#falharam[@]} > 0 )); then
+    log_warn "Não consegui apagar ${falharam[*]}."
+    post_install_note "Apague os dados do Docker que sobraram: sudo rm -rf --one-file-system -- ${falharam[*]}"
+    rc=1
+  fi
+  return "$rc"
 }
 
 _vf_purge_podman_data() {
@@ -400,11 +427,14 @@ _vf_purge_podman_data() {
 # O podman system reset precisa do podman, então roda antes da purga; o rm de
 # /var/lib/docker só depois, com o daemon já parado pelo prerm do docker-ce.
 mod_container_remove() {
-  local docker=0 podman=0 rc=0
+  local podman=0 rc=0 par
+  local -a docker_pkgs=()
   if [[ "${PN_PURGE_DATA:-0}" == "1" ]]; then
-    _vf_container_recibo_tem_apt docker-ce && docker=1
+    for par in "${_PN_DOCKER_DADOS[@]}"; do
+      _vf_container_recibo_tem_apt "${par%%:*}" && docker_pkgs+=("${par%%:*}")
+    done
     _vf_container_recibo_tem_apt podman && podman=1
-    [[ "$docker" == 1 || "$podman" == 1 ]] \
+    [[ ${#docker_pkgs[@]} -gt 0 || "$podman" == 1 ]] \
       || log_warn "Nem Docker nem Podman foram instalados pelo PowerTerminal — os dados ficam."
   fi
 
@@ -415,37 +445,36 @@ mod_container_remove() {
 
   pn_receipt_undo container || rc=$?
 
-  if [[ "$docker" == 1 ]]; then
-    if [[ "$DRY_RUN" == "1" ]] || ! _vf_container_recibo_tem_apt docker-ce; then
-      _vf_purge_docker_data || rc=1
-    else
-      log_warn "docker-ce continua instalado — /var/lib/docker fica (apagar com o daemon no ar corromperia os dados)."
-      rc=1
-    fi
+  if [[ ${#docker_pkgs[@]} -gt 0 ]]; then
+    _vf_purge_docker_data "${docker_pkgs[@]}" || rc=1
   fi
   return "$rc"
 }
 
 # MB (decimais, como o docker/podman os mostram) somados de imagens, containers
-# e volumes. Nunca usa sudo: sem acesso ao daemon, não imprime nada.
+# e volumes — sem o build cache. Nunca usa sudo, e com o Docker só mede com o
+# daemon já no ar: o catalog roda isto a cada chamada, e o `docker` cliente
+# acordaria pelo docker.socket um daemon que o usuário parou.
 mod_container_data_mb() {
   local -a cmd=()
   if _vf_is_real_docker; then
-    cmd=(docker system df --format '{{.Size}}')
+    has_cmd systemctl && systemctl is-active --quiet docker.service </dev/null 2>/dev/null || return 0
+    cmd=(docker system df --format '{{.Type}}\t{{.Size}}')
   elif has_cmd podman; then
-    cmd=(podman system df --format '{{.Size}}')
+    cmd=(podman system df --format '{{.Type}}\t{{.Size}}')
   else
     return 0
   fi
   has_cmd timeout && cmd=(timeout 10 "${cmd[@]}")
   local saida
   saida="$("${cmd[@]}" </dev/null 2>/dev/null)" || return 0
-  LC_ALL=C awk '
+  LC_ALL=C awk -F'\t' '
     BEGIN { f["B"] = 1e-6; f["kB"] = 1e-3; f["KB"] = 1e-3; f["MB"] = 1; f["GB"] = 1e3; f["TB"] = 1e6 }
-    NF == 0 { next }
-    match($1, /^[0-9]+(\.[0-9]+)?/) {
-      u = substr($1, RLENGTH + 1)
-      if (NF == 1 && (u in f)) { total += substr($1, 1, RLENGTH) * f[u]; n++; next }
+    $0 ~ /^[[:space:]]*$/ { next }
+    NF == 2 && $1 == "Build Cache" { next }
+    NF == 2 && match($2, /^[0-9]+(\.[0-9]+)?/) {
+      u = substr($2, RLENGTH + 1)
+      if (u in f) { total += substr($2, 1, RLENGTH) * f[u]; n++; next }
     }
     { ruim = 1 }
     END { if (!ruim && n > 0) printf "%d\n", total + 0.5 }

@@ -68,10 +68,11 @@ mkdir -p "$TMP/df"
 cat >"$TMP/df/docker" <<'EOF'
 #!/bin/sh
 [ "$1" = --version ] && { echo "Docker version 24.0.7"; exit 0; }
-[ "$1 $2" = "system df" ] && { printf '2GB\n512MB\n'; exit 0; }
+[ "$1 $2" = "system df" ] && { printf 'Images\t2GB\nLocal Volumes\t512MB\nBuild Cache\t9GB\n'; exit 0; }
 exit 1
 EOF
-chmod +x "$TMP/df/docker"
+printf '#!/bin/sh\n[ "$1" = is-active ] && exit 0\nexit 1\n' >"$TMP/df/systemctl"
+chmod +x "$TMP/df/docker" "$TMP/df/systemctl"
 PATH="$TMP/df:$PATH" "$CLI" catalog --json >"$TMP/d.json" 2>/dev/null || true
 assert_eq 2512 "$(campo '[m for m in d["modules"] if m["id"]=="container"][0]["data_mb"]' <"$TMP/d.json")"
 
