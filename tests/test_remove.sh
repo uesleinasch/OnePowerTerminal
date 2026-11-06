@@ -201,7 +201,7 @@ assert_contains "$out" "rm -rf --one-file-system -- $TMP/home/.nvm"
 it "o dry-run não grava recibo nem marcador reais e não apaga o ~/.nvm"
 [[ ! -e "$R/node" && ! -e "$R/.migrated-v1" && -f "$TMP/home/.nvm/nvm.sh" ]] && pass || fail "dry-run mexeu no estado real"
 it "o dry-run limpa o diretório temporário de prévia"
-assert_eq "" "$(ls -A "$TMP/tmpdir" | grep -v '^powerterminal-\(notes\|answers\)' || true)"
+assert_eq "" "$(find "$TMP/tmpdir" -mindepth 1 -maxdepth 1 ! -name 'powerterminal-notes*' ! -name 'powerterminal-answers*' -printf '%f\n')"
 
 it "pipx que já não lista o pacote conta como desfeito"
 reset
@@ -994,6 +994,7 @@ ZSH_MOD="${ZSH_MOD:-$REPO/lib/modules/zsh.sh}"
 omz() {
   undo_env
   PN_RECEIPT_MODULE=zsh
+  # shellcheck source=/dev/null
   source "$ZSH_MOD"
   has_cmd() { [[ "$1" == zsh ]] || command -v "$1" >/dev/null 2>&1; }
   curl() { printf '%s\n' 'mkdir -p "$HOME/.oh-my-zsh"; [ -e "$HOME/.zshrc" ] || echo template >"$HOME/.zshrc"'; }
@@ -1007,7 +1008,9 @@ it "o ~/.zshrc de template do instalador do OMZ não vira .pnbak"
 
 it "o ~/.zshrc que o usuário já tinha vira .pnbak"
 ( undo_env; printf 'meu\n' >"$HOME/.zshrc"
-  PN_RECEIPT_MODULE=zsh; source "$ZSH_MOD"
+  PN_RECEIPT_MODULE=zsh
+  # shellcheck source=/dev/null
+  source "$ZSH_MOD"
   has_cmd() { [[ "$1" == zsh ]] || command -v "$1" >/dev/null 2>&1; }
   curl() { printf '%s\n' 'mkdir -p "$HOME/.oh-my-zsh"'; }
   clone_or_pull() { :; }; _vf_set_default_shell() { :; }
