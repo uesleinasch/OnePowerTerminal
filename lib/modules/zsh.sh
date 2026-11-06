@@ -22,13 +22,14 @@ _PN_OMZ_CUSTOM="${ZSH_CUSTOM:-$_PN_OMZ_DIR/custom}"
 
 mod_zsh_install() {
   require_supported_distro
+  pn_step 1 5 "Instalando o pacote zsh…"
   if ! has_cmd zsh; then
     apt_update_once
     apt_install zsh
   fi
 
+  pn_step 2 5 "Instalando Oh-My-Zsh…"
   if [[ ! -d "$_PN_OMZ_DIR" ]]; then
-    log_info "Instalando Oh-My-Zsh…"
     if [[ "$DRY_RUN" == "1" ]]; then
       log_dry "curl https://.../ohmyzsh/install.sh | sh (RUNZSH=no CHSH=no KEEP_ZSHRC=yes)"
     else
@@ -44,6 +45,7 @@ mod_zsh_install() {
   _PN_OMZ_CUSTOM="${ZSH_CUSTOM:-$_PN_OMZ_DIR/custom}"
   run mkdir -p "$_PN_OMZ_CUSTOM/themes" "$_PN_OMZ_CUSTOM/plugins"
 
+  pn_step 3 5 "Instalando Powerlevel10k e plugins…"
   clone_or_pull \
     "https://github.com/romkatv/powerlevel10k.git" \
     "$_PN_OMZ_CUSTOM/themes/powerlevel10k" \
@@ -59,9 +61,11 @@ mod_zsh_install() {
     "$_PN_OMZ_CUSTOM/plugins/zsh-syntax-highlighting" \
     "zsh-syntax-highlighting"
 
+  pn_step 4 5 "Linkando .zshrc e .p10k.zsh…"
   link_safe "$POWERTERMINAL_HOME/home/.zshrc"   "$HOME/.zshrc"
   link_safe "$POWERTERMINAL_HOME/home/.p10k.zsh" "$HOME/.p10k.zsh"
 
+  pn_step 5 5 "Definindo zsh como shell padrão…"
   _vf_set_default_shell
 }
 
@@ -99,7 +103,7 @@ _vf_set_default_shell() {
   _pn_receipt login_shell "$(login_shell)"
   if as_sudo chsh -s "$zsh_path" "$usuario"; then
     log_success "zsh definido como shell padrão."
-    post_install_note "Reinicie a máquina (ou saia da sessão e entre de novo) para o zsh assumir como shell padrão — a troca só vale no próximo login."
+    pn_session_restart "o zsh assumir como shell padrão"
   else
     log_warn "chsh falhou — shell padrão vai para as tarefas manuais."
     _vf_nota_shell_padrao "$zsh_path"

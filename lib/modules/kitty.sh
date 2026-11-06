@@ -21,9 +21,13 @@ _PN_KITTY_INSTALLER="https://sw.kovidgoyal.net/kitty/installer.sh"
 
 mod_kitty_install() {
   ensure_local_bin
+  pn_step 1 4 "Instalando o Kitty…"
   _vf_install_kitty_binary
+  pn_step 2 4 "Linkando kitty e kitten em ~/.local/bin…"
   _vf_link_kitty_binaries
+  pn_step 3 4 "Instalando os atalhos do menu…"
   _vf_install_kitty_desktop
+  pn_step 4 4 "Linkando a configuração do Kitty…"
   link_safe "$POWERTERMINAL_HOME/home/.config/kitty" "$HOME/.config/kitty"
 }
 
@@ -33,7 +37,7 @@ _vf_install_kitty_binary() {
     log_info "OK: Kitty já instalado em $_PN_KITTY_DIR"
     return 0
   fi
-  log_info "Instalando Kitty (método oficial: $_PN_KITTY_INSTALLER)…"
+  log_info "Método oficial: $_PN_KITTY_INSTALLER"
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "curl -L $_PN_KITTY_INSTALLER | sh /dev/stdin"
     return 0

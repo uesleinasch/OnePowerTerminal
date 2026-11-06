@@ -29,10 +29,12 @@ mod_claude_install() {
 
   # O instalador é bash, não sh: curl_pipe não serve aqui.
   local tmp; tmp="$(mktemp)"
+  pn_step 1 2 "Baixando o instalador do Claude Code…"
   if ! download_to "$_PN_CLAUDE_INSTALLER" "$tmp"; then
     rm -f "$tmp"
     die "Falha ao baixar o instalador do Claude Code."
   fi
+  pn_step 2 2 "Rodando o instalador do Claude Code…"
   if ! bash "$tmp"; then
     rm -f "$tmp"
     die "O instalador do Claude Code falhou."

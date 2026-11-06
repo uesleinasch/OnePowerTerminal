@@ -33,10 +33,12 @@ mod_nvim_install() {
     return 0
   fi
   local tmp; tmp="$(mktemp -d)"
+  pn_step 1 3 "Baixando o Neovim…"
   download_to "$_PN_NVIM_URL" "$tmp/nvim.tar.gz"
-  log_info "Limpando instalações antigas em $_PN_NVIM_PREFIX/nvim*…"
+  pn_step 2 3 "Extraindo em $_PN_NVIM_PREFIX (removendo instalações antigas)…"
   as_sudo rm -rf "$_PN_NVIM_PREFIX/nvim" "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
   as_sudo tar -C "$_PN_NVIM_PREFIX" -xzf "$tmp/nvim.tar.gz"
+  pn_step 3 3 "Linkando nvim em /usr/local/bin…"
   as_sudo ln -sf "$_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim" /usr/local/bin/nvim
   _pn_receipt dir "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
   _pn_receipt file /usr/local/bin/nvim
