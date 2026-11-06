@@ -112,4 +112,17 @@ for h in myastro mykitty myyazi; do : >"$TMP/repo/bin-helpers/$h"; chmod +x "$TM
   mod_helpers_installed
 ) && pass || fail "helpers não ficou installed"
 
+it "kitty não grava no recibo um .desktop que já existia"
+reset
+mkdir -p "$TMP/kapp/share/applications" "$HOME/.local/share/applications"
+: >"$TMP/kapp/share/applications/kitty.desktop"
+: >"$TMP/kapp/share/applications/kitty-open.desktop"
+: >"$HOME/.local/share/applications/kitty.desktop"
+(
+  source "$REPO_REAL/lib/modules/kitty.sh"
+  _PN_KITTY_DIR="$TMP/kapp"
+  PN_RECEIPT_MODULE=kitty _vf_install_kitty_desktop
+  [[ "$(pn_receipt_entries kitty file)" == $'file\t'"$HOME/.local/share/applications/kitty-open.desktop" ]]
+) && pass || fail "recibo deveria conter só o .desktop novo"
+
 test_summary

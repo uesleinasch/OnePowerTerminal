@@ -66,8 +66,10 @@ _vf_install_kitty_desktop() {
 
   for f in "$apps_src"/*.desktop; do
     [[ -f "$f" ]] || continue
-    cp -f "$f" "$apps_dst/$(basename "$f")"
-    _pn_receipt file "$apps_dst/$(basename "$f")"
+    local dst="$apps_dst/$(basename "$f")" existia=0
+    [[ -e "$dst" ]] && existia=1
+    cp -f "$f" "$dst"
+    [[ "$existia" == 1 ]] || _pn_receipt file "$dst"
   done
 
   # Substituições recomendadas pelo upstream para que o launcher use o caminho real.
