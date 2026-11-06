@@ -77,10 +77,7 @@ _vf_theme_apply() {
   _vf_theme_write "$_PN_THEME_STATE" "$flavor"
 
   if [[ -d "$_PN_THEME_KITTY_DIR" ]]; then
-    _vf_theme_write "$_PN_THEME_KITTY_INCLUDE" \
-      "# Gerado por \`powerterminal theme <flavor>\` — a escolha canônica vive em" \
-      "# ~/.config/powerterminal/theme." \
-      "include themes/$flavor.conf"
+    _vf_theme_write_kitty "$flavor"
   else
     log_warn "theme: $_PN_THEME_KITTY_DIR não existe — instale o módulo kitty para o terminal acompanhar"
   fi
@@ -134,6 +131,13 @@ PY
     4) log_warn "theme: chave \"theme\" ausente em $_PN_THEME_CLAUDE_SETTINGS — defina uma vez em /config" ;;
     *) log_warn "theme: não consegui ajustar o tema do Claude Code (rc=$rc)" ;;
   esac
+}
+
+_vf_theme_write_kitty() {
+  _vf_theme_write "$_PN_THEME_KITTY_INCLUDE" \
+    "# Gerado por \`powerterminal theme <flavor>\` — a escolha canônica vive em" \
+    "# ~/.config/powerterminal/theme." \
+    "include themes/$1.conf"
 }
 
 _vf_theme_write() {
@@ -205,9 +209,18 @@ mod_theme_doctor() {
   return 0
 }
 
+_vf_theme_do_repo() { [[ -L "$1" && "$(readlink "$1")" == "$POWERTERMINAL_HOME"/* ]]; }
+
+# Volta ao default só onde o destino ainda é link do repo: um ~/.config/kitty
+# restaurado do usuário e o ~/.claude/settings.json são dele e ficam como estão.
 mod_theme_remove() {
   if pn_receipt_has theme; then
-    _vf_theme_apply "$_PN_THEME_DEFAULT" || return 1
+    if _vf_theme_do_repo "$_PN_THEME_STATE_DIR"; then
+      _vf_theme_write "$_PN_THEME_STATE" "$_PN_THEME_DEFAULT"
+    fi
+    if _vf_theme_do_repo "$_PN_THEME_KITTY_DIR"; then
+      _vf_theme_write_kitty "$_PN_THEME_DEFAULT"
+    fi
   fi
   pn_receipt_undo theme
 }

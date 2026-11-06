@@ -44,10 +44,10 @@ pn_receipt_add() {
 # Sem nenhum link do PowerTerminal na máquina, ~/.nvm, kitty.app e afins são do
 # próprio usuário: deduzir recibo deles faria o remove apagá-los.
 _pn_tem_link_do_repo() {
-  local m src dst
+  local m dst
   for m in "${_PN_ALL_MODULES[@]}"; do
     declare -F "mod_${m}_links" >/dev/null || continue
-    while IFS=$'\t' read -r src dst; do
+    while IFS=$'\t' read -r _ dst; do
       [[ -n "$dst" && -L "$dst" && "$(readlink "$dst")" == "$POWERTERMINAL_HOME"/* ]] && return 0
     done < <("mod_${m}_links")
   done
@@ -56,7 +56,7 @@ _pn_tem_link_do_repo() {
 
 pn_receipts_migrate() {
   [[ "${DRY_RUN:-0}" != "1" ]] || return 0
-  local dir marker m f src dst alvo
+  local dir marker m f dst alvo
   dir="$(pn_receipt_dir)"
   marker="$dir/.migrated-v1"
   [[ ! -e "$marker" ]] || return 0
@@ -73,7 +73,7 @@ pn_receipts_migrate() {
     mkdir -p "$dir"
     printf 'origin\tdeduced\n' >"$f"
     if declare -F "mod_${m}_links" >/dev/null; then
-      while IFS=$'\t' read -r src dst; do
+      while IFS=$'\t' read -r _ dst; do
         [[ -n "$dst" && -L "$dst" ]] || continue
         alvo="$(readlink "$dst")"
         [[ "$alvo" == "$POWERTERMINAL_HOME"/* ]] && PN_RECEIPT_MODULE="$m" pn_receipt_add link "$dst"
@@ -216,6 +216,22 @@ _pn_apt_purga_leva_junto() {
     }' <<<"$saida"
 }
 
+# O remove nunca roda o autoremove: só avisa, a partir da simulação.
+_pn_apt_avisa_orfaos() {
+  local orfaos
+  [[ "${DRY_RUN:-0}" != "1" ]] || return 0
+  orfaos="$(LC_ALL=C apt-get -s autoremove 2>/dev/null | awk '$1 == "Remv" { print $2 }' | paste -sd' ' -)" || return 0
+  [[ -n "$orfaos" ]] || return 0
+  log_warn "Ficaram pacotes órfãos ($orfaos); para removê-los: sudo apt autoremove"
+}
+
+# Contas, fora a atual, cujo shell de login tem o nome do pacote (zsh, fish…):
+# purgá-lo deixaria essas contas sem shell.
+_pn_contas_com_shell() {
+  { getent passwd 2>/dev/null || true; } | awk -F: -v eu="$(id -un)" -v sh="$1" '
+    $1 != eu { n = split($7, p, "/"); if (p[n] == sh) print $1 }' | paste -sd, -
+}
+
 _pn_undo_login_shell() {
   local sh="$1" usuario
   if [[ "$sh" != /* ]] || ! grep -qxF -- "$sh" /etc/shells 2>/dev/null || [[ ! -x "$sh" ]]; then
@@ -306,7 +322,7 @@ _pn_undo_valor_ok() {
 # Os pacotes apt vão numa purga única no fim, depois de o shell de login ter
 # voltado — purgar o zsh antes deixaria o usuário com um shell inexistente.
 pn_receipt_undo() {
-  local mod="$1" f origin linha tipo valor i shell_falhou=0 extras
+  local mod="$1" f origin linha tipo valor i shell_falhou=0 extras contas
   f="$(pn_receipt_path "$mod")"
   if [[ ! -f "$f" ]]; then
     log_info "Nada do PowerTerminal para desfazer em $mod."
@@ -358,6 +374,9 @@ pn_receipt_undo() {
         log_info "Mantido: $valor (outro módulo também o instalou)."
       elif ! dpkg -s "$valor" >/dev/null 2>&1; then
         log_info "Já ausente: pacote $valor."
+      elif contas="$(_pn_contas_com_shell "$valor")" && [[ -n "$contas" ]]; then
+        log_warn "Mantido: $valor é o shell de login de $contas — continua no recibo."
+        falhou[$i]=1
       else
         purgar+=("$valor"); idx_purgar+=("$i")
       fi
@@ -371,7 +390,9 @@ pn_receipt_undo() {
         for i in "${idx_purgar[@]}"; do falhou[$i]=1; done
       else
         log_info "Purgando: ${purgar[*]}"
-        if ! as_sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y "${purgar[@]}"; then
+        if as_sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y "${purgar[@]}"; then
+          _pn_apt_avisa_orfaos
+        else
           log_warn "apt-get purge falhou — ${purgar[*]} mantidos no recibo."
           for i in "${idx_purgar[@]}"; do falhou[$i]=1; done
         fi

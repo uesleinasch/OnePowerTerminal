@@ -81,7 +81,8 @@ _vf_install_kitty_desktop() {
 
   for f in "$apps_src"/*.desktop; do
     [[ -f "$f" ]] || continue
-    local dst="$apps_dst/$(basename "$f")" existia=0
+    local dst existia=0
+    dst="$apps_dst/$(basename "$f")"
     [[ -e "$dst" ]] && existia=1
     cp -f "$f" "$dst"
     [[ "$existia" == 1 ]] || _pn_receipt file "$dst"

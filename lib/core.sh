@@ -273,7 +273,12 @@ setup_sudo_keepalive() {
     log_info "sudo: solicitando senha agora (mantida durante todo o install)"
     sudo -v || die "sudo não disponível — abortando."
   fi
-  ( while sudo -n true 2>/dev/null && kill -0 "$$" 2>/dev/null; do sleep 50; done ) &
+  # Sem o fd de eventos e a saída: o sleep órfão segura o pipe e o launcher só
+  # veria o EOF até 50 s depois de o powerterminal sair.
+  (
+    [[ -z "${PN_EVENTS_FD:-}" ]] || exec {PN_EVENTS_FD}>&-
+    while sudo -n true 2>/dev/null && kill -0 "$$" 2>/dev/null; do sleep 50; done
+  ) >/dev/null 2>&1 &
   pn_register_cleanup_pid "$!"
 }
 

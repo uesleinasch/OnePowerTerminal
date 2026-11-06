@@ -40,10 +40,26 @@ mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ause
 mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
 mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
 
+# apt-get dos testes que sourceiam as funções: só simula, sem log (o LOG guarda o que o as_sudo faria).
+APTSIM="$TMP/aptsim"
+mkdir -p "$APTSIM"
+cat >"$APTSIM/apt-get" <<EOF
+#!/usr/bin/env bash
+[[ "\${1:-}" == -s ]] && cat "$TMP/sim-\${2:-}" 2>/dev/null
+exit 0
+EOF
+chmod +x "$APTSIM/apt-get"
+
 # getent falso só para o shell de login (sem log: não polui as asserções do LOG).
 GETENT_REAL="$(command -v getent)"
+# Sem chave (enumeração) lista o usuário atual e as contas de $TMP/outros-passwd.
 cat >"$SHIMS/getent" <<EOF
 #!/usr/bin/env bash
+if [[ "\${1:-}" == passwd && -z "\${2:-}" ]]; then
+  printf '%s:x:1000:1000::%s:%s\n' "\$(id -un)" '$TMP/home' "\$(cat '$TMP/login-shell' 2>/dev/null || echo /bin/bash)"
+  cat '$TMP/outros-passwd' 2>/dev/null
+  exit 0
+fi
 if [[ "\${1:-}" == passwd && -f '$TMP/login-shell' ]]; then
   printf '%s:x:1000:1000::%s:%s\n' "\$(id -un)" '$TMP/home' "\$(cat '$TMP/login-shell')"
   exit 0
@@ -55,7 +71,8 @@ chmod +x "$SHIMS/getent"
 reset() {
   command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir" \
     "$TMP/login-shell" "$TMP/debconf" "$TMP/chsh-falha" "$SHIMS/code" "$SHIMS/podman" \
-    "$TMP/rm-falha" "$TMP/dpkg-ausentes" "$TMP/docker-ativo-rc" "$TMP/sim-purge" "$TMP/sim-autoremove"
+    "$TMP/rm-falha" "$TMP/dpkg-ausentes" "$TMP/docker-ativo-rc" "$TMP/sim-purge" "$TMP/sim-autoremove" \
+    "$TMP/outros-passwd" "$TMP/out"
   mkdir -p "$TMP/home" "$TMP/state" "$TMP/outside"
   : >"$LOG"
 }
@@ -249,7 +266,11 @@ undo_env() {
   POWERTERMINAL_NOTES_FILE="$TMP/notes"; : >"$POWERTERMINAL_NOTES_FILE"
   as_sudo() { printf 'sudo %s\n' "$*" >>"$LOG"; }
   dpkg() { return 0; }
-  apt-get() { [[ "${1:-}" == -s ]] && cat "$TMP/sim-${2:-}" 2>/dev/null; return 0; }
+  export PATH="$APTSIM:$PATH"
+  getent() {
+    if [[ "${1:-}" == passwd && -z "${2:-}" ]]; then cat "$TMP/outros-passwd" 2>/dev/null; return 0; fi
+    command getent "$@"
+  }
   # Cinto de segurança: se o guard falhar, o rm de verdade só age dentro do TMP.
   rm() {
     local a
@@ -275,6 +296,22 @@ assert_eq "sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y uidmap podma
 
 it "nunca roda autoremove"
 assert_eq "" "$(grep autoremove "$LOG" || true)"
+
+it "depois da purga, órfãos geram aviso e nunca um autoremove de verdade"
+(
+  undo_env
+  recibo m 'origin	installed' 'apt	podman'
+  printf 'NOTE: This is only a simulation!\nRemv libpn-orfa [1.0]\n' >"$TMP/sim-autoremove"
+  pn_receipt_undo m >"$TMP/out" 2>&1
+  grep -q 'apt-get purge -y podman' "$LOG" && ! grep -q autoremove "$LOG"
+) && pass || fail "$(cat "$LOG")"
+it "o aviso nomeia os órfãos e sugere sudo apt autoremove"
+out="$(cat "$TMP/out")"
+[[ "$out" == *libpn-orfa* && "$out" == *"sudo apt autoremove"* ]] && pass || fail "$out"
+
+it "sem órfãos não há aviso de autoremove"
+( undo_env; recibo m 'origin	installed' 'apt	podman'; pn_receipt_undo m 2>&1 | grep -q autoremove && exit 1; exit 0 ) \
+  && pass || fail "aviso sem órfãos"
 
 it "entrada dir perigosa é recusada"
 (
@@ -618,6 +655,58 @@ pt remove --module zsh --yes >/dev/null 2>&1 && rc=0 || rc=$?
 [[ "$rc" -ne 0 && -d "$TMP/home/.oh-my-zsh" ]] && ! grep -q purge "$LOG" \
   && [[ "$(wc -l <"$R/zsh")" -eq 3 ]] && pass || fail "rc=$rc $(cat "$LOG")"
 
+it "zsh não é purgado quando outra conta usa zsh como shell de login"
+reset
+echo /bin/bash >"$TMP/login-shell"
+printf 'outra-pn:x:1001:1001::/home/outra-pn:/usr/bin/zsh\n' >"$TMP/outros-passwd"
+recibo zsh 'origin	installed' 'apt	zsh'
+out="$(pt remove --module zsh --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 ]] && ! grep -q 'apt-get purge' "$LOG" && grep -qxF $'apt\tzsh' "$R/zsh" && pass || fail "rc=$rc $(cat "$LOG")"
+it "o aviso nomeia a conta que usa o zsh"
+assert_contains "$out" "outra-pn"
+it "e o shell do usuário atual não volta para o bash à toa"
+reset
+echo /usr/bin/zsh >"$TMP/login-shell"
+printf 'outra-pn:x:1001:1001::/home/outra-pn:/bin/zsh\n' >"$TMP/outros-passwd"
+recibo zsh 'origin	installed' 'apt	zsh'
+pt remove --module zsh --yes >/dev/null 2>&1 || true
+! grep -q chsh "$LOG" && ! grep -q 'apt-get purge' "$LOG" && pass || fail "$(cat "$LOG")"
+it "conta com outro shell não segura o zsh"
+reset
+echo /bin/bash >"$TMP/login-shell"
+printf 'outra-pn:x:1001:1001::/home/outra-pn:/bin/bash\n' >"$TMP/outros-passwd"
+recibo zsh 'origin	installed' 'apt	zsh'
+pt remove --module zsh --yes >/dev/null 2>&1 || true
+grep -q 'apt-get purge -y zsh' "$LOG" && [[ ! -e "$R/zsh" ]] && pass || fail "$(cat "$LOG")"
+
+it "remove do theme não cria current-theme.conf num ~/.config/kitty que não é do PowerTerminal"
+reset
+mkdir -p "$TMP/home/.config/kitty" "$TMP/home/.claude"
+printf '{\n  "theme": "light"\n}\n' >"$TMP/home/.claude/settings.json"
+recibo theme 'origin	installed' "link	$TMP/home/.config/powerterminal"
+pt remove --module theme --yes >/dev/null 2>&1 || true
+[[ ! -e "$TMP/home/.config/kitty/current-theme.conf" && ! -e "$R/theme" ]] && pass || fail "$(ls -la "$TMP/home/.config/kitty")"
+it "nem cria o diretório de estado do tema"
+[[ ! -e "$TMP/home/.config/powerterminal" ]] && pass || fail "$(ls -la "$TMP/home/.config")"
+it "e não reescreve o ~/.claude/settings.json"
+assert_eq $'{\n  "theme": "light"\n}' "$(cat "$TMP/home/.claude/settings.json")"
+
+it "remove do theme repõe mocha no estado e no include que são do PowerTerminal"
+(
+  undo_env
+  FAKE="$TMP/outside/repo"
+  mkdir -p "$FAKE/home/.config/powerterminal" "$FAKE/home/.config/kitty" "$HOME/.config"
+  echo latte >"$FAKE/home/.config/powerterminal/theme"
+  ln -s "$FAKE/home/.config/powerterminal" "$HOME/.config/powerterminal"
+  ln -s "$FAKE/home/.config/kitty" "$HOME/.config/kitty"
+  POWERTERMINAL_HOME="$FAKE"
+  source "$REPO/lib/modules/theme.sh"
+  recibo theme 'origin	installed' "link	$HOME/.config/powerterminal"
+  mod_theme_remove >/dev/null 2>&1
+  [[ "$(cat "$FAKE/home/.config/powerterminal/theme")" == mocha && ! -L "$HOME/.config/powerterminal" ]] \
+    && grep -qx 'include themes/mocha.conf' "$FAKE/home/.config/kitty/current-theme.conf"
+) && pass || fail "estado ou include não voltaram ao mocha"
+
 it "--purge-data só vale para container"
 reset
 recibo zsh 'origin	installed' "dir	$TMP/home/.oh-my-zsh"
@@ -670,6 +759,22 @@ out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
 mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
 [[ "$rc" -ne 0 && "$out" == *"docker-ce continua instalado"* ]] && ! grep -q '/var/lib/docker' "$LOG" \
   && pass || fail "rc=$rc $(cat "$LOG") $out"
+
+it "dpkg com erro depois da purga mantém /var/lib/docker"
+reset
+recibo container 'origin	installed' 'apt	docker-ce'
+mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 2; exit 0"
+out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
+mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
+grep -q 'apt-get purge -y docker-ce' "$LOG" && ! grep -q '/var/lib/docker' "$LOG" && pass || fail "rc=$rc $(cat "$LOG")"
+
+it "Status de outra linha do dpkg não engana a checagem de instalado"
+reset
+recibo container 'origin	installed' 'apt	docker-ce'
+mkshim dpkg "printf 'Status: install ok installed\nDescription: x\n Status: deinstall ok config-files\n'; exit 0"
+out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
+mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
+! grep -q '/var/lib/docker' "$LOG" && [[ "$out" == *"docker-ce continua instalado"* ]] && pass || fail "rc=$rc $(cat "$LOG")"
 
 it "rm dos dados que falha deixa o comando manual nas tarefas"
 reset

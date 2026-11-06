@@ -397,12 +397,9 @@ _vf_container_recibo_tem_apt() {
 # instalado — um containerd.io do próprio usuário (nerdctl, k8s) nunca é tocado.
 _PN_DOCKER_DADOS=("docker-ce:/var/lib/docker" "containerd.io:/var/lib/containerd")
 
-# Na dúvida conta como instalado: o rm dos dados só vale com o pacote fora.
-_vf_pkg_instalado() {
-  local st
-  st="$(dpkg -s "$1" 2>/dev/null)" || return 1
-  [[ "$st" != *"Status: "*" config-files"* && "$st" != *"Status: "*" not-installed"* ]]
-}
+# Na dúvida (dpkg com erro ou ausente) conta como instalado: o rm dos dados só
+# vale com o pacote comprovadamente fora.
+_vf_pkg_instalado() { [[ "$(pn_dpkg_estado "$1")" != absent ]]; }
 
 # _vf_purge_docker_data PACOTE… — os pacotes que estavam no recibo antes do undo.
 _vf_purge_docker_data() {

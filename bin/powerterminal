@@ -620,7 +620,8 @@ _vf_catalog_distro() {
 
 _vf_catalog_module() {
   local m="$1" f meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
-  local -a needs=() nome categoria
+  local -a needs=()
+  local nome categoria
   for f in meta name category installed; do
     declare -F "mod_${m}_${f}" >/dev/null || die "Módulo $m sem a função mod_${m}_${f}."
   done
@@ -644,7 +645,7 @@ _vf_catalog_module() {
   else
     state=available; origin=""
   fi
-  if [[ -n "$origin" ]]; then origin="\"$origin\""; else origin=null; fi
+  if [[ -n "$origin" ]]; then origin="$(pn_json_str "$origin")"; else origin=null; fi
   dados=null
   if declare -F "mod_${m}_data_mb" >/dev/null; then
     dados="$(mod_"${m}"_data_mb)"
@@ -661,6 +662,7 @@ _vf_catalog_module() {
 
 cmd_catalog() {
   [[ "${1:-}" == "--json" ]] || die "catalog exige --json (saída legível por máquina)."
+  [[ $# -eq 1 ]] || die "catalog não aceita outros argumentos: ${*:2}"
   declare -F pn_receipts_migrate >/dev/null && pn_receipts_migrate >&2
   local m perfil sep="" mods="" perfis="" ed version="" lista entrada
   local -a itens
