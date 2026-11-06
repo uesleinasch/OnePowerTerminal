@@ -43,3 +43,5 @@ mod_extras_doctor() {
     fi
   done
 }
+
+mod_extras_remove() { pn_receipt_undo extras; }

@@ -247,13 +247,17 @@ link_safe() {
   _pn_receipt link "$dst"
 }
 
-# unlink_safe DST — remove DST only if it's a symlink owned by PowerTerminal, then
-# restore the most recent backup if one exists.
+# unlink_safe DST [DIR…] — remove DST only if it's a symlink owned by PowerTerminal
+# (or pointing inside one of the DIRs), then restore the most recent backup if one exists.
 unlink_safe() {
-  local dst="$1" era_link=0
+  local dst="$1" era_link=0 dono nosso=0
+  shift
   if [[ -L "$dst" ]]; then
     local target; target="$(readlink "$dst" 2>/dev/null || true)"
-    if [[ "$target" != "$POWERTERMINAL_HOME"/* ]]; then
+    for dono in "$POWERTERMINAL_HOME" "$@"; do
+      [[ -n "$dono" && "$target" == "$dono"/* ]] && nosso=1
+    done
+    if [[ "$nosso" == "0" ]]; then
       log_warn "Symlink $dst não pertence ao PowerTerminal ($target). Ignorado."
       return 0
     fi

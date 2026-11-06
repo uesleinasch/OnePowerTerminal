@@ -56,3 +56,5 @@ mod_notiont_doctor() {
     status_line 0 "notion-t: ausente"
   fi
 }
+
+mod_notiont_remove() { pn_receipt_undo notiont; }

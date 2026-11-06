@@ -38,3 +38,5 @@ mod_astronvim_doctor() {
     status_line 0 "nvim config: ausente"
   fi
 }
+
+mod_astronvim_remove() { pn_receipt_undo astronvim; }

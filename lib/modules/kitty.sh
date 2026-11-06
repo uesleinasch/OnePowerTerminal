@@ -108,3 +108,5 @@ mod_kitty_deduce() {
   done
   return 0
 }
+
+mod_kitty_remove() { pn_receipt_undo kitty; }

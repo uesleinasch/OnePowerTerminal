@@ -108,3 +108,5 @@ mod_tools_doctor() {
     fi
   done
 }
+
+mod_tools_remove() { pn_receipt_undo tools; }

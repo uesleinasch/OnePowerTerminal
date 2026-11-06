@@ -56,3 +56,5 @@ mod_fonts_doctor() {
     status_line 0 "fonts: MesloLGS NF NÃO instalada (P10k mostrará ícones quebrados)"
   fi
 }
+
+mod_fonts_remove() { pn_receipt_undo fonts; }
