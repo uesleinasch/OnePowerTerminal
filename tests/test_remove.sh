@@ -33,7 +33,9 @@ mkshim sudo "case \"\${1:-}\" in
   env) [[ \"\${4:-}\" == purge ]] && { shift 5; printf '%s\n' \"\$@\" >>'$TMP/dpkg-ausentes'; } ;;
 esac
 exit 0"
-for c in apt-get chsh gpasswd usermod; do mkshim "$c"; done
+for c in chsh gpasswd usermod; do mkshim "$c"; done
+# apt-get -s X responde com o conteúdo de $TMP/sim-X (simulação da purga, do autoremove).
+mkshim apt-get "[[ \"\${1:-}\" == -s ]] && cat \"$TMP/sim-\${2:-}\" 2>/dev/null; exit 0"
 mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
 mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
 mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
@@ -53,7 +55,7 @@ chmod +x "$SHIMS/getent"
 reset() {
   command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir" \
     "$TMP/login-shell" "$TMP/debconf" "$TMP/chsh-falha" "$SHIMS/code" "$SHIMS/podman" \
-    "$TMP/rm-falha" "$TMP/dpkg-ausentes" "$TMP/docker-ativo-rc"
+    "$TMP/rm-falha" "$TMP/dpkg-ausentes" "$TMP/docker-ativo-rc" "$TMP/sim-purge" "$TMP/sim-autoremove"
   mkdir -p "$TMP/home" "$TMP/state" "$TMP/outside"
   : >"$LOG"
 }
@@ -247,6 +249,7 @@ undo_env() {
   POWERTERMINAL_NOTES_FILE="$TMP/notes"; : >"$POWERTERMINAL_NOTES_FILE"
   as_sudo() { printf 'sudo %s\n' "$*" >>"$LOG"; }
   dpkg() { return 0; }
+  apt-get() { [[ "${1:-}" == -s ]] && cat "$TMP/sim-${2:-}" 2>/dev/null; return 0; }
   # Cinto de segurança: se o guard falhar, o rm de verdade só age dentro do TMP.
   rm() {
     local a
@@ -552,6 +555,25 @@ recibo vscode 'origin	installed' 'apt_repo	vscode'
 pt remove --module vscode --yes >/dev/null 2>&1 || true
 [[ ! -e "$TMP/debconf" && ! -e "$R/vscode" ]] && pass || fail "$(cat "$LOG")"
 
+it "purga que levaria junto um pacote fora do recibo não roda"
+reset
+recibo vscode 'origin	installed' 'apt	code'
+printf 'NOTE: This is only a simulation!\nPurg code [1.99]\nRemv code-helper-pn [2.0]\n' >"$TMP/sim-purge"
+out="$(pt remove --module vscode --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 ]] && ! grep -q 'apt-get purge -y' "$LOG" && grep -qxF $'apt\tcode' "$R/vscode" \
+  && pass || fail "rc=$rc $(cat "$LOG")"
+it "o aviso nomeia o pacote que sairia junto"
+assert_contains "$out" "code-helper-pn"
+it "a simulação da purga roda sem sudo"
+grep -qxF 'apt-get -s purge code' "$LOG" && ! grep -q '^sudo.* -s purge' "$LOG" && pass || fail "$(cat "$LOG")"
+it "purga cuja simulação só tira os pacotes do recibo roda"
+reset
+recibo vscode 'origin	installed' 'apt	code'
+printf 'Purg code [1.99]\n' >"$TMP/sim-purge"
+pt remove --module vscode --yes >/dev/null 2>&1 || true
+grep -qxF 'sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y code' "$LOG" && [[ ! -e "$R/vscode" ]] \
+  && pass || fail "$(cat "$LOG")"
+
 it "remove de zsh volta o shell de login do recibo"
 reset
 echo /usr/bin/zsh >"$TMP/login-shell"
@@ -699,7 +721,7 @@ recibo container "${DOCKER_RECIBO[@]}"
 out="$(pt remove --module container --purge-data --dry-run --yes 2>&1)" || true
 [[ "$out" == *"rm -rf --one-file-system -- /var/lib/docker"* && "$out" == *"rm -rf --one-file-system -- /var/lib/containerd"* \
   && -f "$R/container" ]] \
-  && ! grep -v '^dpkg -s ' "$LOG" | grep -q . \
+  && ! grep -v '^dpkg -s \|^apt-get -s ' "$LOG" | grep -q . \
   && pass || fail "$(cat "$LOG") $out"
 
 # ---- mod_container_data_mb ---------------------------------------------------
@@ -787,6 +809,39 @@ repo_novo() {
   _pn_apt_repo_existe() { return "$EXISTE_RC"; }
   apt_add_repo vscode https://k https://r stable main >/dev/null 2>&1
 }
+
+repo_etc() {
+  mod_env vscode
+  download_to() { :; }
+  dpkg() { echo amd64; }
+  apt_update_once() { :; }
+  _PN_APT_ETC="$TMP/etc-apt"
+  command rm -rf "$_PN_APT_ETC"
+  mkdir -p "$_PN_APT_ETC/sources.list.d" "$_PN_APT_ETC/keyrings"
+  [[ -z "$1" ]] || : >"$_PN_APT_ETC/$1"
+  apt_add_repo docker https://k https://r stable main >/dev/null 2>&1
+}
+
+it "repositório deb822 (.sources) já configurado não entra no recibo nem é reescrito"
+( repo_etc sources.list.d/docker.sources; [[ -z "$(pn_receipt_entries vscode apt_repo)" ]] && ! grep -q 'install -m 0644\|tee' "$LOG" ) \
+  && pass || fail "$(cat "$LOG") $(cat "$R/vscode" 2>/dev/null)"
+it "keyring já existente conta como repositório preexistente"
+( repo_etc keyrings/docker.asc; [[ -z "$(pn_receipt_entries vscode apt_repo)" ]] && ! grep -q 'install -m 0644\|tee' "$LOG" ) \
+  && pass || fail "$(cat "$LOG") $(cat "$R/vscode" 2>/dev/null)"
+it "lista .list já existente conta como repositório preexistente"
+( repo_etc sources.list.d/docker.list; [[ -z "$(pn_receipt_entries vscode apt_repo)" ]] && ! grep -q 'tee' "$LOG" ) \
+  && pass || fail "$(cat "$LOG")"
+it "sem nenhum dos três arquivos o repositório é escrito e gravado"
+( repo_etc ""; [[ "$(pn_receipt_entries vscode apt_repo)" == $'apt_repo\tdocker' ]] && grep -q 'tee' "$LOG" ) \
+  && pass || fail "$(cat "$LOG")"
+it "repositório que já é do PowerTerminal é reescrito (rotação de chave) sem duplicar o recibo"
+( mod_env vscode; recibo vscode 'origin	installed' 'apt_repo	docker'; PN_RECEIPT_MODULE=vscode
+  download_to() { :; }; dpkg() { echo amd64; }; apt_update_once() { :; }
+  _PN_APT_ETC="$TMP/etc-apt"; command rm -rf "$_PN_APT_ETC"; mkdir -p "$_PN_APT_ETC/sources.list.d"
+  : >"$_PN_APT_ETC/sources.list.d/docker.list"
+  apt_add_repo docker https://k https://r stable main >/dev/null 2>&1
+  grep -q 'tee' "$LOG" && [[ "$(pn_receipt_entries vscode apt_repo)" == $'apt_repo\tdocker' ]] ) \
+  && pass || fail "$(cat "$LOG")"
 
 it "apt_add_repo com a lista já existente não grava apt_repo"
 ( repo_novo 0; [[ -z "$(pn_receipt_entries vscode apt_repo)" ]] ) && pass || fail "$(cat "$R/vscode" 2>/dev/null)"

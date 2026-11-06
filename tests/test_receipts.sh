@@ -84,6 +84,7 @@ reset
   download_to() { : >"$2"; }
   as_sudo() { cat >/dev/null 2>&1 || true; return 0; }
   apt_update_once() { :; }
+  _PN_APT_ETC="$TMP/etc-apt"
   PN_RECEIPT_MODULE=vscode apt_add_repo vscode http://k http://r stable main </dev/null
   [[ "$(pn_receipt_entries vscode apt_repo)" == $'apt_repo\tvscode' ]]
 ) && pass || fail "apt_repo vscode ausente"

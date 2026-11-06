@@ -165,13 +165,24 @@ apt_update_once() {
 # apt externo com keyring próprio em /etc/apt/keyrings/NOME.asc e lista em
 # /etc/apt/sources.list.d/NOME.list. Usa o padrão signed-by porque `apt-key` está
 # depreciado e uma chave no chaveiro global assinaria por qualquer repositório.
-# Reescreve keyring e lista a cada chamada: é barato e é o que mantém a coisa
-# correta quando a chave upstream rotaciona.
+# Reescreve keyring e lista a cada chamada quando o repositório é do PowerTerminal
+# (rotação da chave upstream); um repositório configurado por outro meio fica
+# intocado — duas fontes do mesmo repo com Signed-By diferentes quebram o apt.
 apt_add_repo() {
   local nome="$1" chave_url="$2" repo_url="$3" suite="$4" componente="$5"
   local keyring="/etc/apt/keyrings/${nome}.asc"
   local lista="/etc/apt/sources.list.d/${nome}.list"
   local arch linha tmp
+
+  local existia=0
+  if _pn_apt_repo_existe "$nome"; then
+    if ! _pn_apt_repo_nosso "$nome"; then
+      log_info "Repositório apt '$nome' já configurado nesta máquina — mantido como está."
+      apt_update_once
+      return 0
+    fi
+    existia=1
+  fi
 
   arch="$(dpkg --print-architecture)"
   linha="deb [arch=${arch} signed-by=${keyring}] ${repo_url} ${suite} ${componente}"
@@ -183,9 +194,6 @@ apt_add_repo() {
     log_dry "apt-get update"
     return 0
   fi
-
-  local existia=0
-  _pn_apt_repo_existe "$nome" && existia=1
 
   as_sudo install -m 0755 -d /etc/apt/keyrings
 
@@ -208,7 +216,20 @@ apt_add_repo() {
   [[ "$existia" == 1 ]] || _pn_receipt apt_repo "$nome"
 }
 
-_pn_apt_repo_existe() { [[ -e "/etc/apt/sources.list.d/$1.list" ]]; }
+_PN_APT_ETC=/etc/apt
+
+# Lista one-line, fonte deb822 ou só o keyring: qualquer um deles indica um
+# repositório configurado fora do PowerTerminal, que o remove apagaria junto.
+_pn_apt_repo_existe() {
+  _pn_existe "$_PN_APT_ETC/sources.list.d/$1.list" \
+    || _pn_existe "$_PN_APT_ETC/sources.list.d/$1.sources" \
+    || _pn_existe "$_PN_APT_ETC/keyrings/$1.asc"
+}
+
+_pn_apt_repo_nosso() {
+  declare -F pn_receipt_dir >/dev/null || return 1
+  grep -qxF -- "$(printf 'apt_repo\t%s' "$1")" "$(pn_receipt_dir)"/* 2>/dev/null
+}
 
 # ---- Sudo keepalive ----------------------------------------------------------
 # Acquires a sudo timestamp now and refreshes it in the background. Required for

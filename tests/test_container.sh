@@ -3,6 +3,8 @@ set -euo pipefail
 source "${POWERTERMINAL_HOME}/tests/lib.sh"
 source "${POWERTERMINAL_HOME}/lib/core.sh"
 source "${POWERTERMINAL_HOME}/lib/ui.sh"
+source "${POWERTERMINAL_HOME}/lib/receipt.sh"
+source "${POWERTERMINAL_HOME}/lib/events.sh"
 source "${POWERTERMINAL_HOME}/lib/modules/container.sh"
 
 export POWERTERMINAL_UI=text

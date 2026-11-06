@@ -200,6 +200,18 @@ _pn_apt_em_outro_recibo() {
   return 1
 }
 
+# Pacotes que o apt-get purge levaria junto além dos pedidos: os dependentes
+# reversos que o usuário instalou depois. A simulação (-s) não precisa de root.
+_pn_apt_purga_leva_junto() {
+  local saida
+  saida="$(LC_ALL=C apt-get -s purge "$@" 2>/dev/null)" || return 1
+  awk -v pedidos=" $* " '
+    $1 == "Purg" || $1 == "Remv" {
+      nome = $2; sub(/:.*/, "", nome)
+      if (index(pedidos, " " $2 " ") == 0 && index(pedidos, " " nome " ") == 0) print $2
+    }' <<<"$saida"
+}
+
 _pn_undo_login_shell() {
   local sh="$1" usuario
   if [[ "$sh" != /* ]] || ! grep -qxF -- "$sh" /etc/shells 2>/dev/null || [[ ! -x "$sh" ]]; then
@@ -290,7 +302,7 @@ _pn_undo_valor_ok() {
 # Os pacotes apt vão numa purga única no fim, depois de o shell de login ter
 # voltado — purgar o zsh antes deixaria o usuário com um shell inexistente.
 pn_receipt_undo() {
-  local mod="$1" f origin linha tipo valor i shell_falhou=0
+  local mod="$1" f origin linha tipo valor i shell_falhou=0 extras
   f="$(pn_receipt_path "$mod")"
   if [[ ! -f "$f" ]]; then
     log_info "Nada do PowerTerminal para desfazer em $mod."
@@ -347,10 +359,18 @@ pn_receipt_undo() {
       fi
     done
     if (( ${#purgar[@]} > 0 )); then
-      log_info "Purgando: ${purgar[*]}"
-      if ! as_sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y "${purgar[@]}"; then
-        log_warn "apt-get purge falhou — ${purgar[*]} mantidos no recibo."
+      if ! extras="$(_pn_apt_purga_leva_junto "${purgar[@]}")"; then
+        log_warn "Não consegui simular a purga de ${purgar[*]} — mantidos no recibo."
         for i in "${idx_purgar[@]}"; do falhou[$i]=1; done
+      elif [[ -n "$extras" ]]; then
+        log_warn "Purgar ${purgar[*]} removeria também ${extras//$'\n'/ }, que não estão no recibo — nada foi purgado; continuam no recibo."
+        for i in "${idx_purgar[@]}"; do falhou[$i]=1; done
+      else
+        log_info "Purgando: ${purgar[*]}"
+        if ! as_sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y "${purgar[@]}"; then
+          log_warn "apt-get purge falhou — ${purgar[*]} mantidos no recibo."
+          for i in "${idx_purgar[@]}"; do falhou[$i]=1; done
+        fi
       fi
     fi
   fi
