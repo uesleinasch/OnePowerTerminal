@@ -10,6 +10,8 @@ source "$POWERTERMINAL_ROOT/lib/core.sh"
 # shellcheck source=/dev/null
 source "$POWERTERMINAL_ROOT/lib/ui.sh"
 # shellcheck source=/dev/null
+source "$POWERTERMINAL_ROOT/lib/receipt.sh"
+# shellcheck source=/dev/null
 source "$POWERTERMINAL_ROOT/lib/precheck.sh"
 
 for m in "$POWERTERMINAL_ROOT"/lib/modules/*.sh; do
@@ -235,7 +237,7 @@ cmd_install() {
     for m in "${modules[@]}"; do
       ui_step_begin "$m"
       t0="$(date +%s)"
-      if ( "mod_${m}_install" ) >>"$(pn_log_file)" 2>&1; then
+      if ( PN_RECEIPT_MODULE="$m"; "mod_${m}_install" ) >>"$(pn_log_file)" 2>&1; then
         dt=$(( $(date +%s) - t0 ))
         ui_step_ok "$m" "$dt"
         ok+=("$m")
@@ -254,7 +256,7 @@ cmd_install() {
     for m in "${modules[@]}"; do
       log_section "[$m] $("mod_${m}_meta")"
       # subshell isola erros e permite "rerun é seguro"
-      if ( "mod_${m}_install" ); then
+      if ( PN_RECEIPT_MODULE="$m"; "mod_${m}_install" ); then
         ok+=("$m")
       else
         log_error "Módulo $m falhou (rc=$?)."
