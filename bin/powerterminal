@@ -450,9 +450,14 @@ _vf_catalog_distro() {
 }
 
 _vf_catalog_module() {
-  local m="$1" meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
-  local -a needs=()
+  local m="$1" f meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
+  local -a needs=() nome categoria
+  for f in meta name category installed; do
+    declare -F "mod_${m}_${f}" >/dev/null || die "Módulo $m sem a função mod_${m}_${f}."
+  done
   meta="$(mod_"${m}"_meta)"
+  nome="$(mod_"${m}"_name)"
+  categoria="$(mod_"${m}"_category)"
   if declare -F "mod_${m}_cost" >/dev/null; then
     cost="$(mod_"${m}"_cost)"
     IFS=$'\t' read -r minutos mb dados <<<"$cost"
@@ -480,7 +485,7 @@ _vf_catalog_module() {
   declare -F "mod_${m}_update" >/dev/null && upd=true
   declare -F "mod_${m}_remove" >/dev/null && rem=true
   printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"data_mb":%s}' \
-    "$(pn_json_str "$m")" "$(pn_json_str "$(mod_"${m}"_name)")" "$(pn_json_str "$(mod_"${m}"_category)")" \
+    "$(pn_json_str "$m")" "$(pn_json_str "$nome")" "$(pn_json_str "$categoria")" \
     "$(pn_json_str "$meta")" "$minutos" "$mb" "$sudo" "$(pn_json_array "${needs[@]}")" \
     "$editor" "$state" "$origin" "$upd" "$rem" "$dados"
 }
@@ -488,14 +493,17 @@ _vf_catalog_module() {
 cmd_catalog() {
   [[ "${1:-}" == "--json" ]] || die "catalog exige --json (saída legível por máquina)."
   declare -F pn_receipts_migrate >/dev/null && pn_receipts_migrate >&2
-  local m perfil sep="" mods="" perfis="" ed version=""
+  local m perfil sep="" mods="" perfis="" ed version="" lista entrada
+  local -a itens
   for perfil in minimal dev full; do
     ed=""; [[ "$perfil" == minimal ]] || ed=both
-    # shellcheck disable=SC2046
-    perfis+="${perfis:+,}\"$perfil\":$(pn_json_array $(_vf_profile_modules "$perfil" $ed 2>/dev/null))"
+    lista="$(_vf_profile_modules "$perfil" $ed)" || exit 1
+    read -r -a itens <<<"$lista"
+    perfis+="${perfis:+,}\"$perfil\":$(pn_json_array "${itens[@]}")"
   done
   for m in "${_PN_ALL_MODULES[@]}"; do
-    mods+="${sep}$(_vf_catalog_module "$m" 2>/dev/null)"; sep=","
+    entrada="$(_vf_catalog_module "$m")" || exit 1
+    mods+="${sep}${entrada}"; sep=","
   done
   [[ -r "$POWERTERMINAL_ROOT/VERSION" ]] && version="$(tr -d '[:space:]' <"$POWERTERMINAL_ROOT/VERSION")"
   printf '{"contract_version":1,"version":%s,"distro":%s,"arch":%s,"profiles":{%s},"modules":[%s]}\n' \

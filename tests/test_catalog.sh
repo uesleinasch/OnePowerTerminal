@@ -44,6 +44,18 @@ PATH="$TMP/shims:$PATH" "$CLI" install --module helpers --yes >/dev/null 2>&1 ||
 "$CLI" catalog --json >"$TMP/h.json" 2>/dev/null || true
 assert_eq "installed installed" "$(campo '[(m["state"]+" "+m["origin"]) for m in d["modules"] if m["id"]=="helpers"][0]' <"$TMP/h.json")"
 
+it "todo módulo tem name, category, description e state válidos"
+assert_eq True "$(campo 'all(m["name"] and m["category"] and m["description"] and m["state"] in ("installed","preexisting","available") for m in d["modules"])' <"$TMP/c.json")"
+
+it "mod_X_name ausente aborta o catálogo com o módulo no stderr"
+mkdir -p "$TMP/repo/bin"
+cp "$CLI" "$TMP/repo/bin/powerterminal"; cp -r lib VERSION "$TMP/repo/"
+sed -i '/^mod_apt_name()/d' "$TMP/repo/lib/modules/apt.sh"
+rc=0; "$TMP/repo/bin/powerterminal" catalog --json >"$TMP/f.out" 2>"$TMP/f.err" || rc=$?
+assert_eq 1 "$rc"
+assert_contains "$(cat "$TMP/f.err")" "mod_apt_name"
+assert_eq "" "$(cat "$TMP/f.out")"
+
 it "catalog sem --json falha"
 assert_fail "$CLI" catalog
 
