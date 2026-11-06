@@ -180,3 +180,5 @@ mod_node_deduce() {
   [[ -f "$_PN_N_PREFIX/bin/n" ]] && pn_receipt_add dir "$_PN_N_PREFIX"
   return 0
 }
+
+mod_node_remove() { pn_receipt_undo node; }

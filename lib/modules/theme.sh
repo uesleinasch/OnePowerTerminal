@@ -204,3 +204,10 @@ mod_theme_doctor() {
   fi
   return 0
 }
+
+mod_theme_remove() {
+  if pn_receipt_has theme; then
+    _vf_theme_apply "$_PN_THEME_DEFAULT" || return 1
+  fi
+  pn_receipt_undo theme
+}

@@ -297,6 +297,98 @@ cmd_install() {
   fi
 }
 
+_vf_remove_precisa_sudo() {
+  local m tipo valor
+  for m in "$@"; do
+    while IFS=$'\t' read -r tipo valor; do
+      case "$tipo" in
+        apt|apt_repo|login_shell|group|subids) return 0 ;;
+        dir|file) [[ "$valor" == "$HOME"/?* ]] || return 0 ;;
+      esac
+    done < <(pn_receipt_entries "$m")
+  done
+  return 1
+}
+
+# _vf_dependentes ALVO REMOVIDOS… — módulos presentes (com recibo ou detectados)
+# que declaram ALVO em mod_X_needs, fora os que saem no mesmo comando.
+_vf_dependentes() {
+  local alvo="$1" o out=""
+  shift
+  for o in "${_PN_ALL_MODULES[@]}"; do
+    [[ " $* " == *" $o "* ]] && continue
+    declare -F "mod_${o}_needs" >/dev/null || continue
+    [[ $'\n'"$("mod_${o}_needs")"$'\n' == *$'\n'"$alvo"$'\n'* ]] || continue
+    if pn_receipt_has "$o" || { declare -F "mod_${o}_installed" >/dev/null && "mod_${o}_installed"; }; then
+      out+="${out:+, }$o"
+    fi
+  done
+  printf '%s' "$out"
+}
+
+cmd_remove() {
+  local modules_csv="" yes=0 m i deps confirmar=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
+      --yes|-y) yes=1; POWERTERMINAL_NONINTERACTIVE=1; shift ;;
+      --dry-run) DRY_RUN=1; shift ;;
+      --events-fd) pn_events_open "${2:?--events-fd requer um número}"; shift 2 ;;
+      -h|--help) cmd_help remove; return 0 ;;
+      *) die "Flag desconhecida: $1 (rode 'powerterminal help remove')" ;;
+    esac
+  done
+  [[ -n "$modules_csv" ]] || die "remove exige --module a,b (rode 'powerterminal help remove')."
+
+  local -a pedidos=() alvos=()
+  local -A pedido=()
+  IFS=',' read -ra pedidos <<< "$modules_csv"
+  for m in "${pedidos[@]}"; do
+    _vf_is_registered "$m" || die "Módulo desconhecido: $m"
+    declare -F "mod_${m}_remove" >/dev/null || die "O módulo $m não pode ser removido."
+    pedido[$m]=1
+  done
+
+  require_not_root
+  require_supported_distro
+  pn_receipts_migrate
+
+  for (( i = ${#_PN_ALL_MODULES[@]} - 1; i >= 0; i-- )); do
+    m="${_PN_ALL_MODULES[i]}"
+    if [[ -n "${pedido[$m]:-}" ]]; then alvos+=("$m"); fi
+  done
+
+  log_info "Remover: ${alvos[*]}"
+  for m in "${alvos[@]}"; do
+    [[ "$(pn_receipt_origin "$m")" == deduced ]] \
+      && log_warn "O recibo de $m foi deduzido de uma instalação anterior aos recibos — confira com --dry-run o que sai."
+    deps="$(_vf_dependentes "$m" "${alvos[@]}")"
+    if [[ -n "$deps" ]]; then
+      log_warn "$deps dependem de $m e vão parar de funcionar."
+      confirmar=1
+    fi
+  done
+  [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será apagado."
+
+  if [[ "$confirmar" -eq 1 && "$yes" -eq 0 ]]; then
+    ui_confirm "Remover mesmo assim?" || { log_info "Cancelado."; exit 0; }
+  fi
+
+  if [[ "$DRY_RUN" != "1" ]] && _vf_remove_precisa_sudo "${alvos[@]}"; then
+    setup_sudo_keepalive
+  fi
+
+  local ok=() failed=()
+  _vf_run_modules remove "${alvos[@]}"
+  print_post_install_notes
+
+  if [[ ${#failed[@]} -gt 0 ]]; then
+    log_warn "Módulos com falha: ${failed[*]} (o que não saiu continua no recibo)"
+    exit 1
+  fi
+  log_success "Remoção concluída."
+}
+
 cmd_link() {
   local dry=0
   for a in "$@"; do [[ "$a" == "--dry-run" ]] && dry=1; done
@@ -524,6 +616,7 @@ ${C_B}Comandos:${C_R}
   install   instala módulos selecionados (TUI por default)
   link      refaz apenas os symlinks (sem reinstalar nada)
   unlink    remove os symlinks gerenciados (restaura backups)
+  remove    desfaz módulos instalados (remove --module a,b)
   status    mostra o estado atual dos symlinks
   doctor    diagnostica todos os módulos
   catalog   lista módulos e estado em JSON (catalog --json)
@@ -586,6 +679,21 @@ Neovim e prompt leem o flavor no startup, então valem em sessão nova. As cores
 das abas do kitty exigem uma janela nova.
 EOF
       ;;
+    remove)
+      cat <<EOF
+${C_B}powerterminal remove${C_R} --module a,b [--yes] [--dry-run] [--events-fd N]
+
+  --module a,b       módulos a desfazer (na ordem inversa da instalação)
+  --yes / -y         não pedir confirmação (pede sudo upfront se precisar)
+  --dry-run          simula: nada é apagado, nem o recibo
+  --events-fd N      eventos JSON Lines no descritor N
+
+Desfaz só o que o recibo do módulo registra (links, arquivos, pacotes apt,
+repositórios, shell de login, grupos…) e restaura os .pnbak mais recentes.
+Nada que já existia antes do PowerTerminal é apagado; pacote apt que outro
+módulo também instalou fica. O que não puder ser desfeito continua no recibo.
+EOF
+      ;;
     catalog)
       cat <<EOF
 ${C_B}powerterminal catalog${C_R} --json
@@ -608,6 +716,7 @@ main() {
     install) cmd_install "$@" ;;
     link)    cmd_link    "$@" ;;
     unlink)  cmd_unlink  "$@" ;;
+    remove)  cmd_remove  "$@" ;;
     status)  cmd_status  "$@" ;;
     doctor)  cmd_doctor  "$@" ;;
     catalog) cmd_catalog "$@" ;;

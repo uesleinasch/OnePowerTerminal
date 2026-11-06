@@ -58,3 +58,5 @@ mod_claude_doctor() {
     status_line 0 "claude: ausente"
   fi
 }
+
+mod_claude_remove() { pn_receipt_undo claude; }

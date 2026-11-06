@@ -53,3 +53,5 @@ mod_nvim_doctor() {
     status_line 0 "nvim: não encontrado no PATH"
   fi
 }
+
+mod_nvim_remove() { pn_receipt_undo nvim; }

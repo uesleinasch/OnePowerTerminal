@@ -49,3 +49,5 @@ mod_helpers_doctor() {
     fi
   done
 }
+
+mod_helpers_remove() { pn_receipt_undo helpers; }

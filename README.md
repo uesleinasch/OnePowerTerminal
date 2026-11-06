@@ -223,6 +223,7 @@ primeiro uso, rode `claude` para fazer login.
 | `install`          | Instala módulos (TUI / `--profile` / `--module`)                |
 | `link`             | Refaz só os symlinks (sem reinstalar)                           |
 | `unlink`           | Remove symlinks + restaura backups (`.pnbak.<timestamp>`)       |
+| `remove --module a,b` | Desfaz módulos pelo recibo: links, arquivos e pacotes que o PowerTerminal criou; restaura `.pnbak` (`--dry-run`, `--yes`) |
 | `status`           | Mostra symlinks gerenciados                                     |
 | `doctor`           | Diagnóstico completo (versões, fontes, links, dependências)     |
 | `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher)          |
