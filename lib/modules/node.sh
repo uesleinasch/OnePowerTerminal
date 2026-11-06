@@ -125,13 +125,14 @@ _vf_install_node_via_nvm() {
   fi
 }
 
+# _vf_install_node_via_n [BINÁRIO] — sem argumento, cai no `n` do PATH.
 _vf_install_node_via_n() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "N_PREFIX=$_PN_N_PREFIX n lts"
     return 0
   fi
-  local n_bin="$_PN_N_PREFIX/bin/n"
-  [[ -x "$n_bin" ]] || n_bin="$(command -v n || true)"
+  local n_bin="${1:-$_PN_N_PREFIX/bin/n}"
+  [[ -n "${1:-}" || -x "$n_bin" ]] || n_bin="$(command -v n || true)"
   [[ -x "$n_bin" ]] || { log_warn "binário 'n' ausente — pulando install do Node"; return 0; }
   if N_PREFIX="$_PN_N_PREFIX" "$n_bin" lts; then
     log_info "Node LTS instalado via n."
@@ -160,10 +161,12 @@ mod_node_install() {
 }
 
 mod_node_update() {
-  if [[ -s "$_PN_NVM_DIR/nvm.sh" ]]; then
+  if pn_receipt_has_entry node dir "$_PN_NVM_DIR" && [[ -s "$_PN_NVM_DIR/nvm.sh" ]]; then
     _vf_install_node_via_nvm
+  elif pn_receipt_has_entry node dir "$_PN_N_PREFIX" && [[ -x "$_PN_N_PREFIX/bin/n" ]]; then
+    _vf_install_node_via_n "$_PN_N_PREFIX/bin/n"
   else
-    _vf_install_node_via_n
+    log_info "O gerenciador do Node em uso não foi instalado pelo PowerTerminal — nada a atualizar."
   fi
 }
 

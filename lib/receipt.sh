@@ -18,6 +18,10 @@ pn_receipt_origin() {
   awk -F'\t' '$1 == "origin" {print $2; exit}' "$f"
 }
 
+pn_receipt_has_entry() {
+  [[ $'\n'"$(pn_receipt_entries "$1" "$2")"$'\n' == *$'\n'"$2"$'\t'"$3"$'\n'* ]]
+}
+
 pn_receipt_entries() {
   local f; f="$(pn_receipt_path "$1")"
   [[ -f "$f" ]] || return 0
