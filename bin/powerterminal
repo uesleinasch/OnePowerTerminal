@@ -443,6 +443,65 @@ cmd_update() {
   log_success "Update concluído."
 }
 
+_vf_catalog_distro() {
+  local nome
+  nome="$( . /etc/os-release 2>/dev/null && printf '%s' "${PRETTY_NAME:-}" )" || nome=""
+  if [[ -n "$nome" ]]; then pn_json_str "$nome"; else printf 'null'; fi
+}
+
+_vf_catalog_module() {
+  local m="$1" meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
+  local -a needs=()
+  meta="$(mod_"${m}"_meta)"
+  if declare -F "mod_${m}_cost" >/dev/null; then
+    cost="$(mod_"${m}"_cost)"
+    IFS=$'\t' read -r minutos mb dados <<<"$cost"
+    [[ "$minutos" =~ ^[0-9]+$ ]] || minutos=0
+    [[ "$mb" =~ ^[0-9]+$ ]] || mb=0
+    [[ "$dados" == 1 ]] && sudo=true
+  fi
+  if declare -F "mod_${m}_needs" >/dev/null; then
+    mapfile -t needs < <(mod_"${m}"_needs)
+  fi
+  if pn_receipt_has "$m"; then
+    state=installed; origin="$(pn_receipt_origin "$m")"
+  elif mod_"${m}"_installed; then
+    state=preexisting; origin=""
+  else
+    state=available; origin=""
+  fi
+  if [[ -n "$origin" ]]; then origin="\"$origin\""; else origin=null; fi
+  dados=null
+  if declare -F "mod_${m}_data_mb" >/dev/null; then
+    dados="$(mod_"${m}"_data_mb)"
+    [[ "$dados" =~ ^[0-9]+$ ]] || dados=null
+  fi
+  _vf_is_editor_module "$m" && editor=true
+  declare -F "mod_${m}_update" >/dev/null && upd=true
+  declare -F "mod_${m}_remove" >/dev/null && rem=true
+  printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"data_mb":%s}' \
+    "$(pn_json_str "$m")" "$(pn_json_str "$(mod_"${m}"_name)")" "$(pn_json_str "$(mod_"${m}"_category)")" \
+    "$(pn_json_str "$meta")" "$minutos" "$mb" "$sudo" "$(pn_json_array "${needs[@]}")" \
+    "$editor" "$state" "$origin" "$upd" "$rem" "$dados"
+}
+
+cmd_catalog() {
+  [[ "${1:-}" == "--json" ]] || die "catalog exige --json (saída legível por máquina)."
+  declare -F pn_receipts_migrate >/dev/null && pn_receipts_migrate >&2
+  local m perfil sep="" mods="" perfis="" ed version=""
+  for perfil in minimal dev full; do
+    ed=""; [[ "$perfil" == minimal ]] || ed=both
+    # shellcheck disable=SC2046
+    perfis+="${perfis:+,}\"$perfil\":$(pn_json_array $(_vf_profile_modules "$perfil" $ed 2>/dev/null))"
+  done
+  for m in "${_PN_ALL_MODULES[@]}"; do
+    mods+="${sep}$(_vf_catalog_module "$m" 2>/dev/null)"; sep=","
+  done
+  [[ -r "$POWERTERMINAL_ROOT/VERSION" ]] && version="$(tr -d '[:space:]' <"$POWERTERMINAL_ROOT/VERSION")"
+  printf '{"contract_version":1,"version":%s,"distro":%s,"arch":%s,"profiles":{%s},"modules":[%s]}\n' \
+    "$(pn_json_str "$version")" "$(_vf_catalog_distro)" "$(pn_json_str "$(uname -m)")" "$perfis" "$mods"
+}
+
 cmd_help() {
   local topic="${1:-}"
   if [[ -z "$topic" || "$topic" == "main" ]]; then
@@ -458,6 +517,7 @@ ${C_B}Comandos:${C_R}
   unlink    remove os symlinks gerenciados (restaura backups)
   status    mostra o estado atual dos symlinks
   doctor    diagnostica todos os módulos
+  catalog   lista módulos e estado em JSON (catalog --json)
   theme     troca o flavor Catppuccin (kitty + Neovim + prompt)
   share     empacota o repo num .tar.gz para compartilhar com colegas
   update    atualiza p10k e plugins zsh
@@ -517,6 +577,15 @@ Neovim e prompt leem o flavor no startup, então valem em sessão nova. As cores
 das abas do kitty exigem uma janela nova.
 EOF
       ;;
+    catalog)
+      cat <<EOF
+${C_B}powerterminal catalog${C_R} --json
+
+Imprime em stdout um único objeto JSON (contract_version 1) com versão, distro,
+arquitetura, módulos de cada perfil e, por módulo, descrição, custo, dependências,
+estado (installed|preexisting|available) e ações disponíveis. Logs vão para stderr.
+EOF
+      ;;
     link|unlink|status|doctor|share|update)
       printf "powerterminal %s — %s\n" "$topic" "Use 'powerterminal $topic --dry-run' (quando aplicável) para simular."
       ;;
@@ -532,6 +601,7 @@ main() {
     unlink)  cmd_unlink  "$@" ;;
     status)  cmd_status  "$@" ;;
     doctor)  cmd_doctor  "$@" ;;
+    catalog) cmd_catalog "$@" ;;
     theme)   cmd_theme   "$@" ;;
     share)   cmd_share   "$@" ;;
     update)  cmd_update  "$@" ;;
