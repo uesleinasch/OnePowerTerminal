@@ -10,6 +10,10 @@ mkdir -p "$HOME" "$TMP/bin"
 printf '#!/bin/sh\nexit 0\n' >"$TMP/bin/code"; chmod +x "$TMP/bin/code"
 mkdir -p "$TMP/shims"
 for c in sudo apt-get dpkg; do printf '#!/bin/sh\nexit 0\n' >"$TMP/shims/$c"; chmod +x "$TMP/shims/$c"; done
+# O catálogo mede os dados do container (docker/podman system df): nunca o daemon real.
+mkdir -p "$TMP/norun"
+for c in docker podman; do printf '#!/bin/sh\nexit 1\n' >"$TMP/norun/$c"; chmod +x "$TMP/norun/$c"; done
+export PATH="$TMP/norun:$PATH"
 
 CLI=bin/powerterminal
 campo() { python3 -c 'import json,sys;d=json.load(sys.stdin);print(eval(sys.argv[1]))' "$1"; }
@@ -55,6 +59,21 @@ rc=0; "$TMP/repo/bin/powerterminal" catalog --json >"$TMP/f.out" 2>"$TMP/f.err" 
 assert_eq 1 "$rc"
 assert_contains "$(cat "$TMP/f.err")" "mod_apt_name"
 assert_eq "" "$(cat "$TMP/f.out")"
+
+it "data_mb é null quando não dá para medir"
+assert_eq None "$(campo '[m for m in d["modules"] if m["id"]=="container"][0]["data_mb"]' <"$TMP/c.json")"
+
+it "data_mb do container vem do docker system df"
+mkdir -p "$TMP/df"
+cat >"$TMP/df/docker" <<'EOF'
+#!/bin/sh
+[ "$1" = --version ] && { echo "Docker version 24.0.7"; exit 0; }
+[ "$1 $2" = "system df" ] && { printf '2GB\n512MB\n'; exit 0; }
+exit 1
+EOF
+chmod +x "$TMP/df/docker"
+PATH="$TMP/df:$PATH" "$CLI" catalog --json >"$TMP/d.json" 2>/dev/null || true
+assert_eq 2512 "$(campo '[m for m in d["modules"] if m["id"]=="container"][0]["data_mb"]' <"$TMP/d.json")"
 
 it "catalog sem --json falha"
 assert_fail "$CLI" catalog

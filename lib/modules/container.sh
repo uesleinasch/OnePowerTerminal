@@ -176,6 +176,8 @@ _vf_add_docker_group() {
   fi
 }
 
+_vf_tem_systemd() { has_cmd systemctl && [[ -d /run/systemd/system ]]; }
+
 # O pacote já habilita o serviço, mas em ambiente sem systemd (WSL antigo, imagem
 # enxuta) isso não acontece e o daemon fica fora do boot sem avisar.
 _vf_enable_docker_service() {
@@ -183,7 +185,7 @@ _vf_enable_docker_service() {
     log_dry "systemctl enable --now docker.service"
     return 0
   fi
-  if ! has_cmd systemctl || [[ ! -d /run/systemd/system ]]; then
+  if ! _vf_tem_systemd; then
     log_warn "systemd não detectado — inicie o daemon do Docker manualmente."
     post_install_note "Sem systemd nesta máquina: inicie o daemon do Docker manualmente (ex.: sudo dockerd &) antes de usar."
     return 0
@@ -225,18 +227,27 @@ _vf_nota_subid() {
 # Rootless depende de um range de UIDs/GIDs subordinados. O pacote costuma
 # popular /etc/subuid, mas um usuário criado com `useradd` cru (o caso do
 # container de teste deste repo) fica sem e o podman falha só ao rodar.
-_vf_ensure_subid() {
-  local usuario
-  usuario="$(id -un)"
+_vf_tem_subid() { grep -q "^${2}:" "/etc/$1" 2>/dev/null; }
 
-  if grep -q "^${usuario}:" /etc/subuid 2>/dev/null \
-    && grep -q "^${usuario}:" /etc/subgid 2>/dev/null; then
+# Só o que falta é acrescentado, e o recibo só leva os subids quando os dois
+# arquivos estavam sem o usuário: o undo apaga o intervalo dos dois de uma vez, e
+# um intervalo que o usuário já tinha igual ao nosso iria junto.
+_vf_ensure_subid() {
+  local usuario faltam=0 intervalo
+  local -a args=()
+  usuario="$(id -un)"
+  intervalo="${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END}"
+
+  _vf_tem_subid subuid "$usuario" || { args+=(--add-subuids "$intervalo"); faltam=$((faltam + 1)); }
+  _vf_tem_subid subgid "$usuario" || { args+=(--add-subgids "$intervalo"); faltam=$((faltam + 1)); }
+
+  if [[ "$faltam" -eq 0 ]]; then
     log_info "OK: subuid/subgid já configurados para $usuario."
     return 0
   fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
-    log_dry "usermod --add-subuids ${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END} --add-subgids ${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END} $usuario"
+    log_dry "usermod ${args[*]} $usuario"
     return 0
   fi
 
@@ -246,11 +257,8 @@ _vf_ensure_subid() {
     return 0
   fi
 
-  if as_sudo usermod \
-    --add-subuids "${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END}" \
-    --add-subgids "${_PN_SUBID_RANGE_START}-${_PN_SUBID_RANGE_END}" \
-    "$usuario"; then
-    _pn_receipt subids "$usuario"
+  if as_sudo usermod "${args[@]}" "$usuario"; then
+    [[ "$faltam" -eq 2 ]] && _pn_receipt subids "$usuario"
     log_success "subuid/subgid configurados para $usuario."
   else
     log_warn "usermod --add-subuids falhou — vai para as tarefas manuais."
@@ -266,13 +274,15 @@ _vf_enable_podman_socket() {
     log_dry "systemctl --user enable --now podman.socket"
     return 0
   fi
-  if ! has_cmd systemctl || [[ ! -d /run/systemd/system ]]; then
+  if ! _vf_tem_systemd; then
     log_warn "systemd não detectado — socket do Podman não habilitado."
     post_install_note "Habilite o socket do Podman quando houver sessão systemd: systemctl --user enable --now podman.socket"
     return 0
   fi
+  local ja_habilitado=0
+  systemctl --user is-enabled --quiet podman.socket 2>/dev/null && ja_habilitado=1
   if systemctl --user enable --now podman.socket 2>/dev/null; then
-    _pn_receipt user_unit podman.socket
+    [[ "$ja_habilitado" == 1 ]] || _pn_receipt user_unit podman.socket
     log_success "podman.socket habilitado para o usuário."
   else
     log_warn "não consegui habilitar podman.socket (sessão systemd de usuário ausente?)."
@@ -361,4 +371,83 @@ mod_container_doctor() {
 
   [[ "$achou" == "1" ]] \
     || status_line 0 "container: nenhum runtime instalado (docker/podman)"
+}
+
+# ---- Remoção -----------------------------------------------------------------
+
+_vf_container_recibo_tem_apt() {
+  [[ $'\n'"$(pn_receipt_entries container apt)"$'\n' == *$'\n'"apt"$'\t'"$1"$'\n'* ]]
+}
+
+# /var/lib/docker e /var/lib/containerd nunca estão no recibo e não passam pelo
+# guard de caminhos do pn_receipt_undo: são estes dois caminhos fixos, só com
+# --purge-data (confirmado à parte) e só quando o docker-ce foi instalado pelo
+# módulo — dados de um Docker que o usuário já tinha nunca são apagados.
+_vf_purge_docker_data() {
+  log_info "Apagando imagens, containers e volumes do Docker…"
+  as_sudo rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd
+}
+
+_vf_purge_podman_data() {
+  if ! has_cmd podman; then
+    log_info "podman ausente — não há dados do Podman para apagar."
+    return 0
+  fi
+  log_info "Apagando imagens, containers e volumes do Podman…"
+  run podman system reset -f
+}
+
+# O podman system reset precisa do podman, então roda antes da purga; o rm de
+# /var/lib/docker só depois, com o daemon já parado pelo prerm do docker-ce.
+mod_container_remove() {
+  local docker=0 podman=0 rc=0
+  if [[ "${PN_PURGE_DATA:-0}" == "1" ]]; then
+    _vf_container_recibo_tem_apt docker-ce && docker=1
+    _vf_container_recibo_tem_apt podman && podman=1
+    [[ "$docker" == 1 || "$podman" == 1 ]] \
+      || log_warn "Nem Docker nem Podman foram instalados pelo PowerTerminal — os dados ficam."
+  fi
+
+  if [[ "$podman" == 1 ]] && ! _vf_purge_podman_data; then
+    log_warn "podman system reset falhou — nada do container foi removido."
+    return 1
+  fi
+
+  pn_receipt_undo container || rc=$?
+
+  if [[ "$docker" == 1 ]]; then
+    if [[ "$DRY_RUN" == "1" ]] || ! _vf_container_recibo_tem_apt docker-ce; then
+      _vf_purge_docker_data || rc=1
+    else
+      log_warn "docker-ce continua instalado — /var/lib/docker fica (apagar com o daemon no ar corromperia os dados)."
+      rc=1
+    fi
+  fi
+  return "$rc"
+}
+
+# MB (decimais, como o docker/podman os mostram) somados de imagens, containers
+# e volumes. Nunca usa sudo: sem acesso ao daemon, não imprime nada.
+mod_container_data_mb() {
+  local -a cmd=()
+  if _vf_is_real_docker; then
+    cmd=(docker system df --format '{{.Size}}')
+  elif has_cmd podman; then
+    cmd=(podman system df --format '{{.Size}}')
+  else
+    return 0
+  fi
+  has_cmd timeout && cmd=(timeout 10 "${cmd[@]}")
+  local saida
+  saida="$("${cmd[@]}" </dev/null 2>/dev/null)" || return 0
+  LC_ALL=C awk '
+    BEGIN { f["B"] = 1e-6; f["kB"] = 1e-3; f["KB"] = 1e-3; f["MB"] = 1; f["GB"] = 1e3; f["TB"] = 1e6 }
+    NF == 0 { next }
+    match($1, /^[0-9]+(\.[0-9]+)?/) {
+      u = substr($1, RLENGTH + 1)
+      if (NF == 1 && (u in f)) { total += substr($1, 1, RLENGTH) * f[u]; n++; next }
+    }
+    { ruim = 1 }
+    END { if (!ruim && n > 0) printf "%d\n", total + 0.5 }
+  ' <<<"$saida"
 }

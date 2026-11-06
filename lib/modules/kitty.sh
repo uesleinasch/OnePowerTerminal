@@ -14,7 +14,7 @@ mod_kitty_category() { echo terminal; }
 
 mod_kitty_installed() { [[ -x "$_PN_KITTY_DIR/bin/kitty" ]]; }
 
-mod_kitty_requires() { printf 'curl\tcurl\n'; }
+mod_kitty_requires() { printf 'curl\tcurl\nxz\txz-utils\n'; }
 
 _PN_KITTY_DIR="$HOME/.local/kitty.app"
 _PN_KITTY_INSTALLER="https://sw.kovidgoyal.net/kitty/installer.sh"

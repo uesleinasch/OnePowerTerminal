@@ -223,7 +223,7 @@ primeiro uso, rode `claude` para fazer login.
 | `install`          | Instala módulos (TUI / `--profile` / `--module`)                |
 | `link`             | Refaz só os symlinks (sem reinstalar)                           |
 | `unlink`           | Remove symlinks + restaura backups (`.pnbak.<timestamp>`)       |
-| `remove --module a,b` | Desfaz módulos pelo recibo: links, arquivos e pacotes que o PowerTerminal criou; restaura `.pnbak` (`--dry-run`, `--yes`) |
+| `remove --module a,b` | Desfaz módulos pelo recibo: links, arquivos e pacotes que o PowerTerminal criou; restaura `.pnbak` (`--dry-run`, `--yes`, `--purge-data`) |
 | `status`           | Mostra symlinks gerenciados                                     |
 | `doctor`           | Diagnóstico completo (versões, fontes, links, dependências)     |
 | `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher)          |
@@ -231,6 +231,19 @@ primeiro uso, rode `claude` para fazer login.
 | `share [arquivo]`  | Empacota o repo em `.tar.gz` (sem `home.local`, sem `.pnbak.*`) |
 | `update`           | Atualiza P10k e plugins zsh (e dá hint para `:Lazy sync`)       |
 | `help [tópico]`    | Ajuda                                                           |
+
+### O que o `remove` desfaz nos módulos de sistema
+
+- **zsh** — o shell de login volta ao que era antes do módulo (pede um login
+  novo); se o PowerTerminal instalou o pacote `zsh` e não há registro do shell
+  anterior, volta para `/bin/bash` antes de purgar o pacote.
+- **vscode** — purga o `code`, apaga a lista e a chave do repositório da
+  Microsoft e devolve a resposta padrão do debconf. `~/.config/Code` fica.
+- **container** — purga os pacotes e o repositório, tira o usuário do grupo
+  `docker`, desfaz os subids e o `podman.socket` — tudo só se foi o módulo
+  que criou. Imagens, containers e volumes **ficam**; para apagá-los junto,
+  `remove --module container --purge-data` (pede uma confirmação própria,
+  pulada só com `--yes`; só age sobre o runtime que o PowerTerminal instalou).
 
 ## Tema (`powerterminal theme`)
 
