@@ -14,7 +14,8 @@ mod_nvim_category() { echo editor; }
 mod_nvim_installed() { has_cmd nvim; }
 
 _PN_NVIM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
-_PN_NVIM_PREFIX="/opt"
+_PN_NVIM_PREFIX="${POWERTERMINAL_NVIM_PREFIX:-/opt}"
+_PN_NVIM_LINK="${POWERTERMINAL_NVIM_LINK:-/usr/local/bin/nvim}"
 
 mod_nvim_install() {
   if has_cmd nvim; then
@@ -28,7 +29,16 @@ mod_nvim_install() {
   _vf_nvim_fetch
 }
 
+_vf_nvim_gerenciado() {
+  local bin; bin="$(command -v nvim)" || return 1
+  [[ "$(readlink -f "$bin")" == "$_PN_NVIM_PREFIX/nvim-linux-x86_64/"* ]]
+}
+
 mod_nvim_update() {
+  if has_cmd nvim && ! _vf_nvim_gerenciado; then
+    log_info "O nvim em uso não é do PowerTerminal ($(command -v nvim)); nada a atualizar."
+    return 0
+  fi
   require_x86_64 nvim || return 0
   _vf_nvim_fetch
 }
@@ -38,7 +48,7 @@ _vf_nvim_fetch() {
     log_dry "download $_PN_NVIM_URL"
     log_dry "sudo rm -rf $_PN_NVIM_PREFIX/nvim $_PN_NVIM_PREFIX/nvim-linux-x86_64"
     log_dry "sudo tar -C $_PN_NVIM_PREFIX -xzf <tarball>"
-    log_dry "sudo ln -sf $_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim"
+    log_dry "sudo ln -sf $_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim $_PN_NVIM_LINK"
     return 0
   fi
   local tmp; tmp="$(mktemp -d)"
@@ -47,10 +57,10 @@ _vf_nvim_fetch() {
   pn_step 2 3 "Extraindo em $_PN_NVIM_PREFIX (removendo instalações antigas)…"
   as_sudo rm -rf "$_PN_NVIM_PREFIX/nvim" "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
   as_sudo tar -C "$_PN_NVIM_PREFIX" -xzf "$tmp/nvim.tar.gz"
-  pn_step 3 3 "Linkando nvim em /usr/local/bin…"
-  as_sudo ln -sf "$_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim" /usr/local/bin/nvim
+  pn_step 3 3 "Linkando nvim em $(dirname "$_PN_NVIM_LINK")…"
+  as_sudo ln -sf "$_PN_NVIM_PREFIX/nvim-linux-x86_64/bin/nvim" "$_PN_NVIM_LINK"
   _pn_receipt dir "$_PN_NVIM_PREFIX/nvim-linux-x86_64"
-  _pn_receipt file /usr/local/bin/nvim
+  _pn_receipt file "$_PN_NVIM_LINK"
   rm -rf "$tmp"
   log_success "Neovim instalado: $(nvim --version 2>/dev/null | head -1 || echo '(verifique o PATH)')"
 }
