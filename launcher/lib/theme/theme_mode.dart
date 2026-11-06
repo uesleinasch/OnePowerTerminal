@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 
 ThemeMode themeModeFromFlavor(String home) {
   try {
-    final flavor = File('$home/.config/powerterminal/theme').readAsStringSync().trim();
+    final flavor = File('$home/.config/powerterminal/theme')
+        .readAsStringSync()
+        .trim();
     switch (flavor) {
       case 'latte':
         return ThemeMode.light;

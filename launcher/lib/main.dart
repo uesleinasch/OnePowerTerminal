@@ -6,9 +6,11 @@ import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
 
 void main() {
-  runApp(PowerTerminalApp(
-    themeMode: themeModeFromFlavor(Platform.environment['HOME'] ?? ''),
-  ));
+  runApp(
+    PowerTerminalApp(
+      themeMode: themeModeFromFlavor(Platform.environment['HOME'] ?? ''),
+    ),
+  );
 }
 
 class PowerTerminalApp extends StatelessWidget {
