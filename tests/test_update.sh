@@ -18,7 +18,7 @@ $corpo
 EOF
   chmod +x "$SHIMS/$nome"
 }
-for c in sudo apt-get chsh gpasswd usermod pipx git; do mkshim "$c"; done
+for c in sudo apt-get chsh gpasswd usermod pipx git curl tar; do mkshim "$c"; done
 mkshim dpkg
 NORUN="$TMP/norun"
 mkdir -p "$NORUN"
@@ -105,10 +105,25 @@ printf '#!/bin/sh\n' >"$TMP/home/.local/kitty.app/bin/kitty"; chmod +x "$TMP/hom
 out="$(pt update --module kitty --dry-run --yes 2>&1)"
 assert_contains "$out" "sh /dev/stdin"
 
-it "update --module tools --dry-run força a reinstalação mesmo com a ferramenta presente"
+it "update --module tools --dry-run reinstala mesmo com as seis ferramentas no PATH"
 reset
+for c in starship eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
 out="$(pt update --module tools --dry-run --yes 2>&1)"
+for c in starship eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
 if grep -q 'OK: .* presente' <<<"$out"; then fail "atalho 'já presente' não foi ignorado"; else pass; fi
+it "a reinstalação do starship roda o instalador"
+assert_contains "$out" "starship.rs/install.sh"
+it "a reinstalação do eza passa pelo apt"
+assert_contains "$out" "apt-get install -y eza"
+it "o uv usa uv self update"
+assert_contains "$out" "uv self update"
+it "a reinstalação do lazydocker roda o instalador"
+assert_contains "$out" "install_update_linux.sh"
+if [[ "$(uname -m)" == x86_64 ]]; then
+  it "a reinstalação do yazi e do lazygit acontece"
+  assert_contains "$out" "yazi-x86_64-unknown-linux-musl.zip"
+  assert_contains "$out" "install lazygit"
+fi
 
 it "update sem --module não inclui módulos available"
 reset
@@ -156,6 +171,46 @@ it "update de módulo preexisting com sudo (vscode) não grava recibo de apt"
 reset
 pt update --module vscode --yes >/dev/null 2>&1 || true
 assert_eq "" "$(ls "$R" 2>/dev/null)"
+
+NVOPT="$TMP/opt"
+NVLINK="$TMP/usrlocal/nvim"
+pt_nvim() {
+  POWERTERMINAL_NVIM_PREFIX="$NVOPT" POWERTERMINAL_NVIM_LINK="$NVLINK" pt "$@"
+}
+nvim_gerenciado() {
+  command rm -rf "$NVOPT" "$SHIMS/nvim"
+  mkdir -p "$NVOPT/nvim-linux-x86_64/bin"
+  printf '#!/bin/sh\necho "NVIM v0.0"\n' >"$NVOPT/nvim-linux-x86_64/bin/nvim"
+  chmod +x "$NVOPT/nvim-linux-x86_64/bin/nvim"
+  ln -s "$NVOPT/nvim-linux-x86_64/bin/nvim" "$SHIMS/nvim"
+}
+
+if [[ "$(uname -m)" == x86_64 ]]; then
+  it "update de nvim preexisting (sem recibo) não cria recibo, mesmo gravando"
+  reset
+  nvim_gerenciado
+  out="$(pt_nvim update --module nvim --yes 2>&1)" && rc=0 || rc=$?
+  assert_contains "rc=$rc $(cat "$LOG")" "sudo ln -sf $NVOPT/nvim-linux-x86_64/bin/nvim $NVLINK"
+  it "e nenhum recibo aparece"
+  assert_eq "" "$(ls "$R" 2>/dev/null)"
+
+  it "update de nvim com recibo acrescenta as entradas do que gravou"
+  reset
+  nvim_gerenciado
+  recibo nvim 'origin	installed'
+  pt_nvim update --module nvim --yes >/dev/null 2>&1 || true
+  assert_eq $'origin\tinstalled\ndir\t'"$NVOPT/nvim-linux-x86_64"$'\nfile\t'"$NVLINK" "$(cat "$R/nvim")"
+fi
+
+it "update de nvim que não é do PowerTerminal não mexe em nada"
+reset
+command rm -rf "$NVOPT" "$SHIMS/nvim"
+mkshim nvim 'echo "NVIM v9"'
+out="$(pt_nvim update --module nvim --yes 2>&1)" && rc=0 || rc=$?
+command rm -f "$SHIMS/nvim"
+assert_contains "rc=$rc $out" "não é do PowerTerminal"
+it "e não chama sudo nem curl"
+assert_eq "" "$(grep -E '^(sudo [^-]|curl)' "$LOG" || true)"
 
 it "update falha de um módulo sai 1 e o resto segue"
 reset
