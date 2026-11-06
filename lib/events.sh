@@ -53,7 +53,7 @@ pn_event() {
       line+=",$(pn_json_str "$key"):$(pn_json_str "$val")"
     fi
   done
-  printf '%s}\n' "$line" >&"$PN_EVENTS_FD" 2>/dev/null || true
+  { printf '%s}\n' "$line" >&"$PN_EVENTS_FD"; } 2>/dev/null || true
 }
 
 pn_step() {

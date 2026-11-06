@@ -369,14 +369,14 @@ ensure_local_bin() { run mkdir -p "$HOME/.local/bin"; }
 ensure_curl() {
   has_cmd curl && return 0
   log_info "curl ausente — instalando…"
-  PN_RECEIPT_MODULE= apt_install curl
+  PN_RECEIPT_MODULE="" apt_install curl
 }
 
 ensure_git() {
   has_cmd git && return 0
   log_info "git ausente — instalando…"
   apt_update_once
-  PN_RECEIPT_MODULE= apt_install git
+  PN_RECEIPT_MODULE="" apt_install git
 }
 
 # download_to URL DST — robust download with retries and timeouts.
@@ -425,7 +425,7 @@ install_github_zip() {
     log_dry "install_github_zip $url → ~/.local/bin/{$*}"
     return 0
   fi
-  has_cmd unzip || PN_RECEIPT_MODULE= apt_install unzip
+  has_cmd unzip || PN_RECEIPT_MODULE="" apt_install unzip
   local tmp; tmp="$(mktemp -d)"
   download_to "$url" "$tmp/pkg.zip"
   unzip -qo "$tmp/pkg.zip" -d "$tmp"

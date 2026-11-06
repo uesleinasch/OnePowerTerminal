@@ -146,7 +146,7 @@ _vf_run_modules() {
       pn_event module_end "module=$m" "action=$action" ok=false
     fi
   done
-  pn_event done "ok:=$(pn_json_array "${ok[@]+"${ok[@]}"}")" "failed:=$(pn_json_array "${failed[@]+"${failed[@]}"}")"
+  pn_event "done" "ok:=$(pn_json_array "${ok[@]+"${ok[@]}"}")" "failed:=$(pn_json_array "${failed[@]+"${failed[@]}"}")"
 }
 
 cmd_install() {
@@ -323,17 +323,17 @@ _vf_remove_precisa_sudo() {
 # _vf_dependentes ALVO REMOVIDOS… — módulos presentes (com recibo ou detectados)
 # que declaram ALVO em mod_X_needs, fora os que saem no mesmo comando.
 _vf_dependentes() {
-  local alvo="$1" o out=""
+  local alvo="$1" o deps=""
   shift
   for o in "${_PN_ALL_MODULES[@]}"; do
     [[ " $* " == *" $o "* ]] && continue
     declare -F "mod_${o}_needs" >/dev/null || continue
     [[ $'\n'"$("mod_${o}_needs")"$'\n' == *$'\n'"$alvo"$'\n'* ]] || continue
     if pn_receipt_has "$o" || { declare -F "mod_${o}_installed" >/dev/null && "mod_${o}_installed"; }; then
-      out+="${out:+, }$o"
+      deps+="${deps:+, }$o"
     fi
   done
-  printf '%s' "$out"
+  printf '%s' "$deps"
 }
 
 # Migra numa cópia temporária: o dry-run mostra a migração pendente sem gravar no estado real.
