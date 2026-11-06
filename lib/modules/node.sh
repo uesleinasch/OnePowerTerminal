@@ -81,12 +81,14 @@ _vf_install_nvm() {
     log_dry "PROFILE=/dev/null curl https://raw.githubusercontent.com/nvm-sh/nvm/${_PN_NVM_VERSION}/install.sh | bash"
     return 0
   fi
+  local existia=0
+  _pn_existe "$_PN_NVM_DIR" && existia=1
   # PROFILE=/dev/null impede o instalador de tocar no rc — quem cuida disso é o módulo zsh.
   PROFILE=/dev/null bash -c \
     "$(curl -fsSL --connect-timeout 15 --max-time 300 \
       "https://raw.githubusercontent.com/nvm-sh/nvm/${_PN_NVM_VERSION}/install.sh")" \
     || die "Falha ao instalar nvm."
-  _pn_receipt dir "$_PN_NVM_DIR"
+  _pn_receipt_criado "$existia" dir "$_PN_NVM_DIR"
 }
 
 _vf_install_n() {
@@ -99,12 +101,14 @@ _vf_install_n() {
     log_dry "curl https://raw.githubusercontent.com/mklement0/n-install/master/bin/n-install | bash -s -- -y -n"
     return 0
   fi
+  local existia=0
+  _pn_existe "$_PN_N_PREFIX" && existia=1
   # -y não-interativo; -n não modifica shell rc (a gente faz isso pelo módulo zsh).
   curl -fsSL --connect-timeout 15 --max-time 300 \
     https://raw.githubusercontent.com/mklement0/n-install/master/bin/n-install \
     | env N_PREFIX="$_PN_N_PREFIX" bash -s -- -y -n \
     || die "Falha ao instalar n."
-  _pn_receipt dir "$_PN_N_PREFIX"
+  _pn_receipt_criado "$existia" dir "$_PN_N_PREFIX"
 }
 
 _vf_install_node_via_nvm() {

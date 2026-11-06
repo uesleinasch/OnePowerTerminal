@@ -194,12 +194,12 @@ if [[ "$(uname -m)" == x86_64 ]]; then
   it "e nenhum recibo aparece"
   assert_eq "" "$(ls "$R" 2>/dev/null)"
 
-  it "update de nvim com recibo acrescenta as entradas do que gravou"
+  it "update de nvim com recibo não muda o recibo"
   reset
   nvim_gerenciado
-  recibo nvim 'origin	installed'
+  recibo nvim 'origin	installed' "dir	$NVOPT/nvim-linux-x86_64"
   pt_nvim update --module nvim --yes >/dev/null 2>&1 || true
-  assert_eq $'origin\tinstalled\ndir\t'"$NVOPT/nvim-linux-x86_64"$'\nfile\t'"$NVLINK" "$(cat "$R/nvim")"
+  assert_eq $'origin\tinstalled\ndir\t'"$NVOPT/nvim-linux-x86_64" "$(cat "$R/nvim")"
 fi
 
 it "update de nvim que não é do PowerTerminal não mexe em nada"
@@ -211,6 +211,32 @@ command rm -f "$SHIMS/nvim"
 assert_contains "rc=$rc $out" "não é do PowerTerminal"
 it "e não chama sudo nem curl"
 assert_eq "" "$(grep -E '^(sudo [^-]|curl)' "$LOG" || true)"
+
+it "update de kitty que o usuário já tinha não grava o kitty.app no recibo"
+reset
+K="$TMP/home/.local/kitty.app"
+mkdir -p "$K/bin" "$TMP/home/.local/bin"
+printf '#!/bin/sh\necho user-kitty\n' >"$K/bin/kitty"; cp "$K/bin/kitty" "$K/bin/kitten"; chmod +x "$K/bin/"*
+ln -s "$K/bin/kitty" "$TMP/home/.local/bin/kitty"; ln -s "$K/bin/kitten" "$TMP/home/.local/bin/kitten"
+pt install --module kitty --yes >/dev/null 2>&1 || true
+pt update --module kitty --yes >/dev/null 2>&1 || true
+[[ -f "$R/kitty" ]] && ! grep -q $'^dir\t' "$R/kitty" && pass || fail "recibo: $(cat "$R/kitty" 2>&1)"
+it "e o remove depois do update preserva o kitty do usuário"
+pt remove --module kitty --yes >/dev/null 2>&1 || true
+[[ -x "$K/bin/kitty" && -x "$K/bin/kitten" ]] && pass || fail "kitty.app do usuário apagado: $(cat "$LOG")"
+
+it "update de tools não grava binário que o usuário já tinha"
+reset
+mkdir -p "$TMP/home/.local/bin"
+printf '#!/bin/sh\necho meu\n' >"$TMP/home/.local/bin/starship"; chmod +x "$TMP/home/.local/bin/starship"
+for c in eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
+recibo tools 'origin	installed' "file	$TMP/home/.local/bin/lazygit"
+PATH="$TMP/home/.local/bin:$PATH" pt update --module tools --yes >/dev/null 2>&1 || true
+assert_eq $'origin\tinstalled\nfile\t'"$TMP/home/.local/bin/lazygit" "$(cat "$R/tools")"
+it "e o remove depois do update preserva o starship do usuário"
+PATH="$TMP/home/.local/bin:$PATH" pt remove --module tools --yes >/dev/null 2>&1 || true
+for c in eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
+[[ "$(cat "$TMP/home/.local/bin/starship" 2>/dev/null)" == *"echo meu"* ]] && pass || fail "starship do usuário apagado"
 
 it "update falha de um módulo sai 1 e o resto segue"
 reset

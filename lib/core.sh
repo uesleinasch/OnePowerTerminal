@@ -118,6 +118,15 @@ sudo_ready() {
 # lib/receipt.sh pode não estar carregado (testes que sourceiam só o core).
 _pn_receipt() { ! declare -F pn_receipt_add >/dev/null || pn_receipt_add "$@"; }
 
+_pn_existe() { [[ -e "$1" || -L "$1" ]]; }
+
+# _pn_receipt_criado EXISTIA TIPO CAMINHO — grava só o que o passo criou: o que já
+# existia antes dele é do usuário, e o remove o apagaria.
+_pn_receipt_criado() {
+  [[ "$1" == 0 ]] && _pn_existe "$3" || return 0
+  _pn_receipt "$2" "$3"
+}
+
 # ---- Apt ---------------------------------------------------------------------
 apt_install() {
   require_supported_distro
@@ -341,8 +350,10 @@ install_github_binary() {
     rm -rf "$tmp"
     die "install_github_binary: '$bin' não encontrado em $url"
   fi
+  local existia=0
+  _pn_existe "$HOME/.local/bin/$bin" && existia=1
   install -m 0755 "$found" "$HOME/.local/bin/$bin"
-  _pn_receipt file "$HOME/.local/bin/$bin"
+  _pn_receipt_criado "$existia" file "$HOME/.local/bin/$bin"
   rm -rf "$tmp"
 }
 
@@ -359,15 +370,17 @@ install_github_zip() {
   local tmp; tmp="$(mktemp -d)"
   download_to "$url" "$tmp/pkg.zip"
   unzip -qo "$tmp/pkg.zip" -d "$tmp"
-  local bin found
+  local bin found existia
   for bin in "$@"; do
     found="$(find "$tmp" -maxdepth 3 -type f -name "$bin" -print -quit 2>/dev/null)"
     if [[ -z "$found" ]]; then
       rm -rf "$tmp"
       die "install_github_zip: '$bin' não encontrado em $url"
     fi
+    existia=0
+    _pn_existe "$HOME/.local/bin/$bin" && existia=1
     install -m 0755 "$found" "$HOME/.local/bin/$bin"
-    _pn_receipt file "$HOME/.local/bin/$bin"
+    _pn_receipt_criado "$existia" file "$HOME/.local/bin/$bin"
   done
   rm -rf "$tmp"
 }
