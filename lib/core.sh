@@ -526,7 +526,10 @@ pn_requires_doctor() {
 # ---- Cleanup orquestrado -----------------------------------------------------
 # Trap único de EXIT (a setup_sudo_keepalive registra dentro deste contrato).
 _PN_CLEANUP_PIDS=()
+_PN_CLEANUP_DIRS=()
 pn_register_cleanup_pid() { _PN_CLEANUP_PIDS+=("$1"); }
+# Só para diretórios criados com mktemp pelo próprio processo.
+pn_register_cleanup_dir() { _PN_CLEANUP_DIRS+=("$1"); }
 
 pn_cleanup() {
   local pid
@@ -535,6 +538,10 @@ pn_cleanup() {
   done
   [[ -f "${POWERTERMINAL_NOTES_FILE:-}" ]] && rm -f "$POWERTERMINAL_NOTES_FILE" 2>/dev/null || true
   [[ -f "${POWERTERMINAL_ANSWERS_FILE:-}" ]] && rm -f "$POWERTERMINAL_ANSWERS_FILE" 2>/dev/null || true
+  local d
+  for d in "${_PN_CLEANUP_DIRS[@]:-}"; do
+    [[ -n "${d:-}" && -d "$d" ]] && rm -rf -- "$d" 2>/dev/null || true
+  done
 }
 
 # ---- Status helpers ----------------------------------------------------------

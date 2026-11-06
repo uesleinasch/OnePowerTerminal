@@ -1,6 +1,12 @@
 # shellcheck shell=bash
 
-pn_receipt_dir() { printf '%s/powerterminal/receipts\n' "${XDG_STATE_HOME:-$HOME/.local/state}"; }
+pn_receipt_dir() {
+  if [[ -n "${PN_RECEIPT_DIR:-}" ]]; then
+    printf '%s\n' "$PN_RECEIPT_DIR"
+  else
+    printf '%s/powerterminal/receipts\n' "${XDG_STATE_HOME:-$HOME/.local/state}"
+  fi
+}
 
 pn_receipt_path() { printf '%s/%s\n' "$(pn_receipt_dir)" "$1"; }
 
@@ -31,12 +37,30 @@ pn_receipt_add() {
   grep -qxF -- "$linha" "$f" || printf '%s\n' "$linha" >>"$f"
 }
 
+# Sem nenhum link do PowerTerminal na máquina, ~/.nvm, kitty.app e afins são do
+# próprio usuário: deduzir recibo deles faria o remove apagá-los.
+_pn_tem_link_do_repo() {
+  local m src dst
+  for m in "${_PN_ALL_MODULES[@]}"; do
+    declare -F "mod_${m}_links" >/dev/null || continue
+    while IFS=$'\t' read -r src dst; do
+      [[ -n "$dst" && -L "$dst" && "$(readlink "$dst")" == "$POWERTERMINAL_HOME"/* ]] && return 0
+    done < <("mod_${m}_links")
+  done
+  return 1
+}
+
 pn_receipts_migrate() {
   [[ "${DRY_RUN:-0}" != "1" ]] || return 0
   local dir marker m f src dst alvo
   dir="$(pn_receipt_dir)"
   marker="$dir/.migrated-v1"
   [[ ! -e "$marker" ]] || return 0
+  if ! _pn_tem_link_do_repo; then
+    mkdir -p "$dir"
+    : >"$marker"
+    return 0
+  fi
   for m in "${_PN_ALL_MODULES[@]}"; do
     declare -F "mod_${m}_installed" >/dev/null || continue
     pn_receipt_has "$m" && continue
@@ -220,6 +244,25 @@ _pn_undo_subids() {
   as_sudo usermod --del-subuids "$s-$e" --del-subgids "$s-$e" "$u"
 }
 
+_pn_undo_pipx() {
+  local p="$1" lista=""
+  has_cmd pipx && lista="$(pipx list --short 2>/dev/null || true)"
+  if [[ $'\n'"$(awk '{print $1}' <<<"$lista")"$'\n' != *$'\n'"$p"$'\n'* ]]; then
+    log_info "Já ausente: pacote pipx $p."
+    return 0
+  fi
+  run pipx uninstall "$p"
+}
+
+_pn_undo_user_unit() {
+  local u="$1"
+  if ! systemctl --user cat "$u" >/dev/null 2>&1; then
+    log_info "Já ausente: unidade de usuário $u."
+    return 0
+  fi
+  run systemctl --user disable --now "$u"
+}
+
 _pn_undo_apt_repo() {
   local n="$1"
   as_sudo rm -f "/etc/apt/keyrings/$n.asc" "/etc/apt/sources.list.d/$n.list" || return 1
@@ -282,9 +325,9 @@ pn_receipt_undo() {
       apt_repo)    _pn_undo_apt_repo "$valor" ;;
       login_shell) _pn_undo_login_shell "$valor" || { shell_falhou=1; false; } ;;
       group)       _pn_undo_group "$valor" ;;
-      pipx)        run pipx uninstall "$valor" ;;
+      pipx)        _pn_undo_pipx "$valor" ;;
       subids)      _pn_undo_subids "$valor" ;;
-      user_unit)   run systemctl --user disable --now "$valor" ;;
+      user_unit)   _pn_undo_user_unit "$valor" ;;
       *)           log_warn "Recusado: tipo desconhecido '$tipo' — mantido no recibo."; false ;;
     esac || falhou[$i]=1
   done

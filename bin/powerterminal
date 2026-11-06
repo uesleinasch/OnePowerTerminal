@@ -326,8 +326,20 @@ _vf_dependentes() {
   printf '%s' "$out"
 }
 
+# Migra numa cópia temporária: o dry-run mostra a migração pendente sem gravar no estado real.
+_vf_remove_preview_receipts() {
+  local real tmp
+  real="$(pn_receipt_dir)"
+  tmp="$(mktemp -d -t powerterminal-preview.XXXXXX)"
+  pn_register_cleanup_dir "$tmp"
+  mkdir -p "$tmp/receipts"
+  if [[ -d "$real" ]]; then cp -a "$real/." "$tmp/receipts/"; fi
+  PN_RECEIPT_DIR="$tmp/receipts"
+  DRY_RUN=0 pn_receipts_migrate
+}
+
 cmd_remove() {
-  local modules_csv="" yes=0 m i deps confirmar=0
+  local modules_csv="" yes=0 m i deps lista=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
@@ -351,7 +363,11 @@ cmd_remove() {
 
   require_not_root
   require_supported_distro
-  pn_receipts_migrate
+  if [[ "$DRY_RUN" == "1" ]]; then
+    _vf_remove_preview_receipts
+  else
+    pn_receipts_migrate
+  fi
 
   for (( i = ${#_PN_ALL_MODULES[@]} - 1; i >= 0; i-- )); do
     m="${_PN_ALL_MODULES[i]}"
@@ -363,15 +379,13 @@ cmd_remove() {
     [[ "$(pn_receipt_origin "$m")" == deduced ]] \
       && log_warn "O recibo de $m foi deduzido de uma instalação anterior aos recibos — confira com --dry-run o que sai."
     deps="$(_vf_dependentes "$m" "${alvos[@]}")"
-    if [[ -n "$deps" ]]; then
-      log_warn "$deps dependem de $m e vão parar de funcionar."
-      confirmar=1
-    fi
+    [[ -n "$deps" ]] && log_warn "$deps dependem de $m e vão parar de funcionar."
+    lista+="${lista:+, }$m"
   done
   [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será apagado."
 
-  if [[ "$confirmar" -eq 1 && "$yes" -eq 0 ]]; then
-    ui_confirm "Remover mesmo assim?" || { log_info "Cancelado."; exit 0; }
+  if [[ "$yes" -eq 0 ]]; then
+    ui_confirm "Remover $lista?" || { log_info "Cancelado."; exit 0; }
   fi
 
   if [[ "$DRY_RUN" != "1" ]] && _vf_remove_precisa_sudo "${alvos[@]}"; then

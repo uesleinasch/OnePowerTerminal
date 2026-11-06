@@ -24,10 +24,12 @@ EOF
   chmod +x "$SHIMS/$nome"
 }
 mkshim sudo 'case "${1:-}" in -n) exit 1 ;; esac; exit 0'
-for c in apt-get dpkg chsh gpasswd usermod systemctl pipx; do mkshim "$c"; done
+for c in apt-get dpkg chsh gpasswd usermod; do mkshim "$c"; done
+mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
+mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
 
 reset() {
-  command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG"
+  command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir"
   mkdir -p "$TMP/home" "$TMP/state" "$TMP/outside"
   : >"$LOG"
 }
@@ -94,6 +96,8 @@ recibo astronvim 'origin	installed' "link	$TMP/home/.config/nvim"
 recibo nvim 'origin	installed' 'dir	/opt/nvim-linux-x86_64'
 out="$(printf 'n\n' | pt remove --module nvim 2>&1)" || true
 assert_contains "$out" "Cancelado"
+it "a pergunta lista os módulos"
+assert_contains "$out" "Remover nvim?"
 it "o aviso de dependentes nomeia quem quebra"
 assert_contains "$out" "astronvim dependem de nvim e vão parar de funcionar."
 it "cancelar deixa o recibo do nvim intacto"
@@ -105,8 +109,65 @@ it "dependente removido junto não pede confirmação"
 reset
 recibo astronvim 'origin	installed' "link	$TMP/home/.config/nvim"
 recibo nvim 'origin	installed' "dir	$TMP/home/.fake-nvim"
-out="$(pt remove --module nvim,astronvim </dev/null 2>&1)" || true
-[[ "$out" != *"dependem de"* && ! -e "$R/nvim" ]] && pass || fail "pediu confirmação ou não removeu: $out"
+out="$(printf 'y\n' | pt remove --module nvim,astronvim 2>&1)" || true
+[[ "$out" != *"dependem de"* && ! -e "$R/nvim" ]] && pass || fail "avisou dependentes ou não removeu: $out"
+
+it "remove sem --yes pergunta mesmo sem dependentes"
+reset
+pt install --module helpers --yes >/dev/null 2>&1 || true
+out="$(printf 'n\n' | pt remove --module helpers 2>&1)" || true
+assert_contains "$out" "Remover helpers?"
+it "responder não cancela sem mudar nada"
+[[ "$out" == *"Cancelado"* && -L "$B/myastro" && -f "$R/helpers" ]] && pass || fail "mudou algo: $out"
+
+nvm_proprio() {
+  mkdir -p "$TMP/home/.nvm"
+  printf 'nvm\n' >"$TMP/home/.nvm/nvm.sh"
+}
+evidencia() {
+  mkdir -p "$B"
+  ln -s "$REPO/bin-helpers/myastro" "$B/myastro"
+}
+
+it "nvm do próprio usuário, sem link do PowerTerminal, não é removido"
+reset
+nvm_proprio
+out="$(pt remove --module node --yes 2>&1)" || true
+[[ -f "$TMP/home/.nvm/nvm.sh" && ! -e "$R/node" ]] && pass || fail "apagou o ~/.nvm do usuário: $out"
+it "e o remove diz que não há nada a desfazer"
+assert_contains "$out" "Nada do PowerTerminal para desfazer em node."
+it "e o catálogo mostra node como preexisting"
+assert_eq preexisting "$(pt catalog --json 2>/dev/null | python3 -c 'import json,sys;print([m["state"] for m in json.load(sys.stdin)["modules"] if m["id"]=="node"][0])')"
+
+it "com evidência de install do PowerTerminal, o ~/.nvm deduzido é removido"
+reset
+nvm_proprio; evidencia
+pt remove --module node --yes >/dev/null 2>&1 || true
+[[ ! -e "$TMP/home/.nvm" && ! -e "$R/node" ]] && pass || fail "~/.nvm deduzido não saiu"
+
+it "remove --dry-run mostra o que a migração pendente faria remover"
+reset
+nvm_proprio; evidencia
+mkdir -p "$TMP/tmpdir"
+out="$(TMPDIR="$TMP/tmpdir" pt remove --module node --dry-run --yes 2>&1)" || true
+assert_contains "$out" "rm -rf --one-file-system -- $TMP/home/.nvm"
+it "o dry-run não grava recibo nem marcador reais e não apaga o ~/.nvm"
+[[ ! -e "$R/node" && ! -e "$R/.migrated-v1" && -f "$TMP/home/.nvm/nvm.sh" ]] && pass || fail "dry-run mexeu no estado real"
+it "o dry-run limpa o diretório temporário de prévia"
+assert_eq "" "$(ls -A "$TMP/tmpdir" | grep -v '^powerterminal-\(notes\|answers\)' || true)"
+
+it "pipx que já não lista o pacote conta como desfeito"
+reset
+recibo notiont 'origin	installed' 'pipx	notion-t'
+out="$(pt remove --module notiont --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -eq 0 && ! -e "$R/notiont" ]] && ! grep -q 'pipx uninstall' "$LOG" && pass || fail "rc=$rc $(cat "$LOG") $out"
+
+it "pipx que lista o pacote desinstala"
+reset
+printf 'notion-t 0.1.0\n' >"$TMP/pipx-list"
+recibo notiont 'origin	installed' 'pipx	notion-t'
+pt remove --module notiont --yes >/dev/null 2>&1 || true
+[[ ! -e "$R/notiont" ]] && grep -qx 'pipx uninstall notion-t' "$LOG" && pass || fail "$(cat "$LOG")"
 
 it "recibo com caminho fora do HOME pede sudo upfront"
 reset
@@ -346,6 +407,8 @@ it "group, pipx, subids, user_unit e apt_repo chamam o comando certo"
   run() { printf '%s\n' "$*" >>"$LOG"; }
   apt_update_once() { printf 'apt-get update\n' >>"$LOG"; }
   _pn_user_in_group() { return 0; }
+  pipx() { [[ "$1" == list ]] && echo "notion-t 0.1.0"; return 0; }
+  systemctl() { return 0; }
   _PN_SUBID_RANGE_START=100000 _PN_SUBID_RANGE_END=165535
   u="$(id -un)"
   recibo container 'origin	installed' 'apt_repo	docker' 'group	docker' "subids	$u" 'user_unit	podman.socket' 'pipx	notion-t'
@@ -358,6 +421,33 @@ sudo rm -f /etc/apt/keyrings/docker.asc /etc/apt/sources.list.d/docker.list
 apt-get update
 rm -f $R/container" ]]
 ) && pass || fail "comandos: $(cat "$LOG")"
+
+it "pipx fora do PATH conta como desfeito"
+(
+  undo_env
+  has_cmd() { [[ "$1" != pipx ]] && command -v "$1" >/dev/null 2>&1; }
+  run() { printf '%s\n' "$*" >>"$LOG"; }
+  recibo m 'origin	installed' 'pipx	notion-t'
+  pn_receipt_undo m >/dev/null 2>&1 && ! grep -q pipx "$LOG"
+) && pass || fail "$(cat "$LOG")"
+
+it "user_unit sem unidade conta como desfeito"
+(
+  undo_env
+  export PATH="$SHIMS:$PATH"
+  echo 1 >"$TMP/unit-rc"
+  recibo m 'origin	installed' 'user_unit	podman.socket'
+  pn_receipt_undo m >/dev/null 2>&1 && [[ ! -e "$R/m" ]] && ! grep -q disable "$LOG"
+) && pass || fail "$(cat "$LOG")"
+
+it "user_unit existente é desabilitada"
+(
+  undo_env
+  export PATH="$SHIMS:$PATH"
+  echo 0 >"$TMP/unit-rc"
+  recibo m 'origin	installed' 'user_unit	podman.socket'
+  pn_receipt_undo m >/dev/null 2>&1 && grep -qx 'systemctl --user disable --now podman.socket' "$LOG"
+) && pass || fail "$(cat "$LOG")"
 
 it "valores com cara de opção ou caminho são recusados"
 (
