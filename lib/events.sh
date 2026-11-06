@@ -47,7 +47,7 @@ pn_event() {
     val="${arg#*=}"
     if [[ "$key" == *: ]]; then
       line+=",$(pn_json_str "${key%:}"):$val"
-    elif [[ "$val" =~ ^-?[0-9]+$ || "$val" == true || "$val" == false ]]; then
+    elif [[ "$val" =~ ^(0|-?[1-9][0-9]*)$ || "$val" == true || "$val" == false ]]; then
       line+=",$(pn_json_str "$key"):$val"
     else
       line+=",$(pn_json_str "$key"):$(pn_json_str "$val")"
