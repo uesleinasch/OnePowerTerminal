@@ -122,3 +122,8 @@ mod_zsh_doctor() {
   [[ -L "$HOME/.zshrc" ]] && status_line 1 "~/.zshrc: linkado" || status_line 0 "~/.zshrc: não linkado por PowerTerminal"
   [[ -L "$HOME/.p10k.zsh" ]] && status_line 1 "~/.p10k.zsh: linkado" || status_line 0 "~/.p10k.zsh: não linkado"
 }
+
+mod_zsh_deduce() {
+  [[ -d "$_PN_OMZ_CUSTOM/themes/powerlevel10k/.git" ]] && pn_receipt_add dir "$_PN_OMZ_DIR"
+  return 0
+}

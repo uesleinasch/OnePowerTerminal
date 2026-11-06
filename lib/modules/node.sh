@@ -174,3 +174,9 @@ mod_node_doctor() {
     status_line 0 "node: não está no PATH atual"
   fi
 }
+
+mod_node_deduce() {
+  [[ -f "$_PN_NVM_DIR/nvm.sh" ]] && pn_receipt_add dir "$_PN_NVM_DIR"
+  [[ -f "$_PN_N_PREFIX/bin/n" ]] && pn_receipt_add dir "$_PN_N_PREFIX"
+  return 0
+}

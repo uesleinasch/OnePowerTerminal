@@ -97,3 +97,14 @@ mod_kitty_doctor() {
   fi
   [[ -L "$HOME/.config/kitty" ]] && status_line 1 "kitty config: linkado" || status_line 0 "kitty config: não linkado"
 }
+
+mod_kitty_deduce() {
+  [[ -d "$_PN_KITTY_DIR" ]] || return 0
+  pn_receipt_add dir "$_PN_KITTY_DIR"
+  local b
+  for b in kitty kitten; do
+    [[ -L "$HOME/.local/bin/$b" ]] || continue
+    [[ "$(readlink "$HOME/.local/bin/$b")" == "$_PN_KITTY_DIR/bin/"* ]] && pn_receipt_add link "$HOME/.local/bin/$b"
+  done
+  return 0
+}
