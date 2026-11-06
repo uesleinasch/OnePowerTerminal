@@ -392,8 +392,11 @@ cmd_remove() {
 
   if [[ "$yes" -eq 0 ]]; then
     ui_confirm "Remover $lista?" || { log_info "Cancelado."; exit 0; }
+    # Só o --yes deste comando pula esta pergunta: um POWERTERMINAL_NONINTERACTIVE
+    # herdado do ambiente não pode apagar dados sem ninguém confirmar.
     if [[ "$purge" -eq 1 ]]; then
-      ui_confirm "Apagar imagens, containers e volumes? Não dá para desfazer." || { log_info "Cancelado."; exit 0; }
+      POWERTERMINAL_NONINTERACTIVE=0 ui_confirm "Apagar imagens, containers e volumes? Não dá para desfazer." \
+        || { log_info "Cancelado."; exit 0; }
     fi
   fi
   [[ "$purge" -eq 1 ]] && export PN_PURGE_DATA=1

@@ -23,13 +23,18 @@ $corpo
 EOF
   chmod +x "$SHIMS/$nome"
 }
+# A purga via sudo marca os pacotes como ausentes para o dpkg falso, que passa a
+# responder como um dpkg depois do apt-get purge.
 mkshim sudo "case \"\${1:-}\" in
   -n) exit 1 ;;
   chsh) [[ -f '$TMP/chsh-falha' ]] && exit 1 ;;
   debconf-set-selections) cat >>'$TMP/debconf' ;;
+  rm) [[ -f '$TMP/rm-falha' && \"\$*\" == */var/lib/* ]] && exit 1 ;;
+  env) [[ \"\${4:-}\" == purge ]] && { shift 5; printf '%s\n' \"\$@\" >>'$TMP/dpkg-ausentes'; } ;;
 esac
 exit 0"
-for c in apt-get dpkg chsh gpasswd usermod; do mkshim "$c"; done
+for c in apt-get chsh gpasswd usermod; do mkshim "$c"; done
+mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
 mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
 mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
 
@@ -47,7 +52,8 @@ chmod +x "$SHIMS/getent"
 
 reset() {
   command rm -rf "$TMP/home" "$TMP/state" "$TMP/outside" "$LOG" "$TMP/pipx-list" "$TMP/unit-rc" "$TMP/tmpdir" \
-    "$TMP/login-shell" "$TMP/debconf" "$TMP/chsh-falha" "$SHIMS/code" "$SHIMS/podman"
+    "$TMP/login-shell" "$TMP/debconf" "$TMP/chsh-falha" "$SHIMS/code" "$SHIMS/podman" \
+    "$TMP/rm-falha" "$TMP/dpkg-ausentes" "$TMP/docker-ativo-rc"
   mkdir -p "$TMP/home" "$TMP/state" "$TMP/outside"
   : >"$LOG"
 }
@@ -58,7 +64,7 @@ for c in docker podman; do printf '#!/bin/sh\nexit 1\n' >"$NORUN/$c"; chmod +x "
 
 pt() {
   PATH="$SHIMS:$NORUN:$PATH" HOME="$TMP/home" XDG_STATE_HOME="$TMP/state" \
-    POWERTERMINAL_UI=text POWERTERMINAL_NONINTERACTIVE=0 "$REPO/bin/powerterminal" "$@"
+    POWERTERMINAL_UI=text POWERTERMINAL_NONINTERACTIVE="${PT_NONINT:-0}" "$REPO/bin/powerterminal" "$@"
 }
 
 recibo() {
@@ -610,9 +616,53 @@ it "--purge-data com Docker apaga /var/lib/docker e /var/lib/containerd"
 reset
 recibo container "${DOCKER_RECIBO[@]}"
 pt remove --module container --purge-data --yes >/dev/null 2>&1 || true
-grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd' "$LOG" && pass || fail "$(cat "$LOG")"
+grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/docker' "$LOG" \
+  && grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/containerd' "$LOG" && pass || fail "$(cat "$LOG")"
 it "os dados do Docker saem depois dos pacotes (com o daemon parado)"
 [[ "$(linha_de 'apt-get purge')" -lt "$(linha_de '/var/lib/docker')" ]] && pass || fail "$(cat "$LOG")"
+
+it "recibo só com docker-ce não apaga /var/lib/containerd"
+reset
+recibo container 'origin	installed' 'apt	docker-ce'
+pt remove --module container --purge-data --yes >/dev/null 2>&1 || true
+grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/docker' "$LOG" && ! grep -q '/var/lib/containerd' "$LOG" \
+  && pass || fail "$(cat "$LOG")"
+
+it "containerd.io mantido por outro recibo continua instalado e /var/lib/containerd fica"
+reset
+recibo outro 'origin	installed' 'apt	containerd.io'
+recibo container "${DOCKER_RECIBO[@]}"
+out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
+grep -qxF 'sudo rm -rf --one-file-system -- /var/lib/docker' "$LOG" && ! grep -q '/var/lib/containerd' "$LOG" \
+  && [[ "$out" == *"containerd.io continua instalado"* ]] && pass || fail "rc=$rc $(cat "$LOG") $out"
+
+it "docker-ce que a purga não tirou mantém /var/lib/docker"
+reset
+recibo container 'origin	installed' 'apt	docker-ce'
+cat >"$SHIMS/dpkg" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "dpkg \$*" >>"$LOG"
+exit 0
+EOF
+out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
+mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
+[[ "$rc" -ne 0 && "$out" == *"docker-ce continua instalado"* ]] && ! grep -q '/var/lib/docker' "$LOG" \
+  && pass || fail "rc=$rc $(cat "$LOG") $out"
+
+it "rm dos dados que falha deixa o comando manual nas tarefas"
+reset
+: >"$TMP/rm-falha"
+recibo container "${DOCKER_RECIBO[@]}"
+out="$(pt remove --module container --purge-data --yes 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$out" == *"sudo rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd"* ]] \
+  && pass || fail "rc=$rc $out"
+
+it "POWERTERMINAL_NONINTERACTIVE=1 sem --yes não pula a confirmação do purge"
+reset
+recibo container "${DOCKER_RECIBO[@]}"
+out="$(PT_NONINT=1 pt remove --module container --purge-data </dev/null 2>&1)" || true
+[[ "$out" == *"Apagar imagens, containers e volumes? Não dá para desfazer."* && "$out" == *Cancelado* ]] \
+  && ! grep -q '/var/lib\|purge' "$LOG" && [[ -f "$R/container" ]] && pass || fail "$(cat "$LOG") $out"
 
 it "--purge-data sem --yes pede confirmação"
 reset
@@ -647,7 +697,8 @@ it "--purge-data em dry-run mostra o rm sem executar nada"
 reset
 recibo container "${DOCKER_RECIBO[@]}"
 out="$(pt remove --module container --purge-data --dry-run --yes 2>&1)" || true
-[[ "$out" == *"rm -rf --one-file-system -- /var/lib/docker /var/lib/containerd"* && -f "$R/container" ]] \
+[[ "$out" == *"rm -rf --one-file-system -- /var/lib/docker"* && "$out" == *"rm -rf --one-file-system -- /var/lib/containerd"* \
+  && -f "$R/container" ]] \
   && ! grep -v '^dpkg -s ' "$LOG" | grep -q . \
   && pass || fail "$(cat "$LOG") $out"
 
@@ -667,6 +718,13 @@ EOF
   chmod +x "$DSHIMS/$nome"
 }
 data_mb() {
+  cat >"$DSHIMS/systemctl" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "systemctl \$*" >>"$LOG"
+[[ "\${1:-}" == is-active ]] && exit "\$(cat '$TMP/docker-ativo-rc' 2>/dev/null || echo 0)"
+exit 0
+EOF
+  chmod +x "$DSHIMS/systemctl"
   (
     export PATH="$DSHIMS:$SHIMS:$PATH"
     source "$REPO/lib/modules/container.sh"
@@ -674,14 +732,24 @@ data_mb() {
   )
 }
 
-it "data_mb soma o docker system df em MB"
+it "data_mb soma o docker system df em MB, sem o build cache"
 reset; command rm -f "$DSHIMS"/*
-fake_runtime docker "Docker version 24.0.7" "printf '1.5GB\n230.4MB\n0B\n12kB\n'; exit 0"
+fake_runtime docker "Docker version 24.0.7" \
+  "printf 'Images\t1.5GB\nContainers\t230.4MB\nLocal Volumes\t0B\nBuild Cache\t12GB\nX\t12kB\n'; exit 0"
 assert_eq 1730 "$(data_mb)"
 it "data_mb nunca usa sudo"
 assert_eq "" "$(grep '^sudo' "$LOG" || true)"
-it "data_mb pede o formato com o tamanho"
-assert_contains "$(cat "$LOG")" "docker system df --format {{.Size}}"
+it "data_mb pede o formato com o tipo e o tamanho"
+assert_contains "$(cat "$LOG")" "docker system df --format {{.Type}}\t{{.Size}}"
+it "data_mb confere se o daemon do Docker já está no ar"
+assert_contains "$(cat "$LOG")" "systemctl is-active --quiet docker.service"
+
+it "data_mb com o daemon parado não imprime nada nem chama o docker system df"
+reset; command rm -f "$DSHIMS"/*
+fake_runtime docker "Docker version 24.0.7" "printf 'Images\t1GB\n'; exit 0"
+echo 3 >"$TMP/docker-ativo-rc"
+v="$(data_mb)"
+[[ -z "$v" ]] && ! grep -q 'docker system df' "$LOG" && pass || fail "v=$v $(cat "$LOG")"
 
 it "data_mb com docker system df falhando não imprime nada"
 reset; command rm -f "$DSHIMS"/*
@@ -690,13 +758,14 @@ assert_eq "" "$(data_mb)"
 
 it "data_mb com saída que não é tamanho não imprime nada"
 reset; command rm -f "$DSHIMS"/*
-fake_runtime docker "Docker version 24.0.7" "printf '1.5GB\nlixo\n'; exit 0"
+fake_runtime docker "Docker version 24.0.7" "printf 'Images\t1.5GB\nlixo\n'; exit 0"
 assert_eq "" "$(data_mb)"
 
 it "data_mb usa o podman quando o docker é o shim do podman"
 reset; command rm -f "$DSHIMS"/*
 fake_runtime docker "podman version 4.6.2" "exit 1"
-fake_runtime podman "podman version 4.6.2" "printf '2GB\n500MB\n1TB\n'; exit 0"
+fake_runtime podman "podman version 4.6.2" "printf 'Images\t2GB\nContainers\t500MB\nLocal Volumes\t1TB\n'; exit 0"
+echo 3 >"$TMP/docker-ativo-rc"
 assert_eq 1002500 "$(data_mb)"
 
 # ---- Recibo só do que o módulo criou -----------------------------------------
