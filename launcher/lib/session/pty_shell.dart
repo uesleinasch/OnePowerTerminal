@@ -49,9 +49,22 @@ class SudoPrompt extends ScanHit {
 }
 
 final _rcLine = RegExp('^(.*)$kRcMarker (\\d{1,3})\$');
+final _controlChars = RegExp(r'[\x00-\x1F\x7F]');
 
 class MarkerScanner {
+  static const _maxPartial = 64 * 1024;
+  static const _keptTail = 32;
+
   var _buffer = '';
+
+  static String _lineText(String raw) {
+    var end = raw.length;
+    while (end > 0 && raw.codeUnitAt(end - 1) == 13) {
+      end--;
+    }
+    final line = raw.substring(0, end);
+    return cleanTerminalText(line.substring(line.lastIndexOf('\r') + 1));
+  }
 
   List<ScanHit> feed(String chunk) {
     _buffer += chunk;
@@ -66,8 +79,16 @@ class MarkerScanner {
         hits.add(const SudoPrompt());
         continue;
       }
-      if (nl < 0) return hits;
-      final line = cleanTerminalText(_buffer.substring(0, nl));
+      if (nl < 0) {
+        if (_buffer.length > _maxPartial) {
+          var cut = _buffer.length - _keptTail;
+          if (_buffer.codeUnitAt(cut - 1) & 0xFC00 == 0xD800) cut--;
+          hits.add(OutputLine(_lineText(_buffer.substring(0, cut))));
+          _buffer = _buffer.substring(cut);
+        }
+        return hits;
+      }
+      final line = _lineText(_buffer.substring(0, nl));
       _buffer = _buffer.substring(nl + 1);
       final m = _rcLine.firstMatch(line);
       if (m == null) {
@@ -138,24 +159,41 @@ class PtyShell implements ShellSession {
 
   @override
   Future<RunResult> run(String commandLine) => _serial(() async {
-    final (code, prompts) = await _exec(
-      commandLine,
-      (_) => _proc.stdin.add(const [3]),
-    );
+    final (code, prompts) = await _exec(commandLine, (_) => _interrupt());
     return RunResult(code, prompts > 0);
   });
 
   @override
-  Future<SudoResult> unlockSudo(String password) => _serial(() async {
-    final (code, prompts) = await _exec('sudo -v', (n) {
-      if (n == 1) {
-        _proc.stdin.add([...utf8.encode(password), 10]);
-      } else {
-        _proc.stdin.add(const [3]);
-      }
-    });
-    if (prompts > 1) return SudoResult.wrongPassword;
-    return code == 0 ? SudoResult.ok : SudoResult.notAllowed;
+  Future<SudoResult> unlockSudo(
+    String password, {
+    Duration timeout = const Duration(seconds: 20),
+  }) => _serial(() async {
+    var timedOut = false;
+    Timer? timer;
+    void arm() {
+      timer?.cancel();
+      timer = Timer(timeout, () {
+        timedOut = true;
+        _interrupt();
+      });
+    }
+
+    arm();
+    try {
+      final (code, prompts) = await _exec('sudo -v', (n) {
+        arm();
+        if (n == 1) {
+          _proc.stdin.add([...utf8.encode(password), 10]);
+        } else {
+          _interrupt();
+        }
+      });
+      if (timedOut) return SudoResult.notAllowed;
+      if (prompts > 1) return SudoResult.wrongPassword;
+      return code == 0 ? SudoResult.ok : SudoResult.notAllowed;
+    } finally {
+      timer?.cancel();
+    }
   });
 
   @override
@@ -163,18 +201,14 @@ class PtyShell implements ShellSession {
 
   Future<void> _shutdown() async {
     const grace = Duration(seconds: 3);
-    var idle = true;
-    try {
-      await _queue.timeout(grace);
-    } on TimeoutException {
-      idle = false;
+    var idle = await _settles(grace);
+    if (!idle && !_exited) {
+      _interrupt();
+      idle = await _settles(const Duration(seconds: 1));
     }
     if (idle && !_exited) {
       try {
-        await _exec(
-          'sudo -k',
-          (_) => _proc.stdin.add(const [3]),
-        ).timeout(grace);
+        await _exec('sudo -k', (_) => _interrupt()).timeout(grace);
         _proc.stdin.write('exit\n');
         await _proc.exitCode.timeout(grace);
       } catch (_) {}
@@ -188,17 +222,41 @@ class PtyShell implements ShellSession {
     if (_closing != null) {
       return Future.error(StateError('A sessão do shell foi encerrada.'));
     }
-    final result = _queue.then((_) => body());
+    final result = _queue.then(
+      (_) => _closing == null
+          ? body()
+          : throw StateError('A sessão do shell foi encerrada.'),
+    );
     _queue = result.then<void>((_) {}, onError: (_) {});
     return result;
   }
 
+  Future<bool> _settles(Duration limit) async {
+    try {
+      await _queue.timeout(limit);
+      return true;
+    } on TimeoutException {
+      return false;
+    }
+  }
+
+  void _interrupt() => _proc.stdin.add(const [3]);
+
   Future<(int, int)> _exec(String cmd, void Function(int n) onPrompt) async {
+    if (cmd.contains(_controlChars)) {
+      throw ArgumentError.value(
+        cmd,
+        'commandLine',
+        'não pode ter quebra de linha nem caractere de controle',
+      );
+    }
     if (_exited) throw StateError('O shell da sessão terminou.');
     final rc = _rc = Completer<int>();
     var prompts = 0;
     _onPrompt = () => onPrompt(++prompts);
-    _proc.stdin.write("$cmd; printf '__PN_%s__ %d\\n' RC \$?\n");
+    _proc.stdin.write(
+      "eval ${shQuote(cmd)}; printf '__PN_%s__ %d\\n' RC \$?\n",
+    );
     try {
       return (await rc.future, prompts);
     } finally {
@@ -223,6 +281,7 @@ class PtyShell implements ShellSession {
 
   void _onExit() {
     _exited = true;
+    if (!_output.isClosed) _output.close().ignore();
     final rc = _rc;
     if (rc != null && !rc.isCompleted) {
       rc.completeError(StateError('O shell da sessão terminou.'));

@@ -13,8 +13,10 @@ case "${1:-}" in
     ;;
   -v)
     [[ -f $ticket ]] && exit 0
+    prompt="${SUDO_PROMPT:-[sudo] password: }"
+    [[ ${FAKE_SUDO_ALT_PROMPT:-0} == 1 ]] && prompt='Verification code: '
     for _ in 1 2 3; do
-      printf '%s' "${SUDO_PROMPT:-[sudo] password: }" >/dev/tty
+      printf '%s' "$prompt" >/dev/tty
       IFS= read -r -s pw </dev/tty || exit 1
       printf '\n' >/dev/tty
       if [[ $pw == "${FAKE_SUDO_PASSWORD:-}" ]]; then
