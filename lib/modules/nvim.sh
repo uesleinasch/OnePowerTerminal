@@ -14,8 +14,13 @@ mod_nvim_category() { echo editor; }
 mod_nvim_installed() { has_cmd nvim; }
 
 _PN_NVIM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"
-_PN_NVIM_PREFIX="${POWERTERMINAL_NVIM_PREFIX:-/opt}"
-_PN_NVIM_LINK="${POWERTERMINAL_NVIM_LINK:-/usr/local/bin/nvim}"
+_PN_NVIM_PREFIX=/opt
+_PN_NVIM_LINK=/usr/local/bin/nvim
+# Os overrides apontam o sudo rm -rf/ln -sf para outro lugar: só valem nos testes.
+if [[ "${POWERTERMINAL_TESTING:-0}" == 1 ]]; then
+  _PN_NVIM_PREFIX="${POWERTERMINAL_NVIM_PREFIX:-$_PN_NVIM_PREFIX}"
+  _PN_NVIM_LINK="${POWERTERMINAL_NVIM_LINK:-$_PN_NVIM_LINK}"
+fi
 
 mod_nvim_install() {
   if has_cmd nvim; then

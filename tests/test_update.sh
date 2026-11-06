@@ -278,7 +278,7 @@ assert_eq "" "$(ls "$R" 2>/dev/null)"
 NVOPT="$TMP/opt"
 NVLINK="$TMP/usrlocal/nvim"
 pt_nvim() {
-  POWERTERMINAL_NVIM_PREFIX="$NVOPT" POWERTERMINAL_NVIM_LINK="$NVLINK" pt "$@"
+  POWERTERMINAL_TESTING=1 POWERTERMINAL_NVIM_PREFIX="$NVOPT" POWERTERMINAL_NVIM_LINK="$NVLINK" pt "$@"
 }
 nvim_gerenciado() {
   command rm -rf "$NVOPT" "$SHIMS/nvim"
@@ -340,6 +340,31 @@ it "e o remove depois do update preserva o starship do usuário"
 PATH="$TMP/home/.local/bin:$PATH" pt remove --module tools --yes >/dev/null 2>&1 || true
 for c in eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
 [[ "$(cat "$TMP/home/.local/bin/starship" 2>/dev/null)" == *"echo meu"* ]] && pass || fail "starship do usuário apagado"
+
+it "PN_RECEIPT_DIR herdado do ambiente não desvia os recibos de uma execução real"
+reset
+PN_RECEIPT_DIR="$TMP/desvio" pt install --module helpers --yes >/dev/null 2>&1 || true
+[[ -f "$R/helpers" && ! -e "$TMP/desvio" ]] && pass || fail "recibo desviado: $(ls -R "$TMP/desvio" 2>&1)"
+
+it "PN_RECEIPT_MODULE herdado não faz o update gravar recibo"
+reset
+mkshim claude
+PN_RECEIPT_MODULE=claude pt update --module claude --yes >/dev/null 2>&1 || true
+assert_eq "" "$(ls "$R" 2>/dev/null)"
+
+it "PN_EVENTS_FD herdado não manda eventos para a saída"
+reset
+out="$(PN_EVENTS_FD=1 pt install --module helpers --dry-run --yes 2>/dev/null)" || true
+[[ "$out" != *'"event"'* ]] && pass || fail "$out"
+
+nvim_vars() {
+  env -u POWERTERMINAL_TESTING POWERTERMINAL_NVIM_PREFIX=/x/opt POWERTERMINAL_NVIM_LINK=/x/nvim HOME="$TMP/home" "$@" \
+    bash -c 'source "$1/lib/core.sh"; source "$1/lib/modules/nvim.sh"; printf "%s %s" "$_PN_NVIM_PREFIX" "$_PN_NVIM_LINK"' _ "$REPO"
+}
+it "POWERTERMINAL_NVIM_PREFIX/LINK são ignorados sem POWERTERMINAL_TESTING=1"
+assert_eq "/opt /usr/local/bin/nvim" "$(nvim_vars)"
+it "com POWERTERMINAL_TESTING=1 valem"
+assert_eq "/x/opt /x/nvim" "$(nvim_vars POWERTERMINAL_TESTING=1)"
 
 it "update falha de um módulo sai 1 e o resto segue"
 reset
