@@ -25,6 +25,15 @@ mod_nvim_install() {
     post_install_note "Instale o Neovim manualmente para $(uname -m) — o release oficial usado pelo módulo nvim é só x86_64."
     return 0
   fi
+  _vf_nvim_fetch
+}
+
+mod_nvim_update() {
+  require_x86_64 nvim || return 0
+  _vf_nvim_fetch
+}
+
+_vf_nvim_fetch() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log_dry "download $_PN_NVIM_URL"
     log_dry "sudo rm -rf $_PN_NVIM_PREFIX/nvim $_PN_NVIM_PREFIX/nvim-linux-x86_64"

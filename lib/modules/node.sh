@@ -155,6 +155,14 @@ mod_node_install() {
   log_info "Reabra o terminal (ou rode 'exec zsh') para ativar 'node'/'npm'."
 }
 
+mod_node_update() {
+  if [[ -s "$_PN_NVM_DIR/nvm.sh" ]]; then
+    _vf_install_node_via_nvm
+  else
+    _vf_install_node_via_n
+  fi
+}
+
 mod_node_doctor() {
   if [[ -s "$_PN_NVM_DIR/nvm.sh" ]]; then
     status_line 1 "nvm: $_PN_NVM_DIR"

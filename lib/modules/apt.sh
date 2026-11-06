@@ -55,6 +55,11 @@ mod_apt_install() {
   fi
 }
 
+mod_apt_update() {
+  log_info "Atualizando pacotes base via apt-get…"
+  apt_upgrade "${_PN_APT_PKGS[@]}"
+}
+
 mod_apt_doctor() {
   local missing=()
   for p in "${_PN_APT_PKGS[@]}"; do

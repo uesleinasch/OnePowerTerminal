@@ -126,7 +126,12 @@ _vf_run_modules() {
     log_section "[$m] $("mod_${m}_meta")"
     pn_event module_begin "module=$m" "action=$action" "index=$i" "total=$total"
     rc=0
-    ( PN_RECEIPT_MODULE="$m"; PN_EVENT_MODULE="$m"; "mod_${m}_${action}" ) || rc=$?
+    (
+      PN_RECEIPT_MODULE="$m"; PN_EVENT_MODULE="$m"
+      # Update de módulo sem recibo (preexisting) não pode criar um: viraria "installed" e o remove desfaria o que era do usuário.
+      if [[ "$action" == update ]] && ! pn_receipt_has "$m"; then PN_RECEIPT_MODULE=""; fi
+      "mod_${m}_${action}"
+    ) || rc=$?
     if [[ "$rc" -eq 0 ]]; then
       ok+=("$m")
       pn_event module_end "module=$m" "action=$action" ok=true
@@ -535,30 +540,69 @@ cmd_theme() {
 }
 
 cmd_update() {
-  local a
-  for a in "$@"; do
-    case "$a" in
-      --dry-run) DRY_RUN=1 ;;
-      *) die "Flag desconhecida: $a (rode 'powerterminal help update')" ;;
+  local modules_csv="" m
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
+      --yes|-y) POWERTERMINAL_NONINTERACTIVE=1; shift ;;
+      --dry-run) DRY_RUN=1; shift ;;
+      --events-fd) pn_events_open "${2:?--events-fd requer um número}"; shift 2 ;;
+      -h|--help) cmd_help update; return 0 ;;
+      *) die "Flag desconhecida: $1 (rode 'powerterminal help update')" ;;
     esac
   done
-  log_section "Atualizando ferramentas (best-effort)"
-  local omz_custom="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-  for d in \
-    "$omz_custom/themes/powerlevel10k" \
-    "$omz_custom/plugins/zsh-autosuggestions" \
-    "$omz_custom/plugins/zsh-syntax-highlighting"; do
-    if [[ -d "$d/.git" ]]; then
-      log_info "Atualizando $(basename "$d")…"
-      run git -C "$d" pull --ff-only || log_warn "$(basename "$d"): pull falhou"
+
+  local -a pedidos=() alvos=()
+  local -A pedido=()
+  if [[ -n "$modules_csv" ]]; then
+    IFS=',' read -ra pedidos <<< "$modules_csv"
+    for m in "${pedidos[@]}"; do
+      _vf_is_registered "$m" || die "Módulo desconhecido: $m"
+      declare -F "mod_${m}_update" >/dev/null \
+        || die "O módulo $m não tem atualização própria; ele muda junto com a release do PowerTerminal."
+      pedido[$m]=1
+    done
+  fi
+
+  require_not_root
+  require_supported_distro
+
+  for m in "${_PN_ALL_MODULES[@]}"; do
+    declare -F "mod_${m}_update" >/dev/null || continue
+    if [[ -n "$modules_csv" ]]; then
+      [[ -n "${pedido[$m]:-}" ]] && alvos+=("$m")
+    elif pn_receipt_has "$m" || "mod_${m}_installed"; then
+      alvos+=("$m")
     fi
   done
+
+  if [[ ${#alvos[@]} -eq 0 ]]; then
+    log_info "Nenhum módulo instalado tem atualização própria."
+    return 0
+  fi
+
+  log_info "Atualizar: ${alvos[*]}"
+  [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será alterado."
+
+  if [[ "$DRY_RUN" != "1" ]]; then
+    local sudo
+    for m in "${alvos[@]}"; do
+      declare -F "mod_${m}_cost" >/dev/null || continue
+      sudo="$("mod_${m}_cost" | cut -f3)"
+      if [[ "$sudo" == "1" ]]; then setup_sudo_keepalive; break; fi
+    done
+  fi
+
+  local ok=() failed=()
+  _vf_run_modules update "${alvos[@]}"
+  print_post_install_notes
+
+  if [[ ${#failed[@]} -gt 0 ]]; then
+    log_warn "Módulos com falha: ${failed[*]}"
+    exit 1
+  fi
   if has_cmd nvim && [[ -d "$HOME/.config/nvim" ]]; then
     log_info "Para atualizar plugins do Neovim: nvim '+Lazy sync' '+qa'"
-  fi
-  if has_cmd pipx && pipx list --short 2>/dev/null | grep -q '^notion-t '; then
-    log_info "Atualizando notion-t (pipx)…"
-    run pipx upgrade notion-t || log_warn "pipx upgrade notion-t falhou"
   fi
   log_success "Update concluído."
 }
@@ -649,7 +693,7 @@ ${C_B}Comandos:${C_R}
   catalog   lista módulos e estado em JSON (catalog --json)
   theme     troca o flavor Catppuccin (kitty + Neovim + prompt)
   share     empacota o repo num .tar.gz para compartilhar com colegas
-  update    atualiza p10k e plugins zsh
+  update    atualiza módulos instalados (update --module a,b)
   help      ajuda (use 'help <comando>' para detalhes)
 
 ${C_B}Profiles:${C_R}
@@ -733,7 +777,21 @@ arquitetura, módulos de cada perfil e, por módulo, descrição, custo, depend�
 estado (installed|preexisting|available) e ações disponíveis. Logs vão para stderr.
 EOF
       ;;
-    link|unlink|status|doctor|share|update)
+    update)
+      cat <<EOF
+${C_B}powerterminal update${C_R} [--module a,b] [--yes] [--dry-run] [--events-fd N]
+
+  --module a,b       só estes módulos (padrão: todos os instalados com update próprio)
+  --yes / -y         modo não-interativo (o update nunca pergunta confirmação)
+  --dry-run          simula: mostra o que seria rodado
+  --events-fd N      eventos JSON Lines no descritor N
+
+Módulos com atualização própria: apt, zsh, nvim, vscode, kitty, tools, node,
+claude, container, notiont. Os demais mudam junto com a release do PowerTerminal.
+Um módulo que já existia antes do PowerTerminal é atualizado, mas não ganha recibo.
+EOF
+      ;;
+    link|unlink|status|doctor|share)
       printf "powerterminal %s — %s\n" "$topic" "Use 'powerterminal $topic --dry-run' (quando aplicável) para simular."
       ;;
     *) die "Tópico de ajuda desconhecido: $topic" ;;

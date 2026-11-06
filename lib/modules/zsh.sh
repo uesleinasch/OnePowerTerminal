@@ -20,6 +20,18 @@ mod_zsh_requires() { printf 'git\tgit\ncurl\tcurl\n'; }
 _PN_OMZ_DIR="$HOME/.oh-my-zsh"
 _PN_OMZ_CUSTOM="${ZSH_CUSTOM:-$_PN_OMZ_DIR/custom}"
 
+mod_zsh_update() {
+  local omz_custom="${ZSH_CUSTOM:-$_PN_OMZ_DIR/custom}" d
+  for d in \
+    "$omz_custom/themes/powerlevel10k" \
+    "$omz_custom/plugins/zsh-autosuggestions" \
+    "$omz_custom/plugins/zsh-syntax-highlighting"; do
+    [[ -d "$d/.git" ]] || continue
+    log_info "Atualizando $(basename "$d")…"
+    run git -C "$d" pull --ff-only || log_warn "$(basename "$d"): pull falhou"
+  done
+}
+
 mod_zsh_install() {
   require_supported_distro
   pn_step 1 5 "Instalando o pacote zsh…"
