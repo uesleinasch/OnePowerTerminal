@@ -71,7 +71,7 @@ _vf_install_starship() {
 }
 
 _vf_install_eza() {
-  if [[ "${1:-}" != force ]] && has_cmd eza; then log_info "OK: eza presente"; return 0; fi
+  if has_cmd eza; then log_info "OK: eza presente"; return 0; fi
   if apt_install eza 2>/dev/null; then return 0; fi
   log_info "eza não está no apt — baixando binário do GitHub…"
   _vf_install_eza_github
