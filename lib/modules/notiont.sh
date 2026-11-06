@@ -44,6 +44,12 @@ _vf_ensure_pipx() {
   return 1
 }
 
+mod_notiont_update() {
+  has_cmd pipx || die "pipx ausente — não dá para atualizar o notion-t."
+  log_info "Atualizando notion-t (pipx)…"
+  run pipx upgrade notion-t
+}
+
 mod_notiont_doctor() {
   if has_cmd pipx; then
     status_line 1 "pipx: $(command -v pipx)"

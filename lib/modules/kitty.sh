@@ -31,9 +31,14 @@ mod_kitty_install() {
   link_safe "$POWERTERMINAL_HOME/home/.config/kitty" "$HOME/.config/kitty"
 }
 
+mod_kitty_update() {
+  log_info "Atualizando o Kitty (instalador oficial)…"
+  _vf_install_kitty_binary force
+}
+
 # Passo 1 do guia oficial: curl -L .../installer.sh | sh /dev/stdin
 _vf_install_kitty_binary() {
-  if [[ -x "$_PN_KITTY_DIR/bin/kitty" ]]; then
+  if [[ "${1:-}" != force && -x "$_PN_KITTY_DIR/bin/kitty" ]]; then
     log_info "OK: Kitty já instalado em $_PN_KITTY_DIR"
     return 0
   fi

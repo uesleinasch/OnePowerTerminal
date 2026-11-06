@@ -40,6 +40,11 @@ mod_vscode_install() {
   [[ "$DRY_RUN" == "1" ]] || log_success "VS Code instalado: $(code --version 2>/dev/null | head -1)"
 }
 
+mod_vscode_update() {
+  log_info "Atualizando o VS Code via apt-get…"
+  apt_upgrade code
+}
+
 _vf_vscode_recibo_tem_code() {
   [[ $'\n'"$(pn_receipt_entries vscode apt)"$'\n' == *$'\n'"apt"$'\t'"code"$'\n'* ]]
 }

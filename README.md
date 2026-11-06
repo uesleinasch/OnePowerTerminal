@@ -229,7 +229,7 @@ primeiro uso, rode `claude` para fazer login.
 | `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher)          |
 | `theme [flavor]`   | Troca o flavor Catppuccin em kitty + Neovim + prompt            |
 | `share [arquivo]`  | Empacota o repo em `.tar.gz` (sem `home.local`, sem `.pnbak.*`) |
-| `update`           | Atualiza P10k e plugins zsh (e dá hint para `:Lazy sync`)       |
+| `update [--module a,b]` | Atualiza os módulos instalados com update próprio (`--dry-run`, `--yes`; hint do `:Lazy sync`) |
 | `help [tópico]`    | Ajuda                                                           |
 
 ### O que o `remove` desfaz nos módulos de sistema

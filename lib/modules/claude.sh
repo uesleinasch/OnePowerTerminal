@@ -45,6 +45,11 @@ mod_claude_install() {
   post_install_note "Rode 'claude' para fazer login na sua conta Anthropic."
 }
 
+mod_claude_update() {
+  log_info "Atualizando o Claude Code…"
+  run claude update
+}
+
 mod_claude_doctor() {
   local bin=""
   if has_cmd claude; then

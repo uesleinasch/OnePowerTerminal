@@ -136,6 +136,12 @@ apt_install() {
   done
 }
 
+apt_upgrade() {
+  require_supported_distro
+  apt_update_once
+  as_sudo env DEBIAN_FRONTEND=noninteractive apt-get install --only-upgrade -y "$@"
+}
+
 apt_update_once() {
   [[ "${_PN_APT_UPDATED:-}" == "1" ]] && return 0
   if [[ "$DRY_RUN" == "1" ]]; then
