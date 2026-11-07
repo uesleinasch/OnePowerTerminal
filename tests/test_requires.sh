@@ -9,7 +9,7 @@ for m in "${POWERTERMINAL_HOME}"/lib/modules/*.sh; do
 done
 cd "$POWERTERMINAL_HOME"
 
-MODULOS=(apt fonts zsh nvim astronvim vscode kitty tools node claude helpers extras notiont container theme)
+MODULOS=(apt fonts zsh nvim astronvim vscode kitty eza starship lazygit lazydocker uv yazi node claude helpers extras notiont container theme)
 
 # Cada teste simula a máquina sem git sobrescrevendo has_cmd dentro de um
 # subshell: nada aqui depende de o host ter ou não ter o binário.

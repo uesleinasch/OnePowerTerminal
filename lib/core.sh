@@ -637,6 +637,21 @@ status_line() {
   fi
 }
 
+# pn_config_links NOME — par src<TAB>dst da config home/.config/NOME, só se existe no repo.
+pn_config_links() {
+  [[ -d "$POWERTERMINAL_HOME/home/.config/$1" ]] || return 0
+  printf '%s\t%s\n' "$POWERTERMINAL_HOME/home/.config/$1" "$HOME/.config/$1"
+}
+
+# pn_link_module_links X — link_safe de cada par emitido por mod_X_links.
+pn_link_module_links() {
+  local src dst
+  while IFS=$'\t' read -r src dst; do
+    [[ -n "$dst" ]] && link_safe "$src" "$dst"
+  done < <("mod_${1}_links")
+  return 0
+}
+
 # Verdadeiro quando todo destino de mod_<m>_links é symlink cujo alvo literal é a origem.
 pn_links_installed() {
   local src dst achou=0

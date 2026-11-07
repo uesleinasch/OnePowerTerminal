@@ -104,11 +104,11 @@ cd ~/PowerTerminal && ./tests/run.sh
 │       ├── astronvim.sh      # link de ~/.config/nvim
 │       ├── vscode.sh         # VS Code (repositório apt da Microsoft)
 │       ├── kitty.sh          # Kitty + link da kitty.conf
-│       ├── tools.sh          # eza, starship, lazygit, lazydocker, uv, yazi
+│       ├── eza.sh, starship.sh, lazygit.sh, lazydocker.sh, uv.sh, yazi.sh  # um módulo por CLI
 │       ├── node.sh           # nvm OU n (escolha) + Node LTS
 │       ├── claude.sh         # Claude Code (instalador nativo)
 │       ├── helpers.sh        # link de myastro / mykitty / myyazi
-│       ├── extras.sh         # btop, ranger, yazi, picom, flameshot, …
+│       ├── extras.sh         # btop, ranger, picom, flameshot, …
 │       ├── notiont.sh        # notion-t (CLI Notion via pipx)
 │       ├── container.sh      # Docker OU Podman (escolha) + grupo/rootless
 │       └── theme.sh          # flavor Catppuccin (kitty + Neovim + prompt)
@@ -189,7 +189,7 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 | Profile   | Inclui                                                                 |
 |-----------|------------------------------------------------------------------------|
 | `minimal` | apt + fonts + zsh + helpers                                            |
-| `dev`     | minimal + editor + kitty + tools + node + claude + container + theme   |
+| `dev`     | minimal + editor + kitty + CLIs (eza…yazi) + node + claude + container + theme |
 | `full`    | tudo (= dev + extras + notiont), com os dois editores                  |
 
 ### Editor: Neovim, VS Code ou ambos
@@ -409,7 +409,7 @@ ou — mais tarde — git push) e rode `powerterminal link`.
 
 ## Yazi (file explorer no terminal)
 
-O módulo `tools` instala o **yazi** em `~/.local/bin` (binários `yazi` e `ya`),
+O módulo `yazi` instala o **yazi** em `~/.local/bin` (binários `yazi` e `ya`),
 usando a build **musl** — estática, para não depender da glibc do sistema
 (releases `-gnu` recentes exigem glibc ≥ 2.39). A config fica em
 `home/.config/yazi/` (gerenciada como os demais dotfiles) e o `~/.zshrc` define:

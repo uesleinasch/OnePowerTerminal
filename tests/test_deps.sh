@@ -8,7 +8,7 @@ for m in "${POWERTERMINAL_HOME}"/lib/modules/*.sh; do
 done
 
 # Mesma ordem canônica do bin/powerterminal.
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty tools node helpers extras notiont)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim kitty eza starship lazygit lazydocker uv yazi node helpers extras notiont)
 
 it "modulo sem dependencia devolve ele mesmo"
 assert_eq "zsh" "$(pn_expand_deps zsh)"

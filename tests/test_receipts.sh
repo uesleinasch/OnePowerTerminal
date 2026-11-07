@@ -289,7 +289,7 @@ passo_env() {
   mkdir -p "$HOME/.local/bin"
   POWERTERMINAL_HOME="$REPO_REAL"
   source "$REPO_REAL/lib/modules/kitty.sh"
-  source "$REPO_REAL/lib/modules/tools.sh"
+  for f in eza starship lazygit lazydocker uv yazi; do source "$REPO_REAL/lib/modules/$f.sh"; done
   source "$REPO_REAL/lib/modules/node.sh"
   PN_RECEIPT_MODULE="$1"
 }
@@ -321,7 +321,7 @@ it "kitty.app que o instalador não criou não entra no recibo"
 
 it "starship, lazydocker, uv e uvx novos entram no recibo"
 (
-  passo_env tools
+  passo_env starship
   curl_pipe() {
     case "$1" in
       *starship*) : >"$HOME/.local/bin/starship" ;;
@@ -329,36 +329,38 @@ it "starship, lazydocker, uv e uvx novos entram no recibo"
     esac
   }
   curl() { printf ': >"%s"\n' "$HOME/.local/bin/lazydocker"; }
-  _vf_install_starship force >/dev/null 2>&1
-  _vf_install_lazydocker force >/dev/null 2>&1
-  _vf_install_uv force >/dev/null 2>&1
   B="$HOME/.local/bin"
-  [[ "$(pn_receipt_entries tools file)" == "$(printf 'file\t%s\n' "$B/starship" "$B/lazydocker" "$B/uv" "$B/uvx")" ]]
-) && pass || fail "recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+  _vf_install_starship force >/dev/null 2>&1
+  PN_RECEIPT_MODULE=lazydocker _vf_install_lazydocker force >/dev/null 2>&1
+  PN_RECEIPT_MODULE=uv _vf_install_uv force >/dev/null 2>&1
+  [[ "$(pn_receipt_entries starship file)" == $'file\t'"$B/starship" ]] \
+    && [[ "$(pn_receipt_entries lazydocker file)" == $'file\t'"$B/lazydocker" ]] \
+    && [[ "$(pn_receipt_entries uv file)" == "$(printf 'file\t%s\n' "$B/uv" "$B/uvx")" ]]
+) && pass || fail "recibos: $(cat "$(dirname "$(pn_receipt_path starship)")"/* 2>&1)"
 
 it "starship, lazydocker, uv e uvx que já existiam não entram no recibo"
 (
-  passo_env tools
+  passo_env starship
   for b in starship lazydocker uv uvx; do printf 'meu\n' >"$HOME/.local/bin/$b"; done
   curl_pipe() { :; }
   curl() { printf ':\n'; }
   _vf_install_starship force >/dev/null 2>&1
-  _vf_install_lazydocker force >/dev/null 2>&1
-  _vf_install_uv force >/dev/null 2>&1
-  ! pn_receipt_has tools
-) && pass || fail "binário do usuário entrou no recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+  PN_RECEIPT_MODULE=lazydocker _vf_install_lazydocker force >/dev/null 2>&1
+  PN_RECEIPT_MODULE=uv _vf_install_uv force >/dev/null 2>&1
+  ! pn_receipt_has starship && ! pn_receipt_has lazydocker && ! pn_receipt_has uv
+) && pass || fail "binário do usuário entrou no recibo: $(cat "$(dirname "$(pn_receipt_path starship)")"/* 2>&1)"
 
 it "install_github_binary grava só o binário que não existia"
 (
-  passo_env tools
+  passo_env eza
   mkdir -p "$TMP/pkg"
   printf '#!/bin/sh\n' >"$TMP/pkg/eza"; printf '#!/bin/sh\n' >"$TMP/pkg/lazygit"
   download_to() { tar -czf "$2" -C "$TMP/pkg" eza lazygit; }
   printf 'meu\n' >"$HOME/.local/bin/lazygit"
   install_github_binary https://x/eza.tar.gz eza >/dev/null 2>&1
   install_github_binary https://x/lazygit.tar.gz lazygit >/dev/null 2>&1
-  [[ "$(pn_receipt_entries tools file)" == $'file\t'"$HOME/.local/bin/eza" ]]
-) && pass || fail "recibo: $(cat "$(pn_receipt_path tools)" 2>&1)"
+  [[ "$(pn_receipt_entries eza file)" == $'file\t'"$HOME/.local/bin/eza" ]] && ! pn_receipt_has lazygit
+) && pass || fail "recibo: $(cat "$(pn_receipt_path eza)" 2>&1)"
 
 it "nvm cujo diretório já existia não entra no recibo"
 (

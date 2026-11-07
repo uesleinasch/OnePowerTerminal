@@ -180,8 +180,12 @@ it "update --module tools --dry-run reinstala mesmo com as seis ferramentas no P
 reset
 for c in starship eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
 B="$TMP/home/.local/bin"
-recibo tools 'origin	installed' "file	$B/starship" 'apt	eza' "file	$B/yazi" "file	$B/ya" \
-  "file	$B/lazygit" "file	$B/lazydocker" "file	$B/uv" "file	$B/uvx"
+recibo starship 'origin	installed' "file	$B/starship"
+recibo eza 'origin	installed' 'apt	eza'
+recibo yazi 'origin	installed' "file	$B/yazi" "file	$B/ya"
+recibo lazygit 'origin	installed' "file	$B/lazygit"
+recibo lazydocker 'origin	installed' "file	$B/lazydocker"
+recibo uv 'origin	installed' "file	$B/uv" "file	$B/uvx"
 out="$(pt update --module tools --dry-run --yes 2>&1)"
 for c in starship eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
 if grep -q 'OK: .* presente' <<<"$out"; then fail "atalho 'já presente' não foi ignorado"; else pass; fi
@@ -203,12 +207,12 @@ it "update de tools sem recibo não reinstala nada"
 reset
 for c in starship eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
 pt update --module tools --yes >"$TMP/out" 2>&1 && rc=0 || rc=$?
-[[ "$rc" -eq 0 ]] && ! grep -q '^curl\|^uv \|^sudo env' "$LOG" && grep -q 'não foram instaladas pelo PowerTerminal' "$TMP/out" \
+[[ "$rc" -eq 0 ]] && ! grep -q '^curl\|^uv \|^sudo env' "$LOG" && grep -q 'não foi instalado pelo PowerTerminal' "$TMP/out" \
   && pass || fail "rc=$rc $(cat "$LOG") $(cat "$TMP/out")"
 
 it "update de tools só reinstala o que está no recibo"
 reset
-recibo tools 'origin	installed' "file	$TMP/home/.local/bin/starship"
+recibo starship 'origin	installed' "file	$TMP/home/.local/bin/starship"
 out="$(pt update --module tools --dry-run --yes 2>&1)"
 [[ "$out" == *starship.rs/install.sh* && "$out" != *install_update_linux.sh* && "$out" != *"self update"* \
   && "$out" != *"only-upgrade -y eza"* ]] && pass || fail "$out"
@@ -218,14 +222,14 @@ reset
 mkdir -p "$TMP/home/.local/bin"
 printf '#!/usr/bin/env bash\nprintf "pt-uv %%s\\n" "$*" >>"%s"\nexit 1\n' "$LOG" >"$TMP/home/.local/bin/uv"
 chmod +x "$TMP/home/.local/bin/uv"
-recibo tools 'origin	installed' "file	$TMP/home/.local/bin/uv"
+recibo uv 'origin	installed' "file	$TMP/home/.local/bin/uv"
 pt update --module tools --yes >"$TMP/out" 2>&1 || true
 grep -qx 'pt-uv self update' "$LOG" && grep -q 'astral.sh/uv/install.sh' "$LOG" && ! grep -q '^uv ' "$LOG" \
   && pass || fail "$(cat "$LOG")"
 
 it "uv que não está no recibo não é tocado"
 reset
-recibo tools 'origin	installed' "file	$TMP/home/.local/bin/starship"
+recibo starship 'origin	installed' "file	$TMP/home/.local/bin/starship"
 pt update --module tools --yes >"$TMP/out" 2>&1 || true
 ! grep -q '^uv \|astral.sh' "$LOG" && pass || fail "$(cat "$LOG")"
 for c in starship eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done
@@ -334,9 +338,9 @@ reset
 mkdir -p "$TMP/home/.local/bin"
 printf '#!/bin/sh\necho meu\n' >"$TMP/home/.local/bin/starship"; chmod +x "$TMP/home/.local/bin/starship"
 for c in eza yazi ya lazygit lazydocker uv; do mkshim "$c"; done
-recibo tools 'origin	installed' "file	$TMP/home/.local/bin/lazygit"
+recibo lazygit 'origin	installed' "file	$TMP/home/.local/bin/lazygit"
 PATH="$TMP/home/.local/bin:$PATH" pt update --module tools --yes >/dev/null 2>&1 || true
-assert_eq $'origin\tinstalled\nfile\t'"$TMP/home/.local/bin/lazygit" "$(cat "$R/tools")"
+assert_eq $'origin\tinstalled\nfile\t'"$TMP/home/.local/bin/lazygit" "$(cat "$R/lazygit")"
 it "e o remove depois do update preserva o starship do usuário"
 PATH="$TMP/home/.local/bin:$PATH" pt remove --module tools --yes >/dev/null 2>&1 || true
 for c in eza yazi ya lazygit lazydocker uv; do command rm -f "$SHIMS/$c"; done

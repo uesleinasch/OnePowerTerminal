@@ -1,8 +1,8 @@
 # shellcheck shell=bash
-# Module: extras — configs auxiliares (btop, ranger, yazi, lazygit, lazydocker, picom, flameshot).
+# Module: extras — configs auxiliares (btop, ranger, picom, flameshot).
 
 mod_extras_meta() {
-  echo "Configs auxiliares (btop, ranger, yazi, lazygit, lazydocker, picom, flameshot)"
+  echo "Configs auxiliares (btop, ranger, picom, flameshot)"
 }
 
 mod_extras_cost() { printf '1\t5\t0\n'; }
@@ -13,7 +13,7 @@ mod_extras_category() { echo extras; }
 
 mod_extras_installed() { pn_links_installed extras; }
 
-_PN_EXTRA_DIRS=(btop ranger yazi lazygit lazydocker picom flameshot)
+_PN_EXTRA_DIRS=(btop ranger picom flameshot)
 
 # Itera somente sobre os módulos cuja config existe no repo.
 _vf_extras_present() {
