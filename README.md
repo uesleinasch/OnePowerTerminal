@@ -108,7 +108,7 @@ cd ~/PowerTerminal && ./tests/run.sh
 │       ├── node.sh           # nvm OU n (escolha) + Node LTS
 │       ├── claude.sh         # Claude Code (instalador nativo)
 │       ├── helpers.sh        # link de myastro / mykitty / myyazi
-│       ├── extras.sh         # btop, ranger, picom, flameshot, …
+│       ├── btop.sh, ranger.sh, picom.sh, flameshot.sh  # um módulo por programa (apt + config)
 │       ├── notiont.sh        # notion-t (CLI Notion via pipx)
 │       ├── container.sh      # Docker OU Podman (escolha) + grupo/rootless
 │       └── theme.sh          # flavor Catppuccin (kitty + Neovim + prompt)
@@ -190,7 +190,7 @@ dos dois: `POWERTERMINAL_UI=text` ou `POWERTERMINAL_UI=gum`.
 |-----------|------------------------------------------------------------------------|
 | `minimal` | apt + fonts + zsh + helpers                                            |
 | `dev`     | minimal + editor + kitty + CLIs (eza…yazi) + node + claude + container + theme |
-| `full`    | tudo (= dev + extras + notiont), com os dois editores                  |
+| `full`    | tudo (= dev + btop ranger picom flameshot + notiont), com os dois editores                  |
 
 ### Editor: Neovim, VS Code ou ambos
 
