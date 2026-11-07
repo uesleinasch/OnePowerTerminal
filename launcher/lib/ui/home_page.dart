@@ -1,0 +1,236 @@
+import 'package:flutter/material.dart';
+
+import '../cli/cli.dart';
+import '../model/catalog.dart';
+import '../queue/queue_controller.dart';
+import '../theme/app_theme.dart';
+import 'format.dart';
+import 'home_actions.dart';
+import 'module_card.dart';
+import 'profile_filter.dart';
+import 'profile_summary.dart';
+import 'top_bar.dart';
+
+export 'home_actions.dart';
+
+class HomePage extends StatefulWidget {
+  const HomePage({
+    super.key,
+    required this.controller,
+    required this.actions,
+    this.onToggleTheme,
+    this.onOpenActivity,
+  });
+
+  final QueueController controller;
+  final HomeActions actions;
+  final VoidCallback? onToggleTheme, onOpenActivity;
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  var _profile = 'todos';
+  var _onlyInstalled = false;
+  var _query = '';
+
+  bool _visible(Catalog c, ModuleInfo m) {
+    if (_profile != 'todos' &&
+        !(c.profiles[_profile]?.contains(m.id) ?? false)) {
+      return false;
+    }
+    if (_onlyInstalled && !m.isPresent) return false;
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    return m.name.toLowerCase().contains(q) ||
+        m.id.toLowerCase().contains(q) ||
+        m.description.toLowerCase().contains(q);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final ctl = widget.controller;
+        final catalog = ctl.catalog;
+        if (ctl.catalogError != null) return _errorView(context);
+        if (catalog == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final w = MediaQuery.sizeOf(context).width;
+        final margin = w < 560 ? 16.0 : 24.0;
+        final activity = ctl.pending.length + (ctl.current != null ? 1 : 0);
+        return Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: [
+                TopBar(
+                  version: catalog.version,
+                  distro: catalog.distro,
+                  arch: catalog.arch,
+                  onQuery: (q) => setState(() => _query = q),
+                  sudoUnlocked: ctl.sudoUnlocked,
+                  activityCount: activity,
+                  onToggleTheme: widget.onToggleTheme,
+                  onOpenActivity: widget.onOpenActivity,
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.fromLTRB(margin, 4, margin, 32),
+                    children: [
+                      ProfileFilter(
+                        profile: _profile,
+                        onProfile: (p) => setState(() => _profile = p),
+                        onlyInstalled: _onlyInstalled,
+                        onOnlyInstalled: (v) =>
+                            setState(() => _onlyInstalled = v),
+                      ),
+                      const SizedBox(height: 16),
+                      ProfileSummary(
+                        catalog: catalog,
+                        profile: _profile,
+                        actions: widget.actions,
+                      ),
+                      const SizedBox(height: 20),
+                      ..._sections(context, catalog),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  List<Widget> _sections(BuildContext context, Catalog c) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final sections = <Widget>[];
+    for (final cat in categoryOrder) {
+      final mods = [
+        for (final m in c.modules)
+          if (m.category == cat && _visible(c, m)) m,
+      ];
+      if (mods.isEmpty) continue;
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 12,
+            children: [
+              Text(categoryTitles[cat] ?? cat, style: tt.titleMedium),
+              if (categoryNotes[cat] != null)
+                Text(
+                  categoryNotes[cat]!,
+                  style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
+            ],
+          ),
+        ),
+      );
+      sections.add(_grid(mods));
+      sections.add(const SizedBox(height: 28));
+    }
+    if (sections.isEmpty) {
+      return [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32),
+          child: Center(
+            child: Text(
+              'Nenhum módulo com esse filtro.',
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+          ),
+        ),
+      ];
+    }
+    return sections;
+  }
+
+  Widget _grid(List<ModuleInfo> mods) {
+    const minWidth = 272.0;
+    const gap = 12.0;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final cols = ((box.maxWidth + gap) / (minWidth + gap)).floor().clamp(
+          1,
+          99,
+        );
+        final width = (box.maxWidth - gap * (cols - 1)) / cols;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final m in mods)
+              SizedBox(
+                width: width,
+                child: ModuleCard(
+                  module: m,
+                  status: widget.controller.status(m.id),
+                  actions: widget.actions,
+                  onDequeue: () => widget.controller.dequeue(m.id),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _errorView(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final e = widget.controller.catalogError;
+    final message = e is CatalogError ? e.message : '$e';
+    final stderr = e is CatalogError ? e.stderr : null;
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_rounded, size: 40, color: cs.error),
+                const SizedBox(height: 12),
+                Text(message, style: tt.titleMedium),
+                if (stderr != null && stderr.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: SelectableText(
+                      stderr,
+                      style: tt.bodyMedium?.copyWith(
+                        fontFamily: kMonoFont,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: widget.controller.refresh,
+                  child: const Text('Tentar de novo'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
