@@ -138,6 +138,8 @@ class AppTheme {
     const pill = StadiumBorder();
     return ThemeData(
       useMaterial3: true,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
       colorScheme: scheme,
       brightness: scheme.brightness,
       fontFamily: 'RobotoFlex',
@@ -180,6 +182,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: scheme.outlineVariant),
         ),
+      ),
+      iconButtonTheme: const IconButtonThemeData(
+        style: ButtonStyle(minimumSize: WidgetStatePropertyAll(Size(48, 48))),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerHigh,

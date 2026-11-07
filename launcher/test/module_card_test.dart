@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -35,7 +37,9 @@ Future<RecordingActions> pump(
   String id,
   CardStatus status, {
   VoidCallback? onDequeue,
+  TargetPlatform? platform,
 }) async {
+  debugDefaultTargetPlatformOverride = platform;
   final actions = RecordingActions();
   await t.pumpWidget(
     MaterialApp(
@@ -55,6 +59,7 @@ Future<RecordingActions> pump(
       ),
     ),
   );
+  debugDefaultTargetPlatformOverride = null;
   return actions;
 }
 
@@ -186,9 +191,13 @@ void main() {
 
   testWidgets('tags de tempo, tamanho, sudo e requer', (t) async {
     await pump(t, 'astronvim', const CardStatus());
-    expect(find.textContaining('min'), findsWidgets);
+    expect(find.text('~1 min'), findsOneWidget);
+    expect(find.text('5 MB'), findsOneWidget);
     expect(find.text('requer nvim'), findsOneWidget);
+    expect(find.text('sudo'), findsNothing);
     await pump(t, 'apt', const CardStatus());
+    expect(find.text('~2 min'), findsOneWidget);
+    expect(find.text('150 MB'), findsOneWidget);
     expect(find.text('sudo'), findsOneWidget);
   });
 }

@@ -211,6 +211,8 @@ class ModuleCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     status.error!,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: tt.labelMedium?.copyWith(color: cs.onErrorContainer),
                   ),
                 ),

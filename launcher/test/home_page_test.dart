@@ -55,6 +55,21 @@ Future<void> pickProfile(WidgetTester t, String p) async {
 int cards(WidgetTester t) => find.byType(Card).evaluate().length;
 
 void main() {
+  testWidgets('largura de 500 px não gera exceção', (t) async {
+    final q = await controller();
+    t.view.physicalSize = const Size(500, 3000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: HomePage(controller: q, actions: RecordingActions()),
+      ),
+    );
+    final ex = t.takeException();
+    expect(ex, isNull);
+  });
+
   test('formatMb', () {
     expect(formatMb(150), '150 MB');
     expect(formatMb(999), '999 MB');
@@ -93,6 +108,7 @@ void main() {
     await t.enterText(find.byType(TextField), 'CODE');
     await t.pump();
     expect(find.text('vscode'), findsOneWidget);
+    expect(find.text('zsh'), findsNothing);
     expect(cards(t), lessThan(15));
   });
 

@@ -23,14 +23,20 @@ class ProfileFilter extends StatelessWidget {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SegmentedButton<String>(
-          showSelectedIcon: false,
-          segments: [
-            for (final p in profiles)
-              ButtonSegment(value: p, label: Text(p == 'todos' ? 'Todos' : p)),
-          ],
-          selected: {profile},
-          onSelectionChanged: (s) => onProfile(s.first),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              for (final p in profiles)
+                ButtonSegment(
+                  value: p,
+                  label: Text(p == 'todos' ? 'Todos' : p),
+                ),
+            ],
+            selected: {profile},
+            onSelectionChanged: (s) => onProfile(s.first),
+          ),
         ),
         FilterChip(
           label: const Text('Só instalados'),
