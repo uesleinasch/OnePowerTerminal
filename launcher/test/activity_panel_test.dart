@@ -59,12 +59,63 @@ Future<void> pumpApp(
 }
 
 void main() {
+  testWidgets('cores do log: launcher, sucesso e dry-run', (t) async {
+    final q = await controller();
+    q.note('[launcher] instalar zsh');
+    q.note('[powerterminal] Instalação concluída.');
+    q.note('[dry-run] apt-get install zsh');
+    q.note('[powerterminal] instalando zsh');
+    await pumpPanel(t, q);
+    await t.pump();
+    final theme = AppTheme.light();
+    final cs = theme.colorScheme;
+    Color? color(String s) => t.widget<Text>(find.text(s)).style?.color;
+    expect(color('[launcher] instalar zsh'), cs.primary);
+    expect(
+      color('[powerterminal] Instalação concluída.'),
+      theme.extension<PnColors>()!.success,
+    );
+    expect(color('[dry-run] apt-get install zsh'), cs.onSurfaceVariant);
+    expect(color('[powerterminal] instalando zsh'), cs.onSurface);
+  });
+
+  test('classifyLogLine reconhece o que a CLI realmente imprime', () {
+    // A CLI usa "[powerterminal]" para info e sucesso (cor removida em
+    // text_clean.dart); sucesso = os textos de log_success em bin/ e lib/,
+    // mais as linhas "OK: ..." de log_info dos módulos.
+    const success = [
+      '[powerterminal] Instalação concluída.',
+      '[powerterminal] Remoção concluída.',
+      '[powerterminal] Update concluído.',
+      '[powerterminal] Unlink concluído.',
+      '[powerterminal] Symlinks atualizados.',
+      '[powerterminal] OK: lazygit presente',
+      '[powerterminal] Neovim instalado: NVIM v0.10',
+      '[powerterminal] VS Code instalado: 1.90',
+      '[powerterminal] Tema: mocha',
+      '[powerterminal] zsh definido como shell padrão.',
+    ];
+    for (final l in success) {
+      expect(classifyLogLine(l), LogLineKind.success, reason: l);
+    }
+    expect(classifyLogLine('[launcher] x'), LogLineKind.launcher);
+    expect(classifyLogLine('[dry-run] x'), LogLineKind.dryRun);
+    expect(
+      classifyLogLine('[powerterminal] Instalando zsh'),
+      LogLineKind.plain,
+    );
+    expect(classifyLogLine('Reading package lists...'), LogLineKind.plain);
+  });
+
   testWidgets('sem itens mostra Nada na fila.', (t) async {
     final q = await controller();
     await pumpPanel(t, q);
     expect(find.text('Atividade'), findsOneWidget);
     expect(find.text('Nada na fila.'), findsOneWidget);
-    expect(find.text('Log'), findsOneWidget);
+    expect(
+      find.text('Log · ~/.local/state/powerterminal/install.log'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('mostra o atual com % e os pendentes com o tipo', (t) async {
@@ -99,6 +150,18 @@ void main() {
     expect(find.text('atualizar'), findsOneWidget);
     expect(find.text('remover'), findsOneWidget);
     expect(find.text('Nada na fila.'), findsNothing);
+    final item = t.widget<Container>(
+      find
+          .ancestor(
+            of: find.text(byId('kitty')!.name),
+            matching: find.byType(Container),
+          )
+          .first,
+    );
+    expect(
+      (item.decoration! as BoxDecoration).borderRadius,
+      BorderRadius.circular(8),
+    );
     await t.runAsync(() async {
       gate.complete();
       await q.whenIdle();
@@ -181,7 +244,7 @@ void main() {
     final open = ValueNotifier(true);
     await pumpApp(t, q, const Size(1200, 900), open: open);
     final panel = t.getTopLeft(find.byType(ActivityPanel));
-    final content = t.getTopLeft(find.text('Buscar módulos').first);
+    final content = t.getTopLeft(find.text('Buscar módulo, ferramenta…').first);
     expect(t.getSize(find.byType(ActivityPanel)).width, 340);
     expect(panel.dx, 1200 - 340);
     expect(panel.dx, greaterThan(content.dx));
@@ -195,7 +258,9 @@ void main() {
     expect(panel.dx, 0);
     expect(
       panel.dy,
-      greaterThan(t.getTopLeft(find.text('Buscar módulos').first).dy),
+      greaterThan(
+        t.getTopLeft(find.text('Buscar módulo, ferramenta…').first).dy,
+      ),
     );
     expect(t.getSize(find.byType(ActivityPanel)).width, 700);
   });

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../cli/cli.dart';
 import '../model/catalog.dart';
 import '../queue/queue_controller.dart';
+import '../system/prefs.dart';
 import '../theme/app_theme.dart';
 import 'activity_panel.dart';
 import 'format.dart';
@@ -24,12 +26,14 @@ class HomePage extends StatefulWidget {
     required this.actions,
     this.onToggleTheme,
     this.activityOpen,
+    this.prefsFile,
   });
 
   final QueueController controller;
   final HomeActions actions;
   final VoidCallback? onToggleTheme;
   final ValueNotifier<bool>? activityOpen;
+  final File? prefsFile;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -37,6 +41,10 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   var _profile = 'todos';
+  late final String? _savedProfile = widget.prefsFile == null
+      ? null
+      : Prefs.load(widget.prefsFile!).profile;
+  var _restored = false;
   var _onlyInstalled = false;
   var _query = '';
   String? _detailId;
@@ -75,6 +83,14 @@ class _HomePageState extends State<HomePage> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+        if (!_restored) {
+          _restored = true;
+          final saved = _savedProfile;
+          if (saved != null &&
+              (saved == 'todos' || catalog.profiles.containsKey(saved))) {
+            _profile = saved;
+          }
+        }
         final w = MediaQuery.sizeOf(context).width;
         final activity = ctl.pending.length + (ctl.current != null ? 1 : 0);
         return Scaffold(
@@ -90,8 +106,12 @@ class _HomePageState extends State<HomePage> {
                   activityCount: activity,
                   onToggleTheme: widget.onToggleTheme,
                   onOpenActivity: () {
-                    setState(() => _detailId = null);
-                    _open.value = true;
+                    if (_detailId != null) {
+                      setState(() => _detailId = null);
+                      _open.value = true;
+                    } else {
+                      _open.value = !_open.value;
+                    }
                   },
                 ),
                 if (ctl.catalogError != null) _errorBanner(context),
@@ -108,7 +128,11 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         ProfileFilter(
                           profile: _profile,
-                          onProfile: (p) => setState(() => _profile = p),
+                          onProfile: (p) {
+                            setState(() => _profile = p);
+                            final f = widget.prefsFile;
+                            if (f != null) Prefs(profile: p).save(f);
+                          },
                           onlyInstalled: _onlyInstalled,
                           onOnlyInstalled: (v) =>
                               setState(() => _onlyInstalled = v),
@@ -250,7 +274,7 @@ class _HomePageState extends State<HomePage> {
           child: Center(
             child: Text(
               'Nenhum módulo com esse filtro.',
-              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
             ),
           ),
         ),

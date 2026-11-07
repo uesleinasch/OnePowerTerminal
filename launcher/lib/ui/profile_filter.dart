@@ -26,7 +26,6 @@ class ProfileFilter extends StatelessWidget {
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SegmentedButton<String>(
-            showSelectedIcon: false,
             segments: [
               for (final p in profiles)
                 ButtonSegment(
@@ -41,6 +40,8 @@ class ProfileFilter extends StatelessWidget {
         FilterChip(
           label: const Text('Só instalados'),
           selected: onlyInstalled,
+          showCheckmark: false,
+          avatar: onlyInstalled ? const Icon(Icons.check_rounded) : null,
           onSelected: onOnlyInstalled,
         ),
       ],

@@ -13,6 +13,21 @@ String _kindLabel(OpKind k) => switch (k) {
   OpKind.remove => 'remover',
 };
 
+enum LogLineKind { plain, launcher, success, dryRun }
+
+final _successLine = RegExp(
+  r'^\[powerterminal\] (OK: |Tema: |.*(conclu[ií]d[ao]\.|atualizados\.|'
+  r'Pacote criado: |adicionado ao grupo|configurados para|habilitado para|'
+  r'(Neovim|VS Code) instalado: |definido como shell padrão))',
+);
+
+LogLineKind classifyLogLine(String line) {
+  if (line.startsWith('[launcher]')) return LogLineKind.launcher;
+  if (line.startsWith('[dry-run]')) return LogLineKind.dryRun;
+  if (_successLine.hasMatch(line)) return LogLineKind.success;
+  return LogLineKind.plain;
+}
+
 class ActivityPanel extends StatefulWidget {
   const ActivityPanel({
     super.key,
@@ -94,14 +109,14 @@ class _ActivityPanelState extends State<ActivityPanel> {
                   ),
                 ),
               ),
-              _label(context, 'Log'),
+              _label(context, 'Log · ~/.local/state/powerterminal/install.log'),
               Expanded(
                 child: Container(
                   width: double.infinity,
                   margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: NotificationListener<ScrollNotification>(
                     onNotification: (n) {
@@ -119,7 +134,16 @@ class _ActivityPanelState extends State<ActivityPanel> {
                             fontFamily: kMonoFont,
                             fontSize: 12,
                             height: 18 / 12,
-                            color: cs.onSurface,
+                            color: switch (classifyLogLine(log[i])) {
+                              LogLineKind.launcher => cs.primary,
+                              LogLineKind.success =>
+                                Theme.of(context)
+                                        .extension<PnColors>()
+                                        ?.success ??
+                                    cs.onSurface,
+                              LogLineKind.dryRun => cs.onSurfaceVariant,
+                              LogLineKind.plain => cs.onSurface,
+                            },
                           ),
                         ),
                       ),
@@ -175,7 +199,7 @@ class _ActivityPanelState extends State<ActivityPanel> {
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           color: active ? cs.secondaryContainer : null,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
