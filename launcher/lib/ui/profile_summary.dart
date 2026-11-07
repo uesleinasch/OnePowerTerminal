@@ -27,8 +27,7 @@ class ProfileSummary extends StatelessWidget {
         : profileTargets(
             catalog,
             profile,
-            editor:
-                profileEditor(catalog, profile) ?? defaultEditor(profile),
+            editor: profileEditor(catalog, profile) ?? defaultEditor(profile),
           );
     final mods = [for (final id in ids) ?catalog.byId(id)];
     final missing = [
@@ -48,62 +47,81 @@ class ProfileSummary extends StatelessWidget {
       ],
     );
 
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          all ? 'Todos os módulos' : 'Perfil $profile',
+          style: tt.titleMedium,
+        ),
+        Text(
+          profileSubtitles[profile] ?? '',
+          style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+        ),
+      ],
+    );
+    final facts = Wrap(
+      spacing: 20,
+      runSpacing: 4,
+      children: [
+        factChip(
+          Icons.check_circle_rounded,
+          '$installed de ${mods.length} instalados',
+        ),
+        factChip(Icons.schedule_rounded, '~$minutes min'),
+        factChip(Icons.storage_rounded, formatMb(mb)),
+      ],
+    );
+    final Widget? action = all
+        ? null
+        : missing.isNotEmpty
+        ? FilledButton.icon(
+            onPressed: () => actions.installProfile(profile),
+            icon: const Icon(Icons.download_rounded),
+            label: Text(
+              'Instalar ${missing.length} '
+              'restante${missing.length > 1 ? 's' : ''}',
+            ),
+          )
+        : FilledButton.tonalIcon(
+            onPressed: () => actions.updateProfile(profile),
+            icon: const Icon(Icons.update_rounded),
+            label: const Text('Atualizar perfil'),
+          );
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: cs.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Wrap(
-        spacing: 24,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 200, maxWidth: 520),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final wide = box.maxWidth >= 820;
+          if (wide) {
+            return Row(
               children: [
-                Text(
-                  all ? 'Todos os módulos' : 'Perfil $profile',
-                  style: tt.titleMedium,
-                ),
-                Text(
-                  profileSubtitles[profile] ?? '',
-                  style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                ),
+                Expanded(child: heading),
+                const SizedBox(width: 24),
+                facts,
+                if (action != null) ...[const SizedBox(width: 24), action],
               ],
-            ),
-          ),
-          Wrap(
-            spacing: 20,
-            runSpacing: 4,
+            );
+          }
+          return Wrap(
+            spacing: 24,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              factChip(
-                Icons.check_circle_rounded,
-                '$installed de ${mods.length} instalados',
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 200, maxWidth: 520),
+                child: heading,
               ),
-              factChip(Icons.schedule_rounded, '~$minutes min'),
-              factChip(Icons.storage_rounded, formatMb(mb)),
+              facts,
+              ?action,
             ],
-          ),
-          if (!all)
-            if (missing.isNotEmpty)
-              FilledButton.icon(
-                onPressed: () => actions.installProfile(profile),
-                icon: const Icon(Icons.download_rounded),
-                label: Text(
-                  'Instalar ${missing.length} '
-                  'restante${missing.length > 1 ? 's' : ''}',
-                ),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: () => actions.updateProfile(profile),
-                icon: const Icon(Icons.update_rounded),
-                label: const Text('Atualizar perfil'),
-              ),
-        ],
+          );
+        },
       ),
     );
   }

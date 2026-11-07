@@ -7,6 +7,7 @@ import 'cli/cli.dart';
 import 'queue/queue_controller.dart';
 import 'repo/repo_copy.dart';
 import 'session/pty_shell.dart';
+import 'system/prefs.dart';
 import 'system/session_ender.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
@@ -42,6 +43,7 @@ void main() {
       controller: controller,
       navigatorKey: navigatorKey,
       activityOpen: activityOpen,
+      prefsFile: Prefs.defaultFile(Platform.environment),
       eventsDir: eventsDir,
       gate: (home) => RepoGate(
         repo: repo,
@@ -66,6 +68,7 @@ class PowerTerminalApp extends StatefulWidget {
     this.navigatorKey,
     this.themeMode = ThemeMode.system,
     this.activityOpen,
+    this.prefsFile,
     this.eventsDir,
     this.gate,
   });
@@ -75,6 +78,7 @@ class PowerTerminalApp extends StatefulWidget {
   final GlobalKey<NavigatorState>? navigatorKey;
   final ThemeMode themeMode;
   final ValueNotifier<bool>? activityOpen;
+  final File? prefsFile;
   final Directory? eventsDir;
   final Widget Function(Widget home)? gate;
 
@@ -161,6 +165,7 @@ class _PowerTerminalAppState extends State<PowerTerminalApp> {
           controller: widget.controller,
           actions: widget.actions,
           activityOpen: widget.activityOpen,
+          prefsFile: widget.prefsFile,
           onToggleTheme: _toggleTheme,
         ),
       ),
