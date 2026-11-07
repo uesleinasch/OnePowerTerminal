@@ -132,7 +132,11 @@ class TopBar extends StatelessWidget {
               IconButton(
                 tooltip: 'Alternar tema',
                 onPressed: onToggleTheme,
-                icon: const Icon(Icons.contrast_rounded),
+                icon: Icon(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
+                ),
               ),
               IconButton(
                 tooltip: 'Atividade',

@@ -4,6 +4,7 @@ import '../cli/cli.dart';
 import '../model/catalog.dart';
 import '../queue/queue_controller.dart';
 import '../theme/app_theme.dart';
+import 'activity_panel.dart';
 import 'format.dart';
 import 'home_actions.dart';
 import 'module_card.dart';
@@ -19,12 +20,13 @@ class HomePage extends StatefulWidget {
     required this.controller,
     required this.actions,
     this.onToggleTheme,
-    this.onOpenActivity,
+    this.activityOpen,
   });
 
   final QueueController controller;
   final HomeActions actions;
-  final VoidCallback? onToggleTheme, onOpenActivity;
+  final VoidCallback? onToggleTheme;
+  final ValueNotifier<bool>? activityOpen;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -34,6 +36,14 @@ class _HomePageState extends State<HomePage> {
   var _profile = 'todos';
   var _onlyInstalled = false;
   var _query = '';
+  late final ValueNotifier<bool> _ownOpen = ValueNotifier(false);
+  ValueNotifier<bool> get _open => widget.activityOpen ?? _ownOpen;
+
+  @override
+  void dispose() {
+    _ownOpen.dispose();
+    super.dispose();
+  }
 
   bool _visible(Catalog c, ModuleInfo m) {
     if (_profile != 'todos' &&
@@ -76,33 +86,65 @@ class _HomePageState extends State<HomePage> {
                   sudoUnlocked: ctl.sudoUnlocked,
                   activityCount: activity,
                   onToggleTheme: widget.onToggleTheme,
-                  onOpenActivity: widget.onOpenActivity,
+                  onOpenActivity: () => _open.value = true,
                 ),
                 Expanded(
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(margin, 4, margin, 32),
-                    children: [
-                      ProfileFilter(
-                        profile: _profile,
-                        onProfile: (p) => setState(() => _profile = p),
-                        onlyInstalled: _onlyInstalled,
-                        onOnlyInstalled: (v) =>
-                            setState(() => _onlyInstalled = v),
-                      ),
-                      const SizedBox(height: 16),
-                      ProfileSummary(
-                        catalog: catalog,
-                        profile: _profile,
-                        actions: widget.actions,
-                      ),
-                      const SizedBox(height: 20),
-                      ..._sections(context, catalog),
-                    ],
+                  child: _withPanel(
+                    w,
+                    ListView(
+                      padding: EdgeInsets.fromLTRB(margin, 4, margin, 32),
+                      children: [
+                        ProfileFilter(
+                          profile: _profile,
+                          onProfile: (p) => setState(() => _profile = p),
+                          onlyInstalled: _onlyInstalled,
+                          onOnlyInstalled: (v) =>
+                              setState(() => _onlyInstalled = v),
+                        ),
+                        const SizedBox(height: 16),
+                        ProfileSummary(
+                          catalog: catalog,
+                          profile: _profile,
+                          actions: widget.actions,
+                        ),
+                        const SizedBox(height: 20),
+                        ..._sections(context, catalog),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _withPanel(double width, Widget content) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _open,
+      builder: (context, open, _) {
+        if (!open) return content;
+        final panel = ActivityPanel(
+          controller: widget.controller,
+          onClose: () => _open.value = false,
+        );
+        if (width >= kActivityWideBreakpoint) {
+          return Row(
+            children: [
+              Expanded(child: content),
+              const VerticalDivider(width: 1),
+              SizedBox(width: kActivityPanelWidth, child: panel),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            Expanded(child: content),
+            const Divider(height: 1),
+            SizedBox(height: 320, child: panel),
+          ],
         );
       },
     );
