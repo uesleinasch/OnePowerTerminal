@@ -11,6 +11,8 @@ const kMinContract = 1;
 const _originFile = '.powerterminal-origin';
 const _versionFile = 'VERSION';
 const _dotfilesPrefix = 'home/';
+const _extractPrefix = '.PowerTerminal.pnextract-';
+final _numericVersion = RegExp(r'^\d+(\.\d+)*$');
 
 enum RepoKind { absent, gitClone, extracted, foreign }
 
@@ -51,16 +53,35 @@ class RepoCopy {
   bool get needsUpgrade =>
       snapshotDir != null &&
       inspect() == RepoKind.extracted &&
-      snapshotVersion() != (_manifestVersion() ?? copyVersion());
+      _newer(snapshotVersion(), _manifestVersion() ?? copyVersion());
+
+  static bool _newer(String? snap, String? have) {
+    if (snap == have) return false;
+    if (snap == null || have == null) return true;
+    if (!_numericVersion.hasMatch(snap) || !_numericVersion.hasMatch(have)) {
+      return true;
+    }
+    final a = snap.split('.').map(int.parse).toList();
+    final b = have.split('.').map(int.parse).toList();
+    for (var i = 0; i < max(a.length, b.length); i++) {
+      final x = i < a.length ? a[i] : 0;
+      final y = i < b.length ? b[i] : 0;
+      if (x != y) return x > y;
+    }
+    return false;
+  }
 
   Future<void> extract() async {
     final snap = _requireSnapshot();
     final target = Directory(dir);
     target.parent.createSync(recursive: true);
-    final tmp = Directory(
-      '${target.parent.path}/.PowerTerminal.pnextract-'
-      '${Random().nextInt(1 << 32).toRadixString(36)}',
-    )..createSync();
+    for (final e in target.parent.listSync(followLinks: false)) {
+      final name = e.path.substring(e.parent.path.length + 1);
+      if (e is Directory && name.startsWith(_extractPrefix)) {
+        e.deleteSync(recursive: true);
+      }
+    }
+    final tmp = target.parent.createTempSync(_extractPrefix);
     try {
       final files = <String, String>{};
       for (final rel in _list(snap)) {
@@ -254,7 +275,10 @@ class RepoCopy {
     }
   }
 
-  String? _manifestVersion() => _readRaw()?['version'] as String?;
+  String? _manifestVersion() {
+    final v = _readRaw()?['version'];
+    return v is String ? v : null;
+  }
 
   Map<String, String>? _readManifest() {
     final j = _readRaw();

@@ -94,7 +94,7 @@ class _ActivityPanelState extends State<ActivityPanel> {
                   ),
                 ),
               ),
-              _label(context, 'Log · ~/.local/state/powerterminal/install.log'),
+              _label(context, 'Log'),
               Expanded(
                 child: Container(
                   width: double.infinity,

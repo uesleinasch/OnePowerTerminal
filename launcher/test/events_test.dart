@@ -47,6 +47,12 @@ void main() {
     expect(e.failed, ['b']);
   });
 
+  test('done sem ok ou failed como lista é inválido', () {
+    expect(CliEvent.parse('{"event":"done"}'), isNull);
+    expect(CliEvent.parse('{"event":"done","ok":[],"failed":"x"}'), isNull);
+    expect(CliEvent.parse('{"event":"done","ok":null,"failed":[]}'), isNull);
+  });
+
   test('entradas inválidas dão null', () {
     expect(CliEvent.parse('{"event":"x"}'), isNull);
     expect(CliEvent.parse('{"module":"a"}'), isNull);

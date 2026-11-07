@@ -166,9 +166,9 @@ class HomeActionsImpl implements HomeActions {
         }
       }
     } finally {
-      controller.clearPendingRestarts(shown);
+      if (shown.isNotEmpty) controller.clearPendingRestarts(shown);
       _restartDialogOpen = false;
-      _watchRestarts();
+      if (shown.isNotEmpty) _watchRestarts();
     }
   }
 }

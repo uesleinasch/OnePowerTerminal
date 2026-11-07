@@ -95,6 +95,21 @@ void main() {
     });
   });
 
+  test('extract limpa sobras de extrações antigas', () async {
+    final stale = Directory('${tmp.path}/home/.PowerTerminal.pnextract-velha');
+    File('${stale.path}/lixo').createSync(recursive: true);
+    buildSnapshot('1.0', {});
+    await repo.extract();
+    expect(stale.existsSync(), isFalse);
+    expect(
+      Directory('${tmp.path}/home')
+          .listSync()
+          .where((e) => e.path.contains('.pnextract-')),
+      isEmpty,
+    );
+    expect(repo.inspect(), RepoKind.extracted);
+  });
+
   group('upgrade', () {
     Future<void> extractV1(Map<String, String> files) async {
       buildSnapshot('1.0', files);
@@ -108,6 +123,25 @@ void main() {
       expect(repo.needsUpgrade, isTrue);
       expect(repo.snapshotVersion(), '1.1');
       expect(repo.copyVersion(), '1.0');
+    });
+
+    test('instantâneo mais antigo que a cópia não rebaixa', () async {
+      buildSnapshot('0.3.0', {});
+      await repo.extract();
+      buildSnapshot('0.2.0', {});
+      expect(repo.needsUpgrade, isFalse);
+      buildSnapshot('0.10.0', {});
+      expect(repo.needsUpgrade, isTrue);
+    });
+
+    test('versão do manifesto que não é texto cai no VERSION', () async {
+      await extractV1({});
+      final f = File('${repo.dir}/.powerterminal-origin');
+      final m = manifest(repo.dir)..['version'] = 7;
+      f.writeAsStringSync(jsonEncode(m));
+      expect(repo.needsUpgrade, isFalse);
+      buildSnapshot('1.1', {});
+      expect(repo.needsUpgrade, isTrue);
     });
 
     test('arquivo não editado é trocado e novo é criado', () async {
