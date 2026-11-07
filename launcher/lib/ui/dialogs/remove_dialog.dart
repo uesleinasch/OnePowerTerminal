@@ -77,7 +77,7 @@ class _RemoveDialogState extends State<_RemoveDialog> {
     final m = widget.module;
     final deps = widget.dependents;
     final many = deps.length > 1;
-    final hasData = m.dataMb != null;
+    final hasData = m.id == 'container' && m.dataMb != null;
     return AlertDialog(
       icon: Icon(Icons.delete_rounded, color: cs.error),
       title: Text('Remover ${m.name}?'),

@@ -43,9 +43,12 @@ class HomeActionsImpl implements HomeActions {
   void _enqueue(List<QueueItem> items) {
     if (items.isEmpty) return;
     unawaited(
-      controller
-          .enqueue(items, askPassword: _askPassword)
-          .catchError((Object _) => false),
+      controller.enqueue(items, askPassword: _askPassword).catchError((
+        Object e,
+      ) {
+        controller.note('[launcher] Não foi possível enfileirar: $e');
+        return false;
+      }),
     );
   }
 
@@ -129,8 +132,7 @@ class HomeActionsImpl implements HomeActions {
 
   void _watchRestarts() {
     if (_restartDialogOpen ||
-        controller.current != null ||
-        controller.pending.isNotEmpty ||
+        controller.isBusy ||
         controller.pendingRestarts.isEmpty) {
       return;
     }
@@ -139,10 +141,16 @@ class HomeActionsImpl implements HomeActions {
   }
 
   Future<void> _showRestart() async {
+    var shown = const <PendingRestart>[];
     try {
       final ctx = _context;
       if (ctx == null) return;
-      final restarts = controller.pendingRestarts;
+      shown = controller.pendingRestarts;
+      final c = controller.catalog;
+      final restarts = [
+        for (final r in shown)
+          PendingRestart(c?.byId(r.module)?.name ?? r.module, r.reason),
+      ];
       final end = await showSessionRestartDialog(ctx, restarts);
       if (end) {
         final ok = await sessionEnder.logout();
@@ -158,8 +166,9 @@ class HomeActionsImpl implements HomeActions {
         }
       }
     } finally {
-      controller.clearPendingRestarts();
+      controller.clearPendingRestarts(shown);
       _restartDialogOpen = false;
+      _watchRestarts();
     }
   }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../queue/queue_controller.dart';
-import '../../theme/app_theme.dart';
 
 Future<bool> showSessionRestartDialog(
   BuildContext context,
@@ -32,10 +31,7 @@ Future<bool> showSessionRestartDialog(
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(
-                          text: r.module,
-                          style: tt.bodyMedium?.copyWith(fontFamily: kMonoFont),
-                        ),
+                        TextSpan(text: r.module, style: tt.titleSmall),
                         TextSpan(text: ' · ${r.reason}'),
                       ],
                     ),

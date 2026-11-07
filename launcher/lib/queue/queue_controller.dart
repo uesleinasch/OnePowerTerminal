@@ -126,8 +126,19 @@ class QueueController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void clearPendingRestarts() {
-    _restarts.clear();
+  bool get isBusy =>
+      _current != null || _pending.isNotEmpty || _inflight.isNotEmpty;
+
+  void note(String line) => _addLog(line);
+
+  void clearPendingRestarts([List<PendingRestart>? shown]) {
+    if (shown == null) {
+      _restarts.clear();
+    } else {
+      for (final r in shown) {
+        _restarts.remove(r);
+      }
+    }
     notifyListeners();
   }
 
@@ -147,6 +158,7 @@ class QueueController extends ChangeNotifier {
     late final Future<void> guard;
     guard = result.then<void>((_) {}, onError: (_) {}).whenComplete(() {
       _inflight.remove(guard);
+      notifyListeners();
     });
     _inflight.add(guard);
     return result;
