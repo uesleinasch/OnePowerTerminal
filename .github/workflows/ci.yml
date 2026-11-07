@@ -64,3 +64,33 @@ jobs:
           ./bin/powerterminal install --profile minimal --dry-run --yes
           ./bin/powerterminal install --profile full --dry-run --yes
           ./bin/powerterminal doctor
+
+  launcher:
+    name: Launcher (Flutter)
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: launcher
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+
+      - name: Dependências do build Linux
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config
+
+      - name: Dependências do projeto
+        run: flutter pub get
+
+      - name: Análise estática
+        run: flutter analyze
+
+      - name: Testes
+        run: flutter test
+
+      - name: Build Linux
+        run: flutter build linux --release
