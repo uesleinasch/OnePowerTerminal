@@ -129,7 +129,7 @@ void main() {
         '{"event":"note","module":"um-modulo-de-nome-longo","text":"t"}\n',
       );
       await Future<void>.delayed(const Duration(milliseconds: 300));
-      f.writeAsStringSync('{"event":"done"}\n');
+      f.writeAsStringSync('{"event":"done","ok":[],"failed":[]}\n');
       await Future<void>.delayed(const Duration(milliseconds: 300));
       stop.complete();
       await finished;

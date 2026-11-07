@@ -194,8 +194,8 @@ class _RepoGateState extends State<RepoGate> {
           icon: Icons.update_disabled_rounded,
           title: 'A cópia ainda é antiga',
           body:
-              'A cópia foi atualizada, mas ainda é antiga para este launcher. '
-              'Atualize o launcher ou rode git pull de novo mais tarde.',
+              'A cópia foi atualizada, mas a branch atual ainda não tem a '
+              'versão que este launcher precisa.',
         );
       case _Stage.pullFailed:
         return _Notice(

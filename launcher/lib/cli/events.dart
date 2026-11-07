@@ -48,6 +48,7 @@ sealed class CliEvent {
         if (module == null || action == null || ok is! bool) return null;
         return ModuleEnd(module, action, ok);
       case 'done':
+        if (j['ok'] is! List || j['failed'] is! List) return null;
         return Done(l('ok'), l('failed'));
     }
     return null;

@@ -285,7 +285,10 @@ void main() {
       await t.pump();
       expect(find.text('A cópia ainda é antiga'), findsOneWidget);
       expect(
-        find.textContaining('A cópia foi atualizada, mas ainda é antiga'),
+        find.text(
+          'A cópia foi atualizada, mas a branch atual ainda não tem a versão '
+          'que este launcher precisa.',
+        ),
         findsOneWidget,
       );
     });

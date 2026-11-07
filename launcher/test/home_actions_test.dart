@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powerterminal_launcher/cli/cli.dart';
+import 'package:powerterminal_launcher/model/catalog.dart';
 import 'package:powerterminal_launcher/queue/queue_controller.dart';
 import 'package:powerterminal_launcher/system/session_ender.dart';
 import 'package:powerterminal_launcher/theme/app_theme.dart';
@@ -50,6 +51,7 @@ void main() {
     FakeShell? shell,
     int enderExit = 0,
     Set<String> sudo = const {},
+    ShellFactory? shells,
   }) async {
     final sh = shell ?? FakeShell();
     final cli = Cli(
@@ -59,7 +61,7 @@ void main() {
     );
     final controller = QueueController(
       cli: cli,
-      shellFactory: () async => sh,
+      shellFactory: shells ?? () async => sh,
       repoDir: '/repo',
       eventsDir: Directory('${tmp.path}/events'),
     );
@@ -347,5 +349,83 @@ void main() {
       find.textContaining('Não consegui encerrar a sessão'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('restart que chega com o diálogo aberto aparece depois, uma vez', (
+    t,
+  ) async {
+    const kittyRestart =
+        '{"event":"session_restart","module":"kitty","reason":"outro motivo"}';
+    FakeShell next() => FakeShell(
+      events: {
+        'helpers': [restartEvent],
+        'kitty': [kittyRestart],
+      },
+    );
+    final rig = await pumpRig(t, shells: () async => next());
+    rig.actions.install('helpers');
+    await settle(t, rig.controller);
+    expect(find.textContaining('grupo docker'), findsOneWidget);
+
+    await t.runAsync(
+      () => rig.controller.enqueue([
+        const QueueItem('kitty', OpKind.install),
+      ], askPassword: ({error}) async => null),
+    );
+    await settle(t, rig.controller);
+    expect(find.textContaining('outro motivo'), findsNothing);
+
+    await t.tap(find.text('Depois'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('outro motivo'), findsOneWidget);
+    expect(find.textContaining('grupo docker'), findsNothing);
+
+    await t.tap(find.text('Depois'));
+    await t.pumpAndSettle();
+    expect(find.text('Para concluir, encerre a sessão'), findsNothing);
+    expect(rig.controller.pendingRestarts, isEmpty);
+  });
+
+  testWidgets('restart sem navegador montado fica pendente sem recursão', (
+    t,
+  ) async {
+    final controller = (await t.runAsync(() async {
+      final shell = FakeShell(
+        events: {
+          'helpers': [restartEvent],
+        },
+      );
+      final q = QueueController(
+        cli: Cli(
+          '/repo',
+          runner: (exe, args, {workingDirectory, environment}) async =>
+              ProcessResult(1, 0, _catalogJson(), ''),
+        ),
+        shellFactory: () async => shell,
+        repoDir: '/repo',
+        eventsDir: Directory('${tmp.path}/events'),
+      );
+      await q.refresh();
+      return q;
+    }))!;
+    final actions = HomeActionsImpl(
+      controller: controller,
+      navigatorKey: GlobalKey<NavigatorState>(),
+      sessionEnder: SessionEnder(),
+      onShowLog: () {},
+    );
+    addTearDown(() {
+      actions.dispose();
+      controller.dispose();
+    });
+    await t.runAsync(() async {
+      await controller.enqueue([
+        const QueueItem('helpers', OpKind.install),
+      ], askPassword: ({error}) async => null);
+      await controller.whenIdle();
+    });
+    await t.pump();
+    expect(t.takeException(), isNull);
+    expect(controller.pendingRestarts, hasLength(1));
   });
 }
