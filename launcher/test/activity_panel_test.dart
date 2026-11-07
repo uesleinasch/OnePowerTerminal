@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -150,6 +151,30 @@ void main() {
     expect(find.text('linha 102'), findsOneWidget);
   });
 
+  testWidgets('passa de 5000 linhas e continua seguindo o fim', (t) async {
+    final q = await controller();
+    t.view.physicalSize = const Size(400, 700);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    for (var i = 0; i < 5000; i++) {
+      q.note('linha $i');
+    }
+    await pumpPanel(t, q);
+    await t.pump();
+    await t.pump();
+    expect(find.text('linha 4999'), findsOneWidget);
+    for (var i = 0; i < 40; i++) {
+      q.note('${'x' * 400} $i');
+    }
+    q.note('fim');
+    for (var i = 0; i < 4; i++) {
+      await t.pump();
+    }
+    expect(q.log, hasLength(5000));
+    expect(q.logAppended, 5041);
+    expect(find.text('fim'), findsOneWidget);
+  });
+
   testWidgets('em 1200 px o painel fica ao lado do conteúdo', (t) async {
     final q = await controller();
     final open = ValueNotifier(true);
@@ -242,6 +267,70 @@ void main() {
     );
     expect(t.takeException(), isNull);
     await t.binding.handleRequestAppExit();
+    expect(dir.existsSync(), isFalse);
+  });
+
+  testWidgets('fechar com operação em andamento pergunta antes', (t) async {
+    final gate = (await t.runAsync(() async => Completer<void>()))!;
+    final shell = (await t.runAsync(
+      () async => FakeShell(onRun: (_) => gate.future),
+    ))!;
+    final q = (await t.runAsync(() => controller(shell: () async => shell)))!;
+    final dir = Directory.systemTemp.createTempSync('pn-exit-busy');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    await t.pumpWidget(
+      PowerTerminalApp(
+        controller: q,
+        actions: RecordingActions(),
+        eventsDir: dir,
+      ),
+    );
+    await t.runAsync(() async {
+      await q.enqueue([
+        const QueueItem('helpers', OpKind.install),
+      ], askPassword: ({error}) async => null);
+      while (shell.runs.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    expect(q.isBusy, isTrue);
+
+    AppExitResponse? answer;
+    Future<void> requestExit() async {
+      answer = null;
+      unawaited(t.binding.handleRequestAppExit().then((r) => answer = r));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+    }
+
+    Future<void> untilAnswered() async {
+      for (var i = 0; i < 100 && answer == null; i++) {
+        await t.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await t.pump(const Duration(milliseconds: 50));
+      }
+    }
+
+    await requestExit();
+    expect(
+      find.text('Há uma operação em andamento. Fechar mesmo assim?'),
+      findsOneWidget,
+    );
+    await t.tap(find.text('Cancelar'));
+    await untilAnswered();
+    expect(answer, AppExitResponse.cancel);
+    expect(dir.existsSync(), isTrue);
+    expect(shell.closed, 0);
+
+    await requestExit();
+    await t.tap(find.text('Fechar'));
+    await untilAnswered();
+    expect(answer, AppExitResponse.exit);
+    await t.runAsync(() async => gate.complete());
+    expect(shell.closed, greaterThan(0));
     expect(dir.existsSync(), isFalse);
   });
 }

@@ -16,13 +16,14 @@ enum RepoKind { absent, gitClone, extracted, foreign }
 
 class RepoCopy {
   RepoCopy({
-    required String home,
+    required this.home,
     this.snapshotDir,
     String? dir,
     ProcessRunner? runner,
   }) : dir = dir ?? '$home/PowerTerminal',
        _runner = runner ?? defaultProcessRunner;
 
+  final String home;
   final String dir;
   final String? snapshotDir;
   final ProcessRunner _runner;

@@ -57,6 +57,23 @@ ProcessResult catalog(int contract) => ProcessResult(
 );
 
 void main() {
+  test('pullCommand usa ~ dentro do HOME e aspas quando precisa', () {
+    expect(
+      pullCommand('/h/u/PowerTerminal', '/h/u'),
+      'git -C ~/PowerTerminal pull --ff-only',
+    );
+    expect(
+      pullCommand('/h/u/src/pt', '/h/u/'),
+      'git -C ~/src/pt pull --ff-only',
+    );
+    expect(pullCommand('/opt/pt', '/h/u'), 'git -C /opt/pt pull --ff-only');
+    expect(
+      pullCommand("/h/u/meu repo", '/h/u'),
+      "git -C '/h/u/meu repo' pull --ff-only",
+    );
+    expect(pullCommand('/h/uv/pt', '/h/u'), 'git -C /h/uv/pt pull --ff-only');
+  });
+
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('pn-gate');
     home = '${tmp.path}/home';
@@ -244,7 +261,10 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
       await t.pump();
-      expect(find.text(kPullCommand), findsOneWidget);
+      expect(
+        find.text('git -C ~/PowerTerminal pull --ff-only'),
+        findsOneWidget,
+      );
       expect(find.textContaining('fatal: divergiu'), findsOneWidget);
       expect(find.text('home pronta'), findsNothing);
     });
@@ -268,6 +288,25 @@ void main() {
         find.textContaining('A cópia foi atualizada, mas ainda é antiga'),
         findsOneWidget,
       );
+    });
+
+    testWidgets('pull que falha mostra o comando da pasta em uso', (t) async {
+      final other = '${tmp.path}/outro';
+      File('$other/.git/HEAD').createSync(recursive: true);
+      File('$other/bin/powerterminal').createSync(recursive: true);
+      await show(
+        t,
+        RepoCopy(home: home, dir: other),
+        result: (args) => args.contains('pull')
+            ? ProcessResult(1, 1, '', 'fatal')
+            : catalog(0),
+      );
+      await t.tap(find.text('Atualizar com git pull'));
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await t.pump();
+      expect(find.text('git -C $other pull --ff-only'), findsOneWidget);
     });
 
     testWidgets('outro erro de catálogo segue para a home', (t) async {

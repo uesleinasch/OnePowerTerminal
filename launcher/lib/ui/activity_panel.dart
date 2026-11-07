@@ -64,7 +64,7 @@ class _ActivityPanelState extends State<ActivityPanel> {
         builder: (context, _) {
           final ctl = widget.controller;
           final log = ctl.log;
-          _followEnd(log.length);
+          _followEnd(ctl.logAppended);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

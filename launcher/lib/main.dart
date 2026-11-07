@@ -84,21 +84,48 @@ class PowerTerminalApp extends StatefulWidget {
 
 class _PowerTerminalAppState extends State<PowerTerminalApp> {
   late ThemeMode _mode = widget.themeMode;
-  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
-    onExitRequested: () async {
-      try {
-        widget.eventsDir?.deleteSync(recursive: true);
-      } on FileSystemException {
-        // melhor esforço
-      }
-      return AppExitResponse.exit;
-    },
-  );
+  late final _navigatorKey = widget.navigatorKey ?? GlobalKey<NavigatorState>();
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
-    _lifecycle;
+    _lifecycle = AppLifecycleListener(onExitRequested: _onExitRequested);
+  }
+
+  Future<AppExitResponse> _onExitRequested() async {
+    if (widget.controller.isBusy && !await _confirmExit()) {
+      return AppExitResponse.cancel;
+    }
+    await widget.controller.shutdown();
+    try {
+      widget.eventsDir?.deleteSync(recursive: true);
+    } on FileSystemException catch (_) {}
+    return AppExitResponse.exit;
+  }
+
+  Future<bool> _confirmExit() async {
+    final ctx = _navigatorKey.currentState?.overlay?.context;
+    if (ctx == null) return true;
+    final close = await showDialog<bool>(
+      context: ctx,
+      builder: (context) => AlertDialog(
+        content: const Text(
+          'Há uma operação em andamento. Fechar mesmo assim?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+    return close ?? false;
   }
 
   @override
@@ -123,7 +150,7 @@ class _PowerTerminalAppState extends State<PowerTerminalApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      navigatorKey: widget.navigatorKey,
+      navigatorKey: _navigatorKey,
       title: 'PowerTerminal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
