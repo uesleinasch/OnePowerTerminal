@@ -47,7 +47,13 @@ void main() {
 
     test('gitClone', () {
       Directory('${repo.dir}/.git').createSync(recursive: true);
+      write(repo.dir, 'bin/powerterminal', '#!/bin/bash');
       expect(repo.inspect(), RepoKind.gitClone);
+    });
+
+    test('.git sem bin/powerterminal é foreign', () {
+      Directory('${repo.dir}/.git').createSync(recursive: true);
+      expect(repo.inspect(), RepoKind.foreign);
     });
 
     test('extracted', () {
@@ -143,18 +149,127 @@ void main() {
       expect(File('${repo.dir}/a.txt').readAsStringSync(), 'meu');
     });
 
-    test('sem manifesto, diferente do novo vira .pnnew', () async {
-      await extractV1({'a.txt': 'velho', 'b.txt': 'igual'});
+    test('sem manifesto: só home/ vira .pnnew, o resto é trocado', () async {
+      await extractV1({
+        'lib/x': 'velho',
+        'home/.zshrc': 'velho',
+        'home/.ok': 'igual',
+      });
       File('${repo.dir}/.powerterminal-origin').deleteSync();
-      write(repo.dir, 'a.txt', 'meu');
-      buildSnapshot('1.1', {'a.txt': 'novo', 'b.txt': 'igual'});
+      write(repo.dir, 'lib/x', 'meu');
+      write(repo.dir, 'home/.zshrc', 'meu');
+      buildSnapshot('1.1', {
+        'lib/x': 'novo',
+        'home/.zshrc': 'novo',
+        'home/.ok': 'igual',
+      });
       final list = await repo.upgrade();
-      expect(list, containsAll(['a.txt', 'VERSION']));
-      expect(list, isNot(contains('b.txt')));
-      expect(File('${repo.dir}/a.txt').readAsStringSync(), 'meu');
-      expect(File('${repo.dir}/a.txt.pnnew').readAsStringSync(), 'novo');
-      expect(File('${repo.dir}/b.txt.pnnew').existsSync(), isFalse);
+      expect(list, ['home/.zshrc']);
+      expect(File('${repo.dir}/lib/x').readAsStringSync(), 'novo');
+      expect(
+        File('${repo.dir}/bin/powerterminal').readAsStringSync(),
+        contains('1.1'),
+      );
+      expect(File('${repo.dir}/VERSION').readAsStringSync().trim(), '1.1');
+      expect(File('${repo.dir}/home/.zshrc').readAsStringSync(), 'meu');
+      expect(File('${repo.dir}/home/.zshrc.pnnew').readAsStringSync(), 'novo');
+      expect(repo.needsUpgrade, isFalse);
       expect(manifest(repo.dir)['version'], '1.1');
+      expect(await repo.upgrade(), isEmpty);
+      expect(File('${repo.dir}/home/.zshrc').readAsStringSync(), 'meu');
+    });
+
+    test('com manifesto a segunda chamada também é idempotente', () async {
+      await extractV1({'home/.zshrc': 'v1'});
+      write(repo.dir, 'home/.zshrc', 'meu');
+      buildSnapshot('1.1', {'home/.zshrc': 'v2'});
+      expect(await repo.upgrade(), ['home/.zshrc']);
+      expect(repo.needsUpgrade, isFalse);
+      expect(await repo.upgrade(), isEmpty);
+      expect(File('${repo.dir}/home/.zshrc.pnnew').readAsStringSync(), 'v2');
+    });
+
+    test(
+      'falha no meio mantém VERSION/manifesto e a nova tentativa fecha',
+      () async {
+        await extractV1({'a': 'velho', 'b': 'velho', 'c': 'velho'});
+        var calls = 0;
+        final flaky = RepoCopy(
+          home: '${tmp.path}/home',
+          snapshotDir: snap,
+          runner: (exe, args, {workingDirectory, environment}) async {
+            calls++;
+            return calls == 3
+                ? ProcessResult(1, 1, '', 'boom')
+                : Process.run(exe, args);
+          },
+        );
+        buildSnapshot('1.1', {'a': 'novo', 'b': 'novo', 'c': 'novo'});
+        await expectLater(flaky.upgrade(), throwsA(isA<FileSystemException>()));
+        expect(File('${repo.dir}/VERSION').readAsStringSync().trim(), '1.0');
+        expect(manifest(repo.dir)['version'], '1.0');
+        expect(repo.needsUpgrade, isTrue);
+
+        final list = await repo.upgrade();
+        expect(list, isEmpty);
+        for (final f in ['a', 'b', 'c']) {
+          expect(File('${repo.dir}/$f').readAsStringSync(), 'novo');
+          expect(File('${repo.dir}/$f.pnnew').existsSync(), isFalse);
+        }
+        expect(repo.needsUpgrade, isFalse);
+        expect(
+          Directory(repo.dir)
+              .listSync(recursive: true)
+              .where((e) => e.path.endsWith('.pntmp')),
+          isEmpty,
+        );
+      },
+    );
+
+    test('limpa .pntmp perdido de uma tentativa anterior', () async {
+      await extractV1({'a': 'velho'});
+      write(repo.dir, 'a.pntmp', 'lixo');
+      buildSnapshot('1.1', {'a': 'novo'});
+      await repo.upgrade();
+      expect(File('${repo.dir}/a.pntmp').existsSync(), isFalse);
+    });
+
+    test('manifesto com chave absoluta ou .. é ignorado', () async {
+      await extractV1({'home/a': 'velho'});
+      File('${repo.dir}/.powerterminal-origin').writeAsStringSync(
+        jsonEncode({
+          'source': 'launcher',
+          'version': '1.0',
+          'files': {'../fora': 'x', 'home/a': sha('velho')},
+        }),
+      );
+      write(repo.dir, 'home/a', 'meu');
+      buildSnapshot('1.1', {'home/a': 'novo'});
+      expect(await repo.upgrade(), ['home/a']);
+    });
+
+    test('ancestral que é symlink é pulado', () async {
+      await extractV1({'lib/x': 'velho'});
+      final outside = Directory('${tmp.path}/fora')..createSync();
+      Directory('${repo.dir}/lib').deleteSync(recursive: true);
+      Link('${repo.dir}/lib').createSync(outside.path);
+      buildSnapshot('1.1', {'lib/x': 'novo'});
+      await repo.upgrade();
+      expect(outside.listSync(), isEmpty);
+      expect(repo.skipped, ['lib/x']);
+    });
+
+    test('extract que falha não deixa a pasta nem o temporário', () async {
+      buildSnapshot('1.0', {'a': 'A'});
+      final bad = RepoCopy(
+        home: '${tmp.path}/home',
+        snapshotDir: snap,
+        runner: (exe, args, {workingDirectory, environment}) async =>
+            ProcessResult(1, 1, '', 'boom'),
+      );
+      await expectLater(bad.extract(), throwsA(isA<FileSystemException>()));
+      expect(bad.inspect(), RepoKind.absent);
+      expect(Directory('${tmp.path}/home').listSync(), isEmpty);
     });
 
     test(

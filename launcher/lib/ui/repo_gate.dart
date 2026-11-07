@@ -10,18 +10,29 @@ const kInstallCommand =
     'curl -fsSL https://raw.githubusercontent.com/uesleinasch/OnePowerTerminal/main/install.sh | bash';
 const kPullCommand = 'git -C ~/PowerTerminal pull --ff-only';
 
-enum _Stage { loading, notFound, foreign, oldGit, pullFailed, error, ready }
+enum _Stage {
+  loading,
+  notFound,
+  foreign,
+  oldGit,
+  pullFailed,
+  pullStale,
+  error,
+  ready,
+}
 
 class RepoGate extends StatefulWidget {
   const RepoGate({
     super.key,
     required this.repo,
     required this.builder,
+    this.onReady,
     this.runner,
   });
 
   final RepoCopy repo;
   final Widget Function(String repoDir) builder;
+  final void Function(String repoDir)? onReady;
   final ProcessRunner? runner;
 
   @override
@@ -32,7 +43,6 @@ class _RepoGateState extends State<RepoGate> {
   _Stage _stage = _Stage.loading;
   String _detail = '';
   bool _pulling = false;
-  Widget? _child;
 
   RepoCopy get _repo => widget.repo;
 
@@ -62,8 +72,13 @@ class _RepoGateState extends State<RepoGate> {
         case RepoKind.gitClone:
           return _go(await _checkGit() ? _Stage.ready : _Stage.oldGit);
       }
-    } on FileSystemException catch (e) {
-      _go(_Stage.error, detail: '${e.message} ${e.path ?? ''}'.trim());
+    } on Object catch (e) {
+      _go(
+        _Stage.error,
+        detail: e is FileSystemException
+            ? '${e.message} ${e.path ?? ''}'.trim()
+            : '$e',
+      );
     }
   }
 
@@ -73,7 +88,9 @@ class _RepoGateState extends State<RepoGate> {
       return c.contractVersion >= kMinContract;
     } on CatalogError catch (e) {
       final text = '${e.message} ${e.stderr ?? ''}'.toLowerCase();
-      return !(text.contains('desconhecido') || text.contains('unknown'));
+      return !text.contains('comando desconhecido: catalog');
+    } on Object {
+      return true;
     }
   }
 
@@ -83,6 +100,7 @@ class _RepoGateState extends State<RepoGate> {
       _stage = s;
       _detail = detail;
     });
+    if (s == _Stage.ready) widget.onReady?.call(_repo.dir);
   }
 
   void _announce(List<String> pnnew) {
@@ -100,7 +118,7 @@ class _RepoGateState extends State<RepoGate> {
     var ok = false;
     var err = '';
     try {
-      final r = await (widget.runner ?? _defaultRunner)('git', [
+      final r = await (widget.runner ?? defaultProcessRunner)('git', [
         '-C',
         _repo.dir,
         'pull',
@@ -113,8 +131,9 @@ class _RepoGateState extends State<RepoGate> {
     }
     if (!mounted) return;
     setState(() => _pulling = false);
-    if (ok && await _checkGit()) return _go(_Stage.ready);
-    _go(_Stage.pullFailed, detail: err);
+    if (!ok) return _go(_Stage.pullFailed, detail: err);
+    if (await _checkGit()) return _go(_Stage.ready);
+    _go(_Stage.pullStale);
   }
 
   @override
@@ -123,7 +142,7 @@ class _RepoGateState extends State<RepoGate> {
       case _Stage.loading:
         return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case _Stage.ready:
-        return _child ??= widget.builder(_repo.dir);
+        return widget.builder(_repo.dir);
       case _Stage.notFound:
         return _Notice(
           icon: Icons.search_off_rounded,
@@ -155,6 +174,14 @@ class _RepoGateState extends State<RepoGate> {
             label: const Text('Atualizar com git pull'),
           ),
         );
+      case _Stage.pullStale:
+        return const _Notice(
+          icon: Icons.update_disabled_rounded,
+          title: 'A cópia ainda é antiga',
+          body:
+              'A cópia foi atualizada, mas ainda é antiga para este launcher. '
+              'Atualize o launcher ou rode git pull de novo mais tarde.',
+        );
       case _Stage.pullFailed:
         return _Notice(
           icon: Icons.terminal_rounded,
@@ -167,13 +194,6 @@ class _RepoGateState extends State<RepoGate> {
     }
   }
 }
-
-Future<ProcessResult> _defaultRunner(
-  String exe,
-  List<String> args, {
-  String? workingDirectory,
-  Map<String, String>? environment,
-}) => Process.run(exe, args);
 
 class _Notice extends StatelessWidget {
   const _Notice({
