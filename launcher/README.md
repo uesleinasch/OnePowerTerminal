@@ -1,17 +1,27 @@
-# powerterminal_launcher
+# PowerTerminal Launcher
 
-A new Flutter project.
+Aplicativo Flutter (Linux) que dá uma interface gráfica à CLI `bin/powerterminal`: mostra o catálogo de módulos, enfileira instalações, atualizações e remoções e acompanha o progresso. O launcher não tem lógica de instalação própria; toda mutação de sistema é um comando da CLI.
 
-## Getting Started
+## Rodar do código
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run -d linux
+```
 
-A few resources to get you started if this is your first Flutter project:
+Requer o SDK do Flutter e, no Linux, `clang cmake ninja-build pkg-config libgtk-3-dev`.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Testes
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter analyze
+flutter test
+```
+
+Os testes usam um `sudo` e uma CLI falsos (`test/support/`) e precisam do `script` do util-linux. Nenhum deles roda `sudo`, `apt` ou a CLI real.
+
+## Distribuição
+
+O AppImage sai nas releases a partir da v0.3.0.
+
+Veja o [README do projeto](../README.md) para o PowerTerminal em si.
