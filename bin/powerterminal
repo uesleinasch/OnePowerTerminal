@@ -636,6 +636,9 @@ _vf_catalog_module() {
     [[ "$mb" =~ ^[0-9]+$ ]] || mb=0
     [[ "$dados" == 1 ]] && sudo=true
   fi
+  # Pré-requisito ausente também é apt (root): mesma regra do _vf_precisa_sudo,
+  # que o launcher só consegue seguir por este campo.
+  [[ "$sudo" == false && -n "$(pn_missing_requires "$m")" ]] && sudo=true
   if declare -F "mod_${m}_needs" >/dev/null; then
     mapfile -t needs < <(mod_"${m}"_needs)
   fi
