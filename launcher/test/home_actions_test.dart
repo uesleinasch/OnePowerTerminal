@@ -173,13 +173,31 @@ void main() {
     expect(rig.shell.runs, isEmpty);
   });
 
-  testWidgets('dev com vscode já presente não pergunta o editor', (t) async {
+  testWidgets('dev com só o vscode presente não instala o nvim', (t) async {
     final rig = await pumpRig(t);
     rig.actions.installProfile('dev');
     await t.pumpAndSettle();
     expect(find.text('Qual editor?'), findsNothing);
     await settle(t, rig.controller);
-    expect(modulesRun(rig.shell), isNot(contains('vscode')));
+    final run = modulesRun(rig.shell);
+    expect(run, isNot(contains('vscode')));
+    expect(run, isNot(contains('nvim')));
+    expect(run, isNot(contains('astronvim')));
+    expect(run, contains('helpers'));
+  });
+
+  testWidgets('dev com só o nvim presente não instala o vscode', (t) async {
+    final rig = await pumpRig(
+      t,
+      states: {'nvim': 'installed', 'vscode': 'available'},
+    );
+    rig.actions.installProfile('dev');
+    await t.pumpAndSettle();
+    expect(find.text('Qual editor?'), findsNothing);
+    await settle(t, rig.controller);
+    final run = modulesRun(rig.shell);
+    expect(run, isNot(contains('vscode')));
+    expect(run, contains('astronvim'));
   });
 
   testWidgets('módulo com sudo passa pela senha real e roda', (t) async {

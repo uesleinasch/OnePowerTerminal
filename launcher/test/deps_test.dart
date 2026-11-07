@@ -75,6 +75,18 @@ void main() {
     ]);
   });
 
+  test('inferEditorChoice', () {
+    expect(inferEditorChoice(catalog()), 'vscode');
+    expect(
+      inferEditorChoice(
+        catalog(states: {'nvim': 'installed', 'vscode': 'available'}),
+      ),
+      'nvim',
+    );
+    expect(inferEditorChoice(catalog(states: {'nvim': 'preexisting'})), 'both');
+    expect(inferEditorChoice(catalog(states: {'vscode': 'available'})), isNull);
+  });
+
   test('profileNeedsEditorChoice', () {
     final none = catalog(states: {'vscode': 'available'});
     expect(profileNeedsEditorChoice(none, 'dev'), isTrue);
