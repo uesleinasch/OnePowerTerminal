@@ -83,7 +83,7 @@ void main() {
       await q.enqueue([
         const QueueItem('helpers', OpKind.install),
         const QueueItem('kitty', OpKind.update),
-        const QueueItem('tools', OpKind.remove),
+        const QueueItem('claude', OpKind.remove),
       ], askPassword: ({error}) async => null);
       for (var i = 0; i < 60; i++) {
         if (q.status('helpers').progress != null) break;

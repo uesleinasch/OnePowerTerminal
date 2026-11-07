@@ -5,7 +5,7 @@ mod_notiont_meta() {
   echo "notion-t (CLI interativo para notas no Notion via pipx)"
 }
 
-mod_notiont_cost() { printf '1\t20\t0\n'; }
+mod_notiont_cost() { printf '1\t20\t1\n'; }
 
 mod_notiont_name() { echo "notion-t"; }
 

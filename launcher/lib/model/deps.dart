@@ -2,7 +2,7 @@ import 'catalog.dart';
 
 const _editorIds = ['nvim', 'astronvim', 'vscode'];
 
-List<String> installPlan(Catalog c, List<String> targets) {
+Set<String> dependencyClosure(Catalog c, List<String> targets) {
   final wanted = <String>{};
   void visit(String id) {
     final m = c.byId(id);
@@ -11,6 +11,11 @@ List<String> installPlan(Catalog c, List<String> targets) {
   }
 
   targets.forEach(visit);
+  return wanted;
+}
+
+List<String> installPlan(Catalog c, List<String> targets) {
+  final wanted = dependencyClosure(c, targets);
   return [
     for (final m in c.modules)
       if (wanted.contains(m.id) && m.state == ModuleState.available) m.id,
