@@ -11,6 +11,21 @@ mod_zsh_name() { echo "Zsh + Powerlevel10k"; }
 
 mod_zsh_category() { echo shell; }
 
+mod_zsh_about() {
+  echo "Instala o zsh pelo apt, o Oh-My-Zsh, o tema Powerlevel10k e os plugins autosuggestions e syntax-highlighting, e liga ~/.zshrc e ~/.p10k.zsh à configuração do repositório. Também troca o shell de login para o zsh, o que só vale no próximo login. Remover desfaz o que o recibo registra e, se o zsh sair, devolve o shell de login ao bash."
+}
+
+mod_zsh_provides() {
+  printf 'apt\tzsh\n'
+  printf 'dir\t%s\n' "$_PN_OMZ_DIR"
+  printf 'dir\t%s/themes/powerlevel10k\n' "$_PN_OMZ_CUSTOM"
+  printf 'dir\t%s/plugins/zsh-autosuggestions\n' "$_PN_OMZ_CUSTOM"
+  printf 'dir\t%s/plugins/zsh-syntax-highlighting\n' "$_PN_OMZ_CUSTOM"
+  printf 'config\t%s/.zshrc\n' "$HOME"
+  printf 'config\t%s/.p10k.zsh\n' "$HOME"
+  printf 'shell\tzsh\n'
+}
+
 mod_zsh_installed() {
   has_cmd zsh && [[ -d "$_PN_OMZ_DIR" ]]
 }

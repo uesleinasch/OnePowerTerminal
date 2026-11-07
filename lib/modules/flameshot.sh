@@ -9,6 +9,15 @@ mod_flameshot_name() { echo "flameshot"; }
 
 mod_flameshot_category() { echo extras; }
 
+mod_flameshot_about() {
+  echo "Instala o flameshot, uma ferramenta de captura de tela com anotações, pelo apt, e liga ~/.config/flameshot à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link."
+}
+
+mod_flameshot_provides() {
+  printf 'apt\tflameshot\n'
+  printf 'config\t%s/.config/flameshot\n' "$HOME"
+}
+
 mod_flameshot_installed() { has_cmd flameshot; }
 
 mod_flameshot_links() { pn_config_links flameshot; }

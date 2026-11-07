@@ -13,10 +13,21 @@ mod_fonts_name() { echo "MesloLGS NF"; }
 
 mod_fonts_category() { echo base; }
 
+mod_fonts_about() {
+  echo "Baixa as quatro variantes da fonte MesloLGS NF, usada pelo Powerlevel10k para os ícones do prompt, e atualiza o cache de fontes. Os arquivos ficam em ~/.local/share/fonts, sem tocar no sistema. Remover apaga as fontes que o PowerTerminal baixou."
+}
+
+mod_fonts_provides() {
+  local entry
+  for entry in "${_PN_FONTS[@]}"; do
+    printf 'font\t%s/%s\n' "$_PN_FONTS_DIR" "${entry%%|*}"
+  done
+}
+
 mod_fonts_installed() {
   local entry
   for entry in "${_PN_FONTS[@]}"; do
-    [[ -f "$_PN_FONTS_DIR/${entry%%|*}" ]] || return 1
+    [[ -f "$_PN_FONTS_DIR/${entry%%|*}" || -f "$HOME/.fonts/${entry%%|*}" ]] || return 1
   done
 }
 

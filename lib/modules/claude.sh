@@ -13,6 +13,15 @@ mod_claude_name() { echo "Claude Code"; }
 
 mod_claude_category() { echo dev; }
 
+mod_claude_about() {
+  echo "Instala o Claude Code, a CLI da Anthropic, pelo instalador nativo: o binário fica em ~/.local/bin e os arquivos em ~/.local/share/claude. Não pede sudo. Remover apaga essa instalação, mas deixa ~/.claude e ~/.claude.json, que são dados seus."
+}
+
+mod_claude_provides() {
+  printf 'bin\t%s/.local/bin/claude\n' "$HOME"
+  printf 'dir\t%s/.local/share/claude\n' "$HOME"
+}
+
 mod_claude_installed() {
   has_cmd claude || [[ -x "$HOME/.local/bin/claude" ]]
 }

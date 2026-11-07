@@ -9,6 +9,15 @@ mod_lazydocker_name() { echo "lazydocker"; }
 
 mod_lazydocker_category() { echo dev; }
 
+mod_lazydocker_about() {
+  echo "Instala o lazydocker, uma interface de terminal para o Docker, pelo script oficial em ~/.local/bin, e liga ~/.config/lazydocker à configuração do repositório. Ele só é útil com Docker ou Podman instalados. Remover apaga o binário e o link que o PowerTerminal criou."
+}
+
+mod_lazydocker_provides() {
+  printf 'bin\t%s/.local/bin/lazydocker\n' "$HOME"
+  printf 'config\t%s/.config/lazydocker\n' "$HOME"
+}
+
 mod_lazydocker_installed() { has_cmd lazydocker; }
 
 mod_lazydocker_requires() { printf 'curl\tcurl\n'; }

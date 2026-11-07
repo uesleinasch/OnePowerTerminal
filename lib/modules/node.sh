@@ -11,6 +11,21 @@ mod_node_name() { echo "Node.js LTS"; }
 
 mod_node_category() { echo dev; }
 
+mod_node_about() {
+  echo "Instala o Node.js LTS por um gerenciador de versões: o nvm, em ~/.nvm, ou o n, em ~/n, conforme a sua escolha. Nada é instalado no sistema e não pede sudo. Remover apaga o diretório do gerenciador que o PowerTerminal criou."
+}
+
+mod_node_provides() {
+  local manager
+  manager="$(pn_get_answer node.manager "")"
+  [[ -n "$manager" ]] || manager="$(_vf_node_manager_decidido)"
+  if [[ "$manager" == n ]]; then
+    printf 'dir\t%s\n' "$_PN_N_PREFIX"
+  else
+    printf 'dir\t%s\n' "$_PN_NVM_DIR"
+  fi
+}
+
 mod_node_installed() {
   [[ -s "$_PN_NVM_DIR/nvm.sh" ]] || [[ -x "$_PN_N_PREFIX/bin/n" ]] || _vf_is_real_n
 }

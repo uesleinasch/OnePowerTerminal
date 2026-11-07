@@ -9,6 +9,14 @@ mod_starship_name() { echo "starship"; }
 
 mod_starship_category() { echo dev; }
 
+mod_starship_about() {
+  echo "Instala o starship, um prompt de shell rápido, pelo instalador oficial em ~/.local/bin. Não altera a configuração do shell. Remover apaga o binário se foi o PowerTerminal quem o criou."
+}
+
+mod_starship_provides() {
+  printf 'bin\t%s/.local/bin/starship\n' "$HOME"
+}
+
 mod_starship_installed() { has_cmd starship; }
 
 mod_starship_requires() { printf 'curl\tcurl\n'; }

@@ -73,6 +73,8 @@ Contrato de um módulo `X`:
 | `mod_X_configure` | não | perguntas do módulo, feitas **antes** do install; grava com `pn_set_answer` |
 | `mod_X_needs` | não | dependências, um nome de módulo por linha |
 | `mod_X_cost` | não | `minutos<TAB>MB<TAB>sudo(0\|1)`, alimenta o resumo do assistente |
+| `mod_X_about` | não | 2 a 4 frases em pt-BR: o que o módulo é, o que muda na máquina e o que o Remover desfaz; vira o campo `about` do `catalog --json` (sem ela vale a `meta`) |
+| `mod_X_provides` | não | o que o install cria, linhas `tipo<TAB>valor` com tipo em `bin\|apt\|dir\|config\|repo\|font\|shell\|group\|service`; caminhos do `$HOME` saem como `~` no campo `provides` do catálogo |
 
 Funções auxiliares internas de módulo usam o prefixo `_vf_`.
 

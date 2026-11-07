@@ -12,6 +12,19 @@ mod_kitty_name() { echo "Kitty"; }
 
 mod_kitty_category() { echo terminal; }
 
+mod_kitty_about() {
+  echo "Instala o terminal Kitty pelo instalador oficial em ~/.local/kitty.app, liga kitty e kitten em ~/.local/bin, copia os atalhos do menu e liga ~/.config/kitty à configuração do repositório. Tudo fica no seu HOME, sem sudo. Remover apaga a instalação, os links e os atalhos que o PowerTerminal criou."
+}
+
+mod_kitty_provides() {
+  printf 'dir\t%s\n' "$_PN_KITTY_DIR"
+  printf 'bin\t%s/.local/bin/kitty\n' "$HOME"
+  printf 'bin\t%s/.local/bin/kitten\n' "$HOME"
+  printf 'config\t%s/.config/kitty\n' "$HOME"
+  printf 'config\t%s/.local/share/applications/kitty.desktop\n' "$HOME"
+  printf 'config\t%s/.local/share/applications/kitty-open.desktop\n' "$HOME"
+}
+
 mod_kitty_installed() { [[ -x "$_PN_KITTY_DIR/bin/kitty" ]]; }
 
 mod_kitty_requires() { printf 'curl\tcurl\nxz\txz-utils\n'; }

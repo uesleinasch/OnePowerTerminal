@@ -9,6 +9,15 @@ mod_lazygit_name() { echo "lazygit"; }
 
 mod_lazygit_category() { echo dev; }
 
+mod_lazygit_about() {
+  echo "Instala o lazygit, uma interface de terminal para o git, baixando o binário da versão mais recente do GitHub para ~/.local/bin, e liga ~/.config/lazygit à configuração do repositório. Remover apaga o binário e o link que o PowerTerminal criou."
+}
+
+mod_lazygit_provides() {
+  printf 'bin\t%s/.local/bin/lazygit\n' "$HOME"
+  printf 'config\t%s/.config/lazygit\n' "$HOME"
+}
+
 mod_lazygit_installed() { has_cmd lazygit; }
 
 mod_lazygit_requires() { printf 'curl\tcurl\n'; }

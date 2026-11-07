@@ -9,6 +9,15 @@ mod_uv_name() { echo "uv"; }
 
 mod_uv_category() { echo dev; }
 
+mod_uv_about() {
+  echo "Instala o uv, gerenciador de pacotes e ambientes Python da Astral, pelo instalador oficial, que grava uv e uvx em ~/.local/bin. Não mexe no Python do sistema. Remover apaga os binários que o PowerTerminal criou."
+}
+
+mod_uv_provides() {
+  printf 'bin\t%s/.local/bin/uv\n' "$HOME"
+  printf 'bin\t%s/.local/bin/uvx\n' "$HOME"
+}
+
 mod_uv_installed() { has_cmd uv; }
 
 mod_uv_requires() { printf 'curl\tcurl\n'; }

@@ -11,6 +11,17 @@ mod_helpers_name() { echo "Cheatsheets"; }
 
 mod_helpers_category() { echo shell; }
 
+mod_helpers_about() {
+  echo "Liga os cheatsheets myastro, mykitty e myyazi em ~/.local/bin, para consultar atalhos do AstroNvim, do Kitty e do Yazi no terminal. Só cria links para o repositório e não pede sudo. Remover desfaz os links e restaura o arquivo anterior, se houve backup."
+}
+
+mod_helpers_provides() {
+  local h
+  for h in "${_PN_HELPERS[@]}"; do
+    printf 'bin\t%s/.local/bin/%s\n' "$HOME" "$h"
+  done
+}
+
 mod_helpers_installed() { pn_links_installed helpers; }
 
 _PN_HELPERS=(myastro mykitty myyazi)
