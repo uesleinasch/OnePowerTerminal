@@ -45,10 +45,8 @@ void main() {
       eventsDir: eventsDir,
       gate: (home) => RepoGate(
         repo: repo,
-        builder: (_) {
-          controller.refresh();
-          return home;
-        },
+        builder: (_) => home,
+        onReady: (_) => controller.refresh(),
       ),
       actions: HomeActionsImpl(
         controller: controller,

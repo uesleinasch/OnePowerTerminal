@@ -91,6 +91,49 @@ void main() {
     expect(find.text(kInstallCommand), findsOneWidget);
   });
 
+  testWidgets('falha ao extrair mostra erro, não gira para sempre', (t) async {
+    final snap = '${tmp.path}/snap';
+    (File('$snap/VERSION')..createSync(recursive: true)).writeAsStringSync('1');
+    (File(
+      '$snap/bin/powerterminal',
+    )..createSync(recursive: true)).writeAsStringSync('x');
+    final repo = RepoCopy(
+      home: home,
+      snapshotDir: snap,
+      runner: (exe, args, {workingDirectory, environment}) async =>
+          throw ProcessException(exe, args, 'sem chmod'),
+    );
+    await show(t, repo, result: (_) => catalog(1));
+    expect(
+      find.text('Não foi possível preparar ~/PowerTerminal'),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('onReady dispara uma vez ao liberar a home', (t) async {
+    write('PowerTerminal/.git/HEAD', 'ref');
+    write('PowerTerminal/bin/powerterminal', 'x');
+    var ready = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        home: RepoGate(
+          repo: RepoCopy(home: home),
+          runner: (exe, args, {workingDirectory, environment}) async =>
+              catalog(1),
+          onReady: (_) => ready++,
+          builder: (_) => const Text('home pronta'),
+        ),
+      ),
+    );
+    await t.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await t.pump();
+    await t.pump();
+    expect(ready, 1);
+  });
+
   testWidgets('absent com instantâneo extrai e segue', (t) async {
     final snap = '${tmp.path}/snap';
     (File('$snap/VERSION')..createSync(recursive: true)).writeAsStringSync('1');
@@ -111,21 +154,28 @@ void main() {
     (File(
       '$snap/bin/powerterminal',
     )..createSync(recursive: true)).writeAsStringSync('novo');
+    (File(
+      '$snap/home/.zshrc',
+    )..createSync(recursive: true)).writeAsStringSync('novo');
     write('PowerTerminal/VERSION', '1');
     write('PowerTerminal/bin/powerterminal', 'meu');
+    write('PowerTerminal/home/.zshrc', 'meu');
     final repo = RepoCopy(home: home, snapshotDir: snap, runner: noChmod);
     await show(t, repo, result: (_) => catalog(1));
     expect(find.text('home pronta'), findsOneWidget);
     await t.pumpAndSettle();
     expect(find.text('Arquivos que você editou'), findsOneWidget);
-    expect(find.text('bin/powerterminal'), findsOneWidget);
+    expect(find.text('home/.zshrc'), findsOneWidget);
     await t.tap(find.text('Entendi'));
     await t.pumpAndSettle();
     expect(find.text('Arquivos que você editou'), findsNothing);
   });
 
   group('clone git', () {
-    setUp(() => write('PowerTerminal/.git/HEAD', 'ref'));
+    setUp(() {
+      write('PowerTerminal/.git/HEAD', 'ref');
+      write('PowerTerminal/bin/powerterminal', '#!/bin/bash');
+    });
 
     testWidgets('contrato atual segue direto', (t) async {
       await show(t, RepoCopy(home: home), result: (_) => catalog(1));
@@ -197,6 +247,27 @@ void main() {
       expect(find.text(kPullCommand), findsOneWidget);
       expect(find.textContaining('fatal: divergiu'), findsOneWidget);
       expect(find.text('home pronta'), findsNothing);
+    });
+
+    testWidgets('pull ok mas contrato ainda antigo mostra aviso específico', (
+      t,
+    ) async {
+      await show(
+        t,
+        RepoCopy(home: home),
+        result: (args) =>
+            args.contains('pull') ? ProcessResult(1, 0, '', '') : catalog(0),
+      );
+      await t.tap(find.text('Atualizar com git pull'));
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await t.pump();
+      expect(find.text('A cópia ainda é antiga'), findsOneWidget);
+      expect(
+        find.textContaining('A cópia foi atualizada, mas ainda é antiga'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('outro erro de catálogo segue para a home', (t) async {

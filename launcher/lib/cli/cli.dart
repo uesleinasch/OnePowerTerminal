@@ -20,7 +20,7 @@ class CatalogError implements Exception {
       stderr == null || stderr!.isEmpty ? message : '$message\n$stderr';
 }
 
-Future<ProcessResult> _defaultRunner(
+Future<ProcessResult> defaultProcessRunner(
   String exe,
   List<String> args, {
   String? workingDirectory,
@@ -34,7 +34,7 @@ Future<ProcessResult> _defaultRunner(
 
 class Cli {
   Cli(this.repoDir, {ProcessRunner? runner})
-    : _runner = runner ?? _defaultRunner;
+    : _runner = runner ?? defaultProcessRunner;
 
   final String repoDir;
   final ProcessRunner _runner;

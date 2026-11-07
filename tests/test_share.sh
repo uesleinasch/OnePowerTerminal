@@ -27,4 +27,8 @@ case "$LISTA" in *pnbak*) fail "pnbak no tarball" ;; *) pass ;; esac
 it "share exclui home.local"
 case "$LISTA" in *home.local*) fail "home.local no tarball" ;; *) pass ;; esac
 
+it "share --dry-run menciona .pnnew nas exclusões"
+SECO="$(env -u POWERTERMINAL_HOME "$TREE/bin/powerterminal" share --dry-run "$TMP/seco.tar.gz" 2>&1)"
+assert_contains "$SECO" ".pnnew"
+
 test_summary
