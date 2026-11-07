@@ -495,7 +495,7 @@ cmd_share() {
   log_section "Empacotando PowerTerminal para compartilhamento"
   log_info "Saída: $outfile"
   if [[ "$DRY_RUN" == "1" ]]; then
-    log_dry "tar -czf $outfile (excluindo home.local, .pnbak.*, .git)"
+    log_dry "tar -czf $outfile (excluindo home.local, .pnbak.*, .pnnew, .git)"
     return 0
   fi
   # Importante: --exclude usa wildcards relativos ao caminho dentro do tar.
@@ -503,6 +503,7 @@ cmd_share() {
   tar -czf "$outfile" \
     -C "$(dirname "$POWERTERMINAL_HOME")" \
     --exclude='*.pnbak.*' \
+    --exclude='*.pnnew' \
     --exclude='home.local' \
     --exclude='.git' \
     "$(basename "$POWERTERMINAL_HOME")"
