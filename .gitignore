@@ -1,5 +1,7 @@
 # Backups gerados pelo próprio PowerTerminal ao linkar arquivos reais
 *.pnbak.*
+*.pnnew
+.powerterminal-origin
 
 # Tarballs gerados por `powerterminal share`
 *.tar.gz

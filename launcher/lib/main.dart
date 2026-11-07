@@ -5,25 +5,35 @@ import 'package:flutter/material.dart';
 
 import 'cli/cli.dart';
 import 'queue/queue_controller.dart';
+import 'repo/repo_copy.dart';
 import 'session/pty_shell.dart';
 import 'system/session_ender.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
 import 'ui/home_actions_impl.dart';
 import 'ui/home_page.dart';
+import 'ui/repo_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final home = Platform.environment['HOME'] ?? '';
-  final repoDir =
-      Platform.environment['POWERTERMINAL_HOME'] ?? '$home/PowerTerminal';
+  final override = Platform.environment['POWERTERMINAL_HOME'];
+  final appDir = Platform.environment['APPDIR'];
+  final repo = RepoCopy(
+    home: home,
+    dir: override,
+    snapshotDir: override == null && appDir != null
+        ? '$appDir/usr/share/powerterminal/repo'
+        : null,
+  );
+  final repoDir = repo.dir;
   final eventsDir = Directory.systemTemp.createTempSync('powerterminal-events');
   final controller = QueueController(
     cli: Cli(repoDir),
     shellFactory: () => PtyShell.start(workingDirectory: repoDir),
     repoDir: repoDir,
     eventsDir: eventsDir,
-  )..refresh();
+  );
   final navigatorKey = GlobalKey<NavigatorState>();
   final activityOpen = ValueNotifier(false);
   runApp(
@@ -33,6 +43,13 @@ void main() {
       navigatorKey: navigatorKey,
       activityOpen: activityOpen,
       eventsDir: eventsDir,
+      gate: (home) => RepoGate(
+        repo: repo,
+        builder: (_) {
+          controller.refresh();
+          return home;
+        },
+      ),
       actions: HomeActionsImpl(
         controller: controller,
         navigatorKey: navigatorKey,
@@ -52,6 +69,7 @@ class PowerTerminalApp extends StatefulWidget {
     this.themeMode = ThemeMode.system,
     this.activityOpen,
     this.eventsDir,
+    this.gate,
   });
 
   final QueueController controller;
@@ -60,6 +78,7 @@ class PowerTerminalApp extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueNotifier<bool>? activityOpen;
   final Directory? eventsDir;
+  final Widget Function(Widget home)? gate;
 
   @override
   State<PowerTerminalApp> createState() => _PowerTerminalAppState();
@@ -101,6 +120,8 @@ class _PowerTerminalAppState extends State<PowerTerminalApp> {
     setState(() => _mode = dark ? ThemeMode.light : ThemeMode.dark);
   }
 
+  Widget _wrap(Widget home) => widget.gate?.call(home) ?? home;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -110,11 +131,13 @@ class _PowerTerminalAppState extends State<PowerTerminalApp> {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _mode,
-      home: HomePage(
-        controller: widget.controller,
-        actions: widget.actions,
-        activityOpen: widget.activityOpen,
-        onToggleTheme: _toggleTheme,
+      home: _wrap(
+        HomePage(
+          controller: widget.controller,
+          actions: widget.actions,
+          activityOpen: widget.activityOpen,
+          onToggleTheme: _toggleTheme,
+        ),
       ),
     );
   }
