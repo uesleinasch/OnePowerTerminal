@@ -72,14 +72,63 @@ for m in eza starship uv; do
 done
 assert_eq "" "$ruim"
 
-it "extras não linka mais yazi, lazygit nem lazydocker"
-assert_eq "" "$(mod_extras_links | grep -E '/(yazi|lazygit|lazydocker)\s' || true)"
-
 it "_vf_module_aliases expande tools e rejeita quem não é apelido"
 eval "$(sed -n '/^_vf_module_aliases()/,/^}/p' "$CLI")"
 assert_eq "${NOVOS[*]}" "$(_vf_module_aliases tools | tr '\n' ' ' | sed 's/ $//')"
 it "_vf_module_aliases falha para módulo comum"
 assert_fail _vf_module_aliases kitty
+
+EXTRAS=(btop ranger picom flameshot)
+
+it "_PN_ALL_MODULES é exatamente a lista canônica"
+assert_eq "apt fonts zsh nvim astronvim vscode kitty eza starship lazygit lazydocker uv yazi node claude helpers btop ranger picom flameshot notiont container theme" "$lista"
+
+it "o módulo extras não existe mais"
+[[ " $lista " != *" extras "* && ! -e lib/modules/extras.sh ]] && pass || fail "extras ainda registrado"
+
+it "cada programa extra cumpre o contrato do módulo"
+faltando=""
+for m in "${EXTRAS[@]}"; do
+  for f in meta name category installed install doctor remove cost update links; do
+    declare -F "mod_${m}_${f}" >/dev/null || faltando="$faltando mod_${m}_${f}"
+  done
+  [[ "$("mod_${m}_category")" == extras ]] || faltando="$faltando categoria_${m}"
+done
+assert_eq "" "$faltando"
+
+it "o custo dos extras é o declarado e pede sudo"
+custo=""
+for m in "${EXTRAS[@]}"; do custo="$custo$m=$("mod_${m}_cost" | tr '\t' ,);"; done
+assert_eq "btop=1,5,1;ranger=1,5,1;picom=1,5,1;flameshot=1,10,1;" "$custo"
+
+it "installed dos extras é só has_cmd do programa"
+ruim=""
+for m in "${EXTRAS[@]}"; do
+  PATH="$SH" "mod_${m}_installed" && ruim="$ruim ausente:$m"
+  printf '#!/bin/sh\n' >"$SH/$m"; chmod +x "$SH/$m"
+  PATH="$SH" "mod_${m}_installed" || ruim="$ruim presente:$m"
+  rm -f "$SH/$m"
+done
+assert_eq "" "$ruim"
+
+it "cada extra linka a própria config"
+ruim=""
+for m in "${EXTRAS[@]}"; do
+  [[ "$("mod_${m}_links")" == "$(pn_config_links "$m")" && -n "$(pn_config_links "$m")" ]] || ruim="$ruim $m"
+done
+assert_eq "" "$ruim"
+
+it "_vf_module_aliases expande extras"
+assert_eq "${EXTRAS[*]}" "$(_vf_module_aliases extras | tr '\n' ' ' | sed 's/ $//')"
+
+it "install --module extras --dry-run mostra apt_install e o link dos quatro"
+out="$("$CLI" install --module extras --dry-run --yes 2>&1 || true)"
+ruim=""
+for m in "${EXTRAS[@]}"; do
+  [[ "$out" == *"apt-get install"*"$m"* || "$out" == *"install"*" $m"* ]] || ruim="$ruim apt:$m"
+  [[ "$out" == *".config/$m"* ]] || ruim="$ruim link:$m"
+done
+assert_eq "" "$ruim"
 
 it "install --module tools --dry-run lista os seis módulos"
 out="$("$CLI" install --module tools --dry-run --yes 2>&1 || true)"

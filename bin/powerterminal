@@ -29,12 +29,13 @@ done
 trap pn_cleanup EXIT
 
 # Lista canônica e ordenada
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim vscode kitty eza starship lazygit lazydocker uv yazi node claude helpers extras notiont container theme)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim vscode kitty eza starship lazygit lazydocker uv yazi node claude helpers btop ranger picom flameshot notiont container theme)
 
 # _vf_module_aliases NOME — módulos de um apelido (um por linha); falha se NOME não é apelido.
 _vf_module_aliases() {
   case "$1" in
     tools) printf '%s\n' eza starship lazygit lazydocker uv yazi ;;
+    extras) printf '%s\n' btop ranger picom flameshot ;;
     *) return 1 ;;
   esac
 }
@@ -218,7 +219,7 @@ cmd_install() {
     perfil="$(ui_choose "Como quer configurar?" \
       dev:"ambiente completo de desenvolvimento" \
       minimal:"só o shell (apt, fontes, zsh, helpers)" \
-      full:"dev + extras (btop, ranger, picom…)" \
+      full:"dev + btop, ranger, picom, flameshot, notiont" \
       custom:"escolher módulo a módulo")"
 
     local pedidos=()
@@ -734,8 +735,8 @@ ${C_B}Comandos:${C_R}
 
 ${C_B}Profiles:${C_R}
   minimal   apt + fonts + zsh + helpers
-  dev       minimal + editor + kitty + tools + node + claude + container + theme
-  full      tudo (= dev + extras + notiont), com os dois editores
+  dev       minimal + editor + kitty + eza starship lazygit lazydocker uv yazi + node + claude + container + theme
+  full      tudo (= dev + btop ranger picom flameshot + notiont), com os dois editores
 
   editor = nvim + astronvim, vscode ou ambos: o assistente pergunta;
   fora dele vale POWERTERMINAL_EDITOR=nvim|vscode|both (default: dev → nvim,
@@ -823,7 +824,7 @@ ${C_B}powerterminal update${C_R} [--module a,b] [--yes] [--dry-run] [--events-fd
   --events-fd N      eventos JSON Lines no descritor N
 
 Módulos com atualização própria: apt, zsh, nvim, vscode, kitty, eza, starship, lazygit,
-lazydocker, uv, yazi, node, claude, container, notiont (tools = as seis CLIs). Os demais mudam junto com a release do PowerTerminal.
+lazydocker, uv, yazi, node, claude, container, btop, ranger, picom, flameshot, notiont (tools = as seis CLIs; extras = os quatro programas extras). Os demais mudam junto com a release do PowerTerminal.
 O update só reinstala o que o recibo diz ser do PowerTerminal e só faz upgrade de
 pacote apt já instalado; módulo ausente não é instalado, e o recibo não muda.
 EOF
