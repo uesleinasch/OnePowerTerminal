@@ -14,10 +14,16 @@ String _kindLabel(OpKind k) => switch (k) {
 };
 
 class ActivityPanel extends StatefulWidget {
-  const ActivityPanel({super.key, required this.controller, this.onClose});
+  const ActivityPanel({
+    super.key,
+    required this.controller,
+    this.onClose,
+    this.compact = false,
+  });
 
   final QueueController controller;
   final VoidCallback? onClose;
+  final bool compact;
 
   @override
   State<ActivityPanel> createState() => _ActivityPanelState();
@@ -76,12 +82,16 @@ class _ActivityPanelState extends State<ActivityPanel> {
                 ),
               ),
               _label(context, 'Fila'),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 160),
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  children: _queue(context),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: widget.compact ? 72 : 160,
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    children: _queue(context),
+                  ),
                 ),
               ),
               _label(context, 'Log · ~/.local/state/powerterminal/install.log'),

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../cli/cli.dart';
@@ -72,7 +74,6 @@ class _HomePageState extends State<HomePage> {
           );
         }
         final w = MediaQuery.sizeOf(context).width;
-        final margin = w < 560 ? 16.0 : 24.0;
         final activity = ctl.pending.length + (ctl.current != null ? 1 : 0);
         return Scaffold(
           body: SafeArea(
@@ -91,8 +92,13 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: _withPanel(
                     w,
-                    ListView(
-                      padding: EdgeInsets.fromLTRB(margin, 4, margin, 32),
+                    (cw) => ListView(
+                      padding: EdgeInsets.fromLTRB(
+                        _margin(cw),
+                        4,
+                        _margin(cw),
+                        32,
+                      ),
                       children: [
                         ProfileFilter(
                           profile: _profile,
@@ -121,30 +127,38 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _withPanel(double width, Widget content) {
+  double _margin(double contentWidth) => contentWidth < 560 ? 16.0 : 24.0;
+
+  Widget _withPanel(double width, Widget Function(double) content) {
     return ValueListenableBuilder<bool>(
       valueListenable: _open,
       builder: (context, open, _) {
-        if (!open) return content;
+        if (!open) return content(width);
         final panel = ActivityPanel(
           controller: widget.controller,
           onClose: () => _open.value = false,
+          compact: width < kActivityWideBreakpoint,
         );
         if (width >= kActivityWideBreakpoint) {
           return Row(
             children: [
-              Expanded(child: content),
+              Expanded(child: content(width - kActivityPanelWidth - 1)),
               const VerticalDivider(width: 1),
               SizedBox(width: kActivityPanelWidth, child: panel),
             ],
           );
         }
-        return Column(
-          children: [
-            Expanded(child: content),
-            const Divider(height: 1),
-            SizedBox(height: 320, child: panel),
-          ],
+        return LayoutBuilder(
+          builder: (context, box) => Column(
+            children: [
+              Expanded(child: content(width)),
+              const Divider(height: 1),
+              SizedBox(
+                height: math.min(320, box.maxHeight * 0.5),
+                child: panel,
+              ),
+            ],
+          ),
         );
       },
     );
