@@ -14,12 +14,14 @@ class ModuleCard extends StatelessWidget {
     required this.status,
     required this.actions,
     this.onDequeue,
+    this.waitingFor,
   });
 
   final ModuleInfo module;
   final CardStatus status;
   final HomeActions actions;
   final VoidCallback? onDequeue;
+  final String? waitingFor;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +75,7 @@ class ModuleCard extends StatelessWidget {
                         m.id,
                         style: tt.bodyMedium?.copyWith(
                           fontFamily: kMonoFont,
+                          fontSize: 12.5,
                           color: cs.onSurfaceVariant,
                         ),
                       ),
@@ -90,6 +93,7 @@ class ModuleCard extends StatelessWidget {
               m.description,
               style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
             ),
+            const Spacer(),
             const SizedBox(height: 12),
             Wrap(
               spacing: 6,
@@ -97,7 +101,11 @@ class ModuleCard extends StatelessWidget {
               children: [
                 _Tag(Icons.schedule_rounded, '~${m.minutes} min'),
                 _Tag(Icons.storage_rounded, formatMb(m.mb)),
-                if (m.sudo) _Tag(Icons.shield_rounded, 'sudo', accent: true),
+                if (m.sudo)
+                  const Tooltip(
+                    message: 'O sudo fica liberado enquanto houver instalação na fila',
+                    child: _Tag(Icons.security_rounded, 'sudo', accent: true),
+                  ),
                 for (final n in m.needs) _Tag(Icons.link_rounded, 'requer $n'),
               ],
             ),
@@ -221,13 +229,28 @@ class ModuleCard extends StatelessWidget {
               ],
             ),
           ),
-        Wrap(
-          alignment: WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
-          runSpacing: 8,
-          children: buttons,
-        ),
+        if (queued && waitingFor != null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Aguardando $waitingFor',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: note,
+                ),
+              ),
+              ...buttons,
+            ],
+          )
+        else
+          Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: buttons,
+          ),
       ],
     );
   }
@@ -252,7 +275,7 @@ class _StatusChip extends StatelessWidget {
             cs.onSurfaceVariant,
           ),
           CardPhase.running => (
-            Icons.sync_rounded,
+            Icons.autorenew_rounded,
             switch (status.kind) {
               OpKind.update => 'Atualizando',
               OpKind.remove => 'Removendo',
@@ -289,7 +312,10 @@ class _StatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: fg),
+          if (status.phase == CardPhase.running)
+            _SpinningIcon(icon, color: fg)
+          else
+            Icon(icon, size: 16, color: fg),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
@@ -338,4 +364,34 @@ class _Tag extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SpinningIcon extends StatefulWidget {
+  const _SpinningIcon(this.icon, {required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  State<_SpinningIcon> createState() => _SpinningIconState();
+}
+
+class _SpinningIconState extends State<_SpinningIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => RotationTransition(
+    turns: _controller,
+    child: Icon(widget.icon, size: 16, color: widget.color),
+  );
 }

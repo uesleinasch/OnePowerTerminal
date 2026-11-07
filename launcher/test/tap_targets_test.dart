@@ -46,7 +46,7 @@ void main() {
         find.widgetWithIcon(
           IconButton,
           tip == 'Atividade'
-              ? Icons.list_alt_rounded
+              ? Icons.receipt_long_rounded
               : Icons.light_mode_rounded,
         ),
       );

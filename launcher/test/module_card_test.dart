@@ -38,6 +38,7 @@ Future<RecordingActions> pump(
   CardStatus status, {
   VoidCallback? onDequeue,
   TargetPlatform? platform,
+  String? waitingFor,
 }) async {
   debugDefaultTargetPlatformOverride = platform;
   final actions = RecordingActions();
@@ -45,14 +46,17 @@ Future<RecordingActions> pump(
     MaterialApp(
       theme: AppTheme.light(),
       home: Scaffold(
-        body: SingleChildScrollView(
+        body: Align(
+          alignment: Alignment.topLeft,
           child: SizedBox(
             width: 320,
+            height: 600,
             child: ModuleCard(
               module: _catalog.byId(id)!,
               status: status,
               actions: actions,
               onDequeue: onDequeue,
+              waitingFor: waitingFor,
             ),
           ),
         ),
@@ -120,11 +124,12 @@ void main() {
   });
 
   testWidgets('preexisting sem Remover mesmo com canRemove no JSON', (t) async {
-    final raw = jsonDecode(File('test/fixtures/catalog.json').readAsStringSync())
-        as Map<String, dynamic>;
-    final json = (raw['modules'] as List).cast<Map<String, dynamic>>().firstWhere(
-      (m) => m['id'] == 'vscode',
-    );
+    final raw = jsonDecode(
+      File('test/fixtures/catalog.json').readAsStringSync(),
+    ) as Map<String, dynamic>;
+    final json = (raw['modules'] as List)
+        .cast<Map<String, dynamic>>()
+        .firstWhere((m) => m['id'] == 'vscode');
     final m = ModuleInfo.fromJson({...json, 'can_remove': true});
     await t.pumpWidget(
       MaterialApp(
@@ -224,5 +229,59 @@ void main() {
     expect(find.text('~2 min'), findsOneWidget);
     expect(find.text('150 MB'), findsOneWidget);
     expect(find.text('sudo'), findsOneWidget);
+  });
+
+  testWidgets(
+    'na fila mostra Aguardando <módulo> à esquerda de Tirar da fila',
+    (t) async {
+      await pump(
+        t,
+        'helpers',
+        const CardStatus(phase: CardPhase.queued, kind: OpKind.install),
+        waitingFor: 'Zsh + Powerlevel10k',
+      );
+      final note = find.text('Aguardando Zsh + Powerlevel10k');
+      expect(note, findsOneWidget);
+      expect(
+        t.getTopLeft(note).dx,
+        lessThan(t.getTopLeft(find.text('Tirar da fila')).dx),
+      );
+    },
+  );
+
+  testWidgets('na fila sem módulo em execução mostra só o botão', (t) async {
+    await pump(
+      t,
+      'helpers',
+      const CardStatus(phase: CardPhase.queued, kind: OpKind.install),
+    );
+    expect(find.textContaining('Aguardando'), findsNothing);
+    expect(find.text('Tirar da fila'), findsOneWidget);
+  });
+
+  testWidgets('id em mono 12,5 e chip de sudo com tooltip', (t) async {
+    await pump(t, 'apt', const CardStatus());
+    final id = t.widget<Text>(find.text('apt'));
+    expect(id.style?.fontFamily, kMonoFont);
+    expect(id.style?.fontSize, 12.5);
+    expect(
+      find.byTooltip('O sudo fica liberado enquanto houver instalação na fila'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('chip de execução tem ícone girando', (t) async {
+    await pump(
+      t,
+      'helpers',
+      const CardStatus(phase: CardPhase.running, kind: OpKind.install),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(Card),
+        matching: find.byType(RotationTransition),
+      ),
+      findsOneWidget,
+    );
   });
 }

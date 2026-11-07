@@ -14,11 +14,16 @@ import 'support/fake_shell.dart';
 
 final _fixture = File('test/fixtures/catalog.json').readAsStringSync();
 
-String _withStates(Map<String, String> states) {
+String _withStates(
+  Map<String, String> states, [
+  Map<String, String> descriptions = const {},
+]) {
   final j = jsonDecode(_fixture) as Map<String, dynamic>;
   for (final m in j['modules'] as List) {
     final s = states[m['id']];
     if (s != null) m['state'] = s;
+    final d = descriptions[m['id']];
+    if (d != null) m['description'] = d;
   }
   return jsonEncode(j);
 }
@@ -26,8 +31,9 @@ String _withStates(Map<String, String> states) {
 Future<QueueController> controller({
   ProcessResult Function()? result,
   Map<String, String> states = const {},
+  Map<String, String> descriptions = const {},
 }) async {
-  final body = _withStates(states);
+  final body = _withStates(states, descriptions);
   final q = QueueController(
     cli: Cli(
       '/repo',
@@ -42,8 +48,12 @@ Future<QueueController> controller({
   return q;
 }
 
-Future<RecordingActions> show(WidgetTester t, QueueController q) async {
-  t.view.physicalSize = const Size(1400, 4000);
+Future<RecordingActions> show(
+  WidgetTester t,
+  QueueController q, {
+  double width = 1400,
+}) async {
+  t.view.physicalSize = Size(width, 4000);
   t.view.devicePixelRatio = 1;
   addTearDown(t.view.reset);
   final actions = RecordingActions();
@@ -190,4 +200,33 @@ void main() {
     expect(find.text('Tentar de novo'), findsOneWidget);
     expect(find.text('falhou feio'), findsOneWidget);
   });
+
+  for (final width in [1280.0, 700.0, 600.0]) {
+    testWidgets('cards da mesma fileira têm a mesma altura em $width px', (
+      t,
+    ) async {
+      final q = await controller(
+        descriptions: {
+          'apt': 'Linha um do texto longo. ' * 12,
+          'fonts': 'Curto.',
+        },
+      );
+      await show(t, q, width: width);
+      expect(t.takeException(), isNull);
+      Finder card(String id) =>
+          find.ancestor(of: find.text(id), matching: find.byType(Card));
+      final a = card('apt');
+      final b = card('fonts');
+      final sameRow = t.getTopLeft(a).dy == t.getTopLeft(b).dy;
+      if (width > 600) expect(sameRow, isTrue);
+      if (!sameRow) return;
+      expect(t.getSize(a).height, t.getSize(b).height);
+      double buttonTop(Finder c) => t
+          .getTopLeft(
+            find.descendant(of: c, matching: find.byType(FilledButton)),
+          )
+          .dy;
+      expect(buttonTop(a), buttonTop(b));
+    });
+  }
 }

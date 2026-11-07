@@ -144,7 +144,7 @@ class TopBar extends StatelessWidget {
                 icon: Badge(
                   isLabelVisible: activityCount > 0,
                   label: Text('$activityCount'),
-                  child: const Icon(Icons.list_alt_rounded),
+                  child: const Icon(Icons.receipt_long_rounded),
                 ),
               ),
             ],

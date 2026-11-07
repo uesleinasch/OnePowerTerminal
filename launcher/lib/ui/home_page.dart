@@ -216,27 +216,42 @@ class _HomePageState extends State<HomePage> {
     const gap = 12.0;
     return LayoutBuilder(
       builder: (context, box) {
-        final cols = ((box.maxWidth + gap) / (minWidth + gap)).floor().clamp(
-          1,
-          99,
-        );
-        final width = (box.maxWidth - gap * (cols - 1)) / cols;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final m in mods)
-              SizedBox(
-                width: width,
-                child: ModuleCard(
-                  module: m,
-                  status: widget.controller.status(m.id),
-                  actions: widget.actions,
-                  onDequeue: () => widget.controller.dequeue(m.id),
-                ),
+        final cols = math.max(1, (box.maxWidth + gap) ~/ (minWidth + gap));
+        final runningId = widget.controller.current?.id;
+        final waitingFor = runningId == null
+            ? null
+            : widget.controller.catalog?.byId(runningId)?.name;
+        final rows = <Widget>[];
+        for (var start = 0; start < mods.length; start += cols) {
+          if (rows.isNotEmpty) rows.add(const SizedBox(height: gap));
+          rows.add(
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < cols; i++) ...[
+                    if (i > 0) const SizedBox(width: gap),
+                    Expanded(
+                      child: start + i < mods.length
+                          ? ModuleCard(
+                              module: mods[start + i],
+                              status: widget.controller.status(
+                                mods[start + i].id,
+                              ),
+                              actions: widget.actions,
+                              onDequeue: () =>
+                                  widget.controller.dequeue(mods[start + i].id),
+                              waitingFor: waitingFor,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
               ),
-          ],
-        );
+            ),
+          );
+        }
+        return Column(children: rows);
       },
     );
   }
