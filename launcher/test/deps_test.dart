@@ -104,4 +104,10 @@ void main() {
       isFalse,
     );
   });
+
+  test('defaultEditor segue o padrão da CLI', () {
+    expect(defaultEditor('dev'), 'nvim');
+    expect(defaultEditor('full'), 'both');
+    expect(defaultEditor('minimal'), isNull);
+  });
 }

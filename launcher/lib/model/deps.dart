@@ -66,3 +66,9 @@ String? inferEditorChoice(Catalog c) {
 
 String? profileEditor(Catalog c, String profile) =>
     profile == 'dev' || profile == 'full' ? inferEditorChoice(c) : null;
+
+String? defaultEditor(String profile) => switch (profile) {
+  'dev' => 'nvim',
+  'full' => 'both',
+  _ => null,
+};

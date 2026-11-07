@@ -27,7 +27,8 @@ class ProfileSummary extends StatelessWidget {
         : profileTargets(
             catalog,
             profile,
-            editor: profileEditor(catalog, profile),
+            editor:
+                profileEditor(catalog, profile) ?? defaultEditor(profile),
           );
     final mods = [for (final id in ids) ?catalog.byId(id)];
     final missing = [
