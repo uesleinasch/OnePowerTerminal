@@ -10,6 +10,7 @@ import 'activity_panel.dart';
 import 'format.dart';
 import 'home_actions.dart';
 import 'module_card.dart';
+import 'module_detail.dart';
 import 'profile_filter.dart';
 import 'profile_summary.dart';
 import 'top_bar.dart';
@@ -38,6 +39,7 @@ class _HomePageState extends State<HomePage> {
   var _profile = 'todos';
   var _onlyInstalled = false;
   var _query = '';
+  String? _detailId;
   late final ValueNotifier<bool> _ownOpen = ValueNotifier(false);
   ValueNotifier<bool> get _open => widget.activityOpen ?? _ownOpen;
 
@@ -87,7 +89,10 @@ class _HomePageState extends State<HomePage> {
                   sudoUnlocked: ctl.sudoUnlocked,
                   activityCount: activity,
                   onToggleTheme: widget.onToggleTheme,
-                  onOpenActivity: () => _open.value = true,
+                  onOpenActivity: () {
+                    setState(() => _detailId = null);
+                    _open.value = true;
+                  },
                 ),
                 if (ctl.catalogError != null) _errorBanner(context),
                 Expanded(
@@ -134,13 +139,17 @@ class _HomePageState extends State<HomePage> {
     return ValueListenableBuilder<bool>(
       valueListenable: _open,
       builder: (context, open, _) {
-        if (!open) return content(width);
-        final panel = ActivityPanel(
-          controller: widget.controller,
-          onClose: () => _open.value = false,
-          compact: width < kActivityWideBreakpoint,
-        );
-        if (width >= kActivityWideBreakpoint) {
+        final detail = _detailId;
+        if (!open && detail == null) return content(width);
+        final wide = width >= kActivityWideBreakpoint;
+        final panel = detail != null
+            ? _detail(detail, asPage: false)
+            : ActivityPanel(
+                controller: widget.controller,
+                onClose: () => _open.value = false,
+                compact: !wide,
+              );
+        if (wide) {
           return Row(
             children: [
               Expanded(child: content(width - kActivityPanelWidth - 1)),
@@ -162,6 +171,45 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _detail(String id, {required bool asPage}) {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final ctl = widget.controller;
+        final catalog = ctl.catalog;
+        final module = catalog?.byId(id);
+        if (catalog == null || module == null) return const SizedBox.shrink();
+        final runningId = ctl.current?.id;
+        return ModuleDetail(
+          module: module,
+          status: ctl.status(id),
+          catalog: catalog,
+          actions: widget.actions,
+          onClose: asPage ? () => Navigator.of(context).pop() : _closeDetail,
+          onDequeue: () => ctl.dequeue(id),
+          waitingFor: runningId == null ? null : catalog.byId(runningId)?.name,
+          asPage: asPage,
+        );
+      },
+    );
+  }
+
+  void _closeDetail() => setState(() => _detailId = null);
+
+  void _openDetail(String id) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= kActivityWideBreakpoint) {
+      setState(() => _detailId = id);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            Scaffold(body: SafeArea(child: _detail(id, asPage: true))),
+      ),
     );
   }
 
@@ -242,6 +290,7 @@ class _HomePageState extends State<HomePage> {
                               onDequeue: () =>
                                   widget.controller.dequeue(mods[start + i].id),
                               waitingFor: waitingFor,
+                              onOpen: () => _openDetail(mods[start + i].id),
                             )
                           : const SizedBox.shrink(),
                     ),
