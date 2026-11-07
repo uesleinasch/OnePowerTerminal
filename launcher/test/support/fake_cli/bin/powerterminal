@@ -3,11 +3,12 @@ set -euo pipefail
 
 action=${1:-}
 shift || true
-module='' fd=''
+module='' fd='' yes=0
 while (($#)); do
   case $1 in
     --module) module=${2:-}; shift 2 ;;
     --events-fd) fd=${2:-}; shift 2 ;;
+    --yes) yes=1; shift ;;
     *) shift ;;
   esac
 done
@@ -17,6 +18,43 @@ case $action in
   *) echo "CLI falsa: ação não suportada: $action" >&2; exit 64 ;;
 esac
 [[ -n $module && -n $fd ]] || { echo 'CLI falsa: faltou --module ou --events-fd' >&2; exit 64; }
+
+# FAKE_NEEDS: "mod:dep1,dep2;mod2:dep" (o needs do catálogo).
+needs_of() {
+  local entry entries
+  IFS=';' read -ra entries <<<"${FAKE_NEEDS:-}"
+  for entry in "${entries[@]}"; do
+    [[ ${entry%%:*} == "$1" ]] && printf '%s\n' "${entry#*:}" | tr ',' '\n'
+  done
+  return 0
+}
+
+expanded() {
+  local queue=("$1") seen=' ' m dep
+  while ((${#queue[@]})); do
+    m=${queue[0]}
+    queue=("${queue[@]:1}")
+    [[ $seen == *" $m "* ]] && continue
+    seen+="$m "
+    [[ $action == install ]] || continue
+    while IFS= read -r dep; do
+      [[ -n $dep ]] && queue+=("$dep")
+    done < <(needs_of "$m")
+  done
+  printf '%s\n' $seen
+}
+
+precisa_sudo() {
+  local m
+  for m in $(expanded "$module"); do
+    [[ ",${FAKE_SUDO_MODULES:-}," == *",$m,"* ]] && return 0
+  done
+  return 1
+}
+
+if ((yes)) && precisa_sudo; then
+  sudo -n true 2>/dev/null || sudo -v || { echo 'sudo não disponível — abortando.' >&2; exit 1; }
+fi
 
 ev() { printf '%s\n' "$1" >&"$fd"; }
 kv() { printf '"module":"%s","action":"%s"' "$module" "$action"; }

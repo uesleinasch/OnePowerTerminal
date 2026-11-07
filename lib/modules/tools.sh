@@ -5,7 +5,7 @@ mod_tools_meta() {
   echo "CLIs extras: eza, starship, lazygit, lazydocker, uv, yazi"
 }
 
-mod_tools_cost() { printf '3\t80\t0\n'; }
+mod_tools_cost() { printf '3\t80\t1\n'; }
 
 mod_tools_name() { echo "CLIs modernas"; }
 

@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../cli/cli.dart';
 import '../cli/events.dart';
 import '../model/catalog.dart';
+import '../model/deps.dart';
 import '../session/event_tail.dart';
 import '../session/pty_shell.dart';
 
@@ -176,8 +177,16 @@ class QueueController extends ChangeNotifier {
     return fresh;
   }
 
-  bool _needsSudo(List<QueueItem> fresh) =>
-      fresh.any((i) => catalog?.byId(i.id)?.sudo == true);
+  bool _needsSudo(List<QueueItem> fresh) {
+    final c = catalog;
+    if (c == null) return false;
+    return fresh.any((i) {
+      final ids = i.kind == OpKind.install
+          ? dependencyClosure(c, [i.id])
+          : {i.id};
+      return ids.any((id) => c.byId(id)?.sudo == true);
+    });
+  }
 
   bool _isAwaiting(String id) =>
       _awaiting.any((g) => g.items.any((i) => i.id == id));

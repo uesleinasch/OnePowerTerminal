@@ -87,6 +87,26 @@ void main() {
     expect(q.log, contains('[launcher] instalar helpers'));
   });
 
+  test('install pede senha pelo fecho de needs; update e remove não', () async {
+    final q = await make(FakeShell(), next: [FakeShell(), FakeShell()]);
+    var asked = 0;
+    Future<String?> ask({String? error}) async {
+      asked++;
+      return 'pw';
+    }
+
+    for (final kind in [OpKind.update, OpKind.remove]) {
+      await q.enqueue([QueueItem('astronvim', kind)], askPassword: ask);
+      await q.whenIdle();
+    }
+    expect(asked, 0);
+    await q.enqueue([inst('astronvim')], askPassword: ask);
+    await q.whenIdle();
+    expect(asked, 1);
+    expect(created.expand((s) => s.runs), hasLength(3));
+    expect(q.status('astronvim').error, isNull);
+  });
+
   test('senha cancelada não enfileira nada', () async {
     final q = await make(FakeShell());
     var asked = 0;
