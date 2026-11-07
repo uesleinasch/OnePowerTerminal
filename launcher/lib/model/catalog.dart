@@ -18,7 +18,11 @@ class ModuleInfo {
     required this.state,
     this.origin,
     this.dataMb,
-  });
+    String? about,
+    this.provides = const [],
+    this.receipt = const [],
+    this.requires = const [],
+  }) : about = about ?? description;
 
   final String id, name, category, description;
   final int minutes, mb;
@@ -27,6 +31,9 @@ class ModuleInfo {
   final ModuleState state;
   final String? origin;
   final int? dataMb;
+  final String about;
+  final List<ModuleItem> provides, receipt;
+  final List<String> requires;
 
   bool get isPresent => state != ModuleState.available;
 
@@ -45,7 +52,17 @@ class ModuleInfo {
     state: _state(_get<String>(j, 'state')),
     origin: _opt<String>(j, 'origin'),
     dataMb: _opt<int>(j, 'data_mb'),
+    about: _opt<String>(j, 'about'),
+    provides: _items(j, 'provides'),
+    receipt: _items(j, 'receipt'),
+    requires: _optStrings(j, 'requires'),
   );
+}
+
+class ModuleItem {
+  const ModuleItem({required this.kind, required this.value});
+
+  final String kind, value;
 }
 
 class Catalog {
@@ -120,6 +137,24 @@ List<String> _strings(Map<String, dynamic> j, String key) {
     throw FormatException('Campo "$key" inválido.');
   }
   return List<String>.from(v);
+}
+
+List<String> _optStrings(Map<String, dynamic> j, String key) =>
+    j[key] == null ? const [] : _strings(j, key);
+
+List<ModuleItem> _items(Map<String, dynamic> j, String key) {
+  final v = j[key];
+  if (v == null) return const [];
+  if (v is! List) throw FormatException('Campo "$key" inválido.');
+  return [
+    for (final x in v)
+      if (x is Map<String, dynamic> &&
+          x['kind'] is String &&
+          x['value'] is String)
+        ModuleItem(kind: x['kind'] as String, value: x['value'] as String)
+      else
+        throw FormatException('Campo "$key" inválido.'),
+  ];
 }
 
 ModuleState _state(String s) => switch (s) {

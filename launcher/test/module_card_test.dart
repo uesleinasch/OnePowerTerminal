@@ -119,6 +119,31 @@ void main() {
     expect(find.text('Atualizar'), findsOneWidget);
   });
 
+  testWidgets('preexisting sem Remover mesmo com canRemove no JSON', (t) async {
+    final raw = jsonDecode(File('test/fixtures/catalog.json').readAsStringSync())
+        as Map<String, dynamic>;
+    final json = (raw['modules'] as List).cast<Map<String, dynamic>>().firstWhere(
+      (m) => m['id'] == 'vscode',
+    );
+    final m = ModuleInfo.fromJson({...json, 'can_remove': true});
+    await t.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: ModuleCard(
+            module: m,
+            status: const CardStatus(),
+            actions: RecordingActions(),
+          ),
+        ),
+      ),
+    );
+    expect(m.state, ModuleState.preexisting);
+    expect(find.text('Instalado fora do PowerTerminal'), findsOneWidget);
+    expect(find.text('Remover'), findsNothing);
+    expect(find.text('Já estava instalado'), findsOneWidget);
+  });
+
   testWidgets('módulo sem canUpdate não mostra Atualizar', (t) async {
     final id = _catalog.modules.firstWhere((m) => m.isPresent && !m.canUpdate);
     await pump(t, id.id, const CardStatus());
