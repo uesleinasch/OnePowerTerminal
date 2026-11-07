@@ -7,22 +7,9 @@ import 'queue/queue_controller.dart';
 import 'session/pty_shell.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
+import 'system/session_ender.dart';
+import 'ui/home_actions_impl.dart';
 import 'ui/home_page.dart';
-
-class _NoActions implements HomeActions {
-  @override
-  void install(String id) {}
-  @override
-  void update(String id) {}
-  @override
-  void remove(String id) {}
-  @override
-  void installProfile(String profile) {}
-  @override
-  void updateProfile(String profile) {}
-  @override
-  void showLog() {}
-}
 
 void main() {
   final home = Platform.environment['HOME'] ?? '';
@@ -34,11 +21,18 @@ void main() {
     repoDir: repoDir,
     eventsDir: Directory.systemTemp.createTempSync('powerterminal-events'),
   )..refresh();
+  final navigatorKey = GlobalKey<NavigatorState>();
   runApp(
     PowerTerminalApp(
       themeMode: themeModeFromFlavor(home),
       controller: controller,
-      actions: _NoActions(),
+      navigatorKey: navigatorKey,
+      actions: HomeActionsImpl(
+        controller: controller,
+        navigatorKey: navigatorKey,
+        sessionEnder: SessionEnder(),
+        onShowLog: () {},
+      ),
     ),
   );
 }
@@ -48,16 +42,19 @@ class PowerTerminalApp extends StatelessWidget {
     super.key,
     required this.controller,
     required this.actions,
+    this.navigatorKey,
     this.themeMode = ThemeMode.system,
   });
 
   final QueueController controller;
   final HomeActions actions;
+  final GlobalKey<NavigatorState>? navigatorKey;
   final ThemeMode themeMode;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'PowerTerminal',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
