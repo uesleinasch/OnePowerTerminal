@@ -13,6 +13,7 @@ import 'ui/home_actions_impl.dart';
 import 'ui/home_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   final home = Platform.environment['HOME'] ?? '';
   final repoDir =
       Platform.environment['POWERTERMINAL_HOME'] ?? '$home/PowerTerminal';
@@ -23,16 +24,6 @@ void main() {
     repoDir: repoDir,
     eventsDir: eventsDir,
   )..refresh();
-  AppLifecycleListener(
-    onExitRequested: () async {
-      try {
-        eventsDir.deleteSync(recursive: true);
-      } on FileSystemException {
-        // melhor esforço
-      }
-      return AppExitResponse.exit;
-    },
-  );
   final navigatorKey = GlobalKey<NavigatorState>();
   final activityOpen = ValueNotifier(false);
   runApp(
@@ -41,6 +32,7 @@ void main() {
       controller: controller,
       navigatorKey: navigatorKey,
       activityOpen: activityOpen,
+      eventsDir: eventsDir,
       actions: HomeActionsImpl(
         controller: controller,
         navigatorKey: navigatorKey,
@@ -59,6 +51,7 @@ class PowerTerminalApp extends StatefulWidget {
     this.navigatorKey,
     this.themeMode = ThemeMode.system,
     this.activityOpen,
+    this.eventsDir,
   });
 
   final QueueController controller;
@@ -66,6 +59,7 @@ class PowerTerminalApp extends StatefulWidget {
   final GlobalKey<NavigatorState>? navigatorKey;
   final ThemeMode themeMode;
   final ValueNotifier<bool>? activityOpen;
+  final Directory? eventsDir;
 
   @override
   State<PowerTerminalApp> createState() => _PowerTerminalAppState();
@@ -73,6 +67,28 @@ class PowerTerminalApp extends StatefulWidget {
 
 class _PowerTerminalAppState extends State<PowerTerminalApp> {
   late ThemeMode _mode = widget.themeMode;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onExitRequested: () async {
+      try {
+        widget.eventsDir?.deleteSync(recursive: true);
+      } on FileSystemException {
+        // melhor esforço
+      }
+      return AppExitResponse.exit;
+    },
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle;
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   void _toggleTheme() {
     final dark = switch (_mode) {

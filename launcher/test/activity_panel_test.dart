@@ -141,6 +141,13 @@ void main() {
     await t.pump();
     await t.pump();
     expect(find.text('linha 101'), findsNothing);
+
+    await t.drag(find.byType(ListView).last, const Offset(0, -5000));
+    await t.pump();
+    q.note('linha 102');
+    await t.pump();
+    await t.pump();
+    expect(find.text('linha 102'), findsOneWidget);
   });
 
   testWidgets('em 1200 px o painel fica ao lado do conteúdo', (t) async {
@@ -198,5 +205,43 @@ void main() {
     await t.tap(find.byTooltip('Alternar tema'));
     await t.pumpAndSettle();
     expect(now(), Brightness.light);
+  });
+
+  testWidgets('em 899 px é bloco abaixo e em 900 px é lateral', (t) async {
+    final q = await controller();
+    final open = ValueNotifier(true);
+    await pumpApp(t, q, const Size(899, 900), open: open);
+    expect(t.getTopLeft(find.byType(ActivityPanel)).dx, 0);
+    await pumpApp(t, q, const Size(900, 900), open: open);
+    await t.pump();
+    expect(t.getTopLeft(find.byType(ActivityPanel)).dx, 900 - 340);
+  });
+
+  testWidgets('janela estreita e baixa não gera overflow', (t) async {
+    final q = await controller();
+    await pumpApp(t, q, const Size(700, 400), open: ValueNotifier(true));
+    expect(t.takeException(), isNull);
+    expect(
+      t.getSize(find.byType(ActivityPanel)).height,
+      lessThanOrEqualTo(200),
+    );
+  });
+
+  testWidgets('o listener de saída remove o diretório de eventos', (t) async {
+    final q = await controller();
+    final dir = Directory.systemTemp.createTempSync('pn-exit-test');
+    addTearDown(() {
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
+    await t.pumpWidget(
+      PowerTerminalApp(
+        controller: q,
+        actions: RecordingActions(),
+        eventsDir: dir,
+      ),
+    );
+    expect(t.takeException(), isNull);
+    await t.binding.handleRequestAppExit();
+    expect(dir.existsSync(), isFalse);
   });
 }
