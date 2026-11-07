@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../model/catalog.dart';
+import '../model/deps.dart';
 import 'format.dart';
 import 'home_actions.dart';
 
@@ -23,15 +24,16 @@ class ProfileSummary extends StatelessWidget {
     final all = profile == 'todos';
     final ids = all
         ? [for (final m in catalog.modules) m.id]
-        : (catalog.profiles[profile] ?? const <String>[]);
+        : profileTargets(
+            catalog,
+            profile,
+            editor: profileEditor(catalog, profile),
+          );
     final mods = [for (final id in ids) ?catalog.byId(id)];
     final missing = [
-      for (final m in mods)
-        if (m.state == ModuleState.available) m,
+      for (final id in installPlan(catalog, ids)) ?catalog.byId(id),
     ];
-    final installed = mods
-        .where((m) => m.state == ModuleState.installed)
-        .length;
+    final installed = mods.where((m) => m.isPresent).length;
     final minutes = missing.fold<int>(0, (a, m) => a + m.minutes);
     final mb = missing.fold<int>(0, (a, m) => a + m.mb);
     final fact = tt.labelLarge?.copyWith(color: cs.onSurfaceVariant);

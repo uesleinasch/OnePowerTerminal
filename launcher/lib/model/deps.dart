@@ -52,3 +52,17 @@ bool profileNeedsEditorChoice(Catalog c, String profile) {
   return !(c.byId('nvim')?.isPresent ?? false) &&
       !(c.byId('vscode')?.isPresent ?? false);
 }
+
+String? inferEditorChoice(Catalog c) {
+  final nvim = c.byId('nvim')?.isPresent ?? false;
+  final vscode = c.byId('vscode')?.isPresent ?? false;
+  return switch ((nvim, vscode)) {
+    (true, true) => 'both',
+    (true, false) => 'nvim',
+    (false, true) => 'vscode',
+    (false, false) => null,
+  };
+}
+
+String? profileEditor(Catalog c, String profile) =>
+    profile == 'dev' || profile == 'full' ? inferEditorChoice(c) : null;

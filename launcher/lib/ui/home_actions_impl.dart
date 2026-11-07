@@ -105,7 +105,7 @@ class HomeActionsImpl implements HomeActions {
     final c = controller.catalog;
     final ctx = _context;
     if (c == null || ctx == null) return;
-    String? editor;
+    var editor = profileEditor(c, profile);
     if (profileNeedsEditorChoice(c, profile)) {
       editor = await showEditorDialog(ctx);
       if (editor == null) return;
@@ -118,7 +118,7 @@ class HomeActionsImpl implements HomeActions {
   void updateProfile(String profile) {
     final c = controller.catalog;
     if (c == null) return;
-    final ids = c.profiles[profile] ?? const <String>[];
+    final ids = profileTargets(c, profile, editor: profileEditor(c, profile));
     _enqueue(
       _items([
         for (final m in c.modules)

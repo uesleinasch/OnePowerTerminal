@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,12 +14,25 @@ import 'support/fake_shell.dart';
 
 final _fixture = File('test/fixtures/catalog.json').readAsStringSync();
 
-Future<QueueController> controller({ProcessResult Function()? result}) async {
+String _withStates(Map<String, String> states) {
+  final j = jsonDecode(_fixture) as Map<String, dynamic>;
+  for (final m in j['modules'] as List) {
+    final s = states[m['id']];
+    if (s != null) m['state'] = s;
+  }
+  return jsonEncode(j);
+}
+
+Future<QueueController> controller({
+  ProcessResult Function()? result,
+  Map<String, String> states = const {},
+}) async {
+  final body = _withStates(states);
   final q = QueueController(
     cli: Cli(
       '/repo',
       runner: (exe, args, {workingDirectory, environment}) async =>
-          result?.call() ?? ProcessResult(1, 0, _fixture, ''),
+          result?.call() ?? ProcessResult(1, 0, body, ''),
     ),
     shellFactory: () async => FakeShell(),
     repoDir: '/repo',
@@ -119,17 +133,23 @@ void main() {
     expect(find.text('Nenhum módulo com esse filtro.'), findsOneWidget);
   });
 
-  testWidgets('resumo em dev conta os available do perfil', (t) async {
-    final q = await controller();
-    final a = await show(t, q);
+  testWidgets('resumo em dev com só o vscode não conta o nvim', (t) async {
+    final a = await show(t, await controller());
     await pickProfile(t, 'dev');
-    final catalog = q.catalog!;
-    final n = catalog.profiles['dev']!
-        .where((id) => !catalog.byId(id)!.isPresent)
-        .length;
-    expect(find.text('Instalar $n restantes'), findsOneWidget);
-    await t.tap(find.text('Instalar $n restantes'));
+    expect(find.text('8 de 11 instalados'), findsOneWidget);
+    expect(find.text('Instalar 3 restantes'), findsOneWidget);
+    await t.tap(find.text('Instalar 3 restantes'));
     expect(a.calls, ['installProfile:dev']);
+  });
+
+  testWidgets('resumo em dev com só o nvim não conta o vscode', (t) async {
+    await show(
+      t,
+      await controller(states: {'nvim': 'installed', 'vscode': 'available'}),
+    );
+    await pickProfile(t, 'dev');
+    expect(find.text('8 de 12 instalados'), findsOneWidget);
+    expect(find.text('Instalar 4 restantes'), findsOneWidget);
   });
 
   testWidgets('erro de catálogo mostra Tentar de novo', (t) async {
