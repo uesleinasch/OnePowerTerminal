@@ -76,6 +76,25 @@ chmod +x "$TMP/df/docker" "$TMP/df/systemctl"
 PATH="$TMP/df:$PATH" "$CLI" catalog --json >"$TMP/d.json" 2>/dev/null || true
 assert_eq 2512 "$(campo '[m for m in d["modules"] if m["id"]=="container"][0]["data_mb"]' <"$TMP/d.json")"
 
+mkdir -p "$TMP/semxz" "$TMP/comxz"
+IFS=: read -ra _dirs <<<"$PATH"
+for _d in "${_dirs[@]}"; do
+  for _f in "$_d"/*; do
+    _n="${_f##*/}"
+    [[ "$_n" == xz || -e "$TMP/semxz/$_n" || ! -x "$_f" ]] || ln -s "$_f" "$TMP/semxz/$_n"
+  done
+done
+for c in xz curl; do printf '#!/bin/sh\nexit 0\n' >"$TMP/comxz/$c"; chmod +x "$TMP/comxz/$c"; done
+kitty_sudo() { campo '[m for m in d["modules"] if m["id"]=="kitty"][0]["sudo"]'; }
+
+it "pré-requisito ausente (xz do kitty) liga o sudo do módulo"
+PATH="$TMP/semxz" "$CLI" catalog --json >"$TMP/sx.json" 2>/dev/null || true
+assert_eq True "$(kitty_sudo <"$TMP/sx.json")"
+
+it "com o pré-requisito presente o sudo segue o cost"
+PATH="$TMP/comxz:$TMP/semxz" "$CLI" catalog --json >"$TMP/cx.json" 2>/dev/null || true
+assert_eq False "$(kitty_sudo <"$TMP/cx.json")"
+
 it "catalog sem --json falha"
 assert_fail "$CLI" catalog
 
