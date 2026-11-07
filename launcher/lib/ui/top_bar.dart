@@ -28,7 +28,12 @@ class TopBar extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final info = ['v$version', ?distro, arch].join(' · ');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 12, 16, 12),
+      padding: EdgeInsets.fromLTRB(
+        MediaQuery.sizeOf(context).width < 560 ? 16 : 24,
+        12,
+        16,
+        12,
+      ),
       child: Wrap(
         spacing: 16,
         runSpacing: 12,
@@ -54,15 +59,26 @@ class TopBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('PowerTerminal', style: tt.titleMedium),
-                  Text(
-                    info,
-                    style: tt.labelMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'PowerTerminal',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.titleMedium,
+                    ),
+                    Text(
+                      info,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.labelMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
