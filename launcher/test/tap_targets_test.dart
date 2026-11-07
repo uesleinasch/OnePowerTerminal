@@ -45,7 +45,9 @@ void main() {
       final s = t.getSize(
         find.widgetWithIcon(
           IconButton,
-          tip == 'Atividade' ? Icons.list_alt_rounded : Icons.contrast_rounded,
+          tip == 'Atividade'
+              ? Icons.list_alt_rounded
+              : Icons.light_mode_rounded,
         ),
       );
       expect(s.width, greaterThanOrEqualTo(48), reason: tip);
