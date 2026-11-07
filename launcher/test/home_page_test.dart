@@ -201,32 +201,38 @@ void main() {
     expect(find.text('falhou feio'), findsOneWidget);
   });
 
-  for (final width in [1280.0, 700.0, 600.0]) {
-    testWidgets('cards da mesma fileira têm a mesma altura em $width px', (
-      t,
-    ) async {
-      final q = await controller(
-        descriptions: {
-          'apt': 'Linha um do texto longo. ' * 12,
-          'fonts': 'Curto.',
-        },
-      );
-      await show(t, q, width: width);
-      expect(t.takeException(), isNull);
-      Finder card(String id) =>
-          find.ancestor(of: find.text(id), matching: find.byType(Card));
-      final a = card('apt');
-      final b = card('fonts');
-      final sameRow = t.getTopLeft(a).dy == t.getTopLeft(b).dy;
-      if (width > 600) expect(sameRow, isTrue);
-      if (!sameRow) return;
-      expect(t.getSize(a).height, t.getSize(b).height);
-      double buttonTop(Finder c) => t
-          .getTopLeft(
-            find.descendant(of: c, matching: find.byType(FilledButton)),
-          )
-          .dy;
-      expect(buttonTop(a), buttonTop(b));
-    });
+  for (final (width, scale) in [
+    (1280.0, 1.0),
+    (700.0, 1.0),
+    (620.0, 1.0),
+    (620.0, 1.5),
+  ]) {
+    testWidgets(
+      'cards da mesma fileira têm a mesma altura em $width px, texto x$scale',
+      (t) async {
+        t.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+        final q = await controller(
+          descriptions: {
+            'apt': 'Linha um do texto longo. ' * 12,
+            'fonts': 'Curto.',
+          },
+        );
+        await show(t, q, width: width);
+        expect(t.takeException(), isNull);
+        Finder card(String id) =>
+            find.ancestor(of: find.text(id), matching: find.byType(Card));
+        final a = card('apt');
+        final b = card('fonts');
+        expect(t.getTopLeft(a).dy, t.getTopLeft(b).dy, reason: 'mesma fileira');
+        expect(t.getSize(a).height, t.getSize(b).height);
+        double buttonTop(Finder c) => t
+            .getTopLeft(
+              find.descendant(of: c, matching: find.byType(FilledButton)),
+            )
+            .dy;
+        expect(buttonTop(a), buttonTop(b));
+      },
+    );
   }
 }
