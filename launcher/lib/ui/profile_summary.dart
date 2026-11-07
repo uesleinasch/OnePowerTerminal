@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../model/catalog.dart';
@@ -97,7 +99,8 @@ class ProfileSummary extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, box) {
-          final wide = box.maxWidth >= 820;
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          final wide = box.maxWidth >= 820 * math.max(1.0, scale);
           if (wide) {
             return Row(
               children: [

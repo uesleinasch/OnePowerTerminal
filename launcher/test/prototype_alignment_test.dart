@@ -144,6 +144,27 @@ void main() {
     expect(button.right, summary.right - 20);
   });
 
+  for (final (width, scale) in [(1280.0, 2.0), (900.0, 1.5)]) {
+    testWidgets('resumo não estoura em $width px com texto x$scale', (t) async {
+      t.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
+      await home(t, await controller(), width: width);
+      await pickProfile(t, 'dev');
+      expect(t.takeException(), isNull);
+      final summary = t.getRect(
+        find
+            .ancestor(
+              of: find.text('Perfil dev'),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final button = t.getRect(find.byType(FilledButton).first);
+      expect(button.left, greaterThanOrEqualTo(summary.left));
+      expect(button.right, lessThanOrEqualTo(summary.right));
+    });
+  }
+
   testWidgets('botão Atividade abre e fecha o painel', (t) async {
     await home(t, await controller());
     expect(find.byType(ActivityPanel), findsNothing);
