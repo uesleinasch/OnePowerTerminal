@@ -7,6 +7,8 @@ mod_claude_meta() {
 
 mod_claude_cost() { printf '1\t200\t0\n'; }
 
+mod_claude_requires() { printf 'curl\tcurl\n'; }
+
 mod_claude_name() { echo "Claude Code"; }
 
 mod_claude_category() { echo dev; }

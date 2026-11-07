@@ -246,9 +246,9 @@ cmd_install() {
   fi
 
   # Sudo uma vez só, aqui: antes dos módulos e depois da confirmação, para que a
-  # senha não apareça no meio de um processo de minutos. No wizard só pedimos se
-  # algum módulo escolhido declarar que precisa.
-  if [[ "$yes" -eq 1 ]] || { [[ "$wizard" -eq 1 ]] && _vf_precisa_sudo "${modules[@]}"; }; then
+  # senha não apareça no meio de um processo de minutos. Só pedimos se algum
+  # módulo escolhido declarar que precisa: o launcher só libera o sudo nesse caso.
+  if { [[ "$yes" -eq 1 ]] || [[ "$wizard" -eq 1 ]]; } && _vf_precisa_sudo "${modules[@]}"; then
     setup_sudo_keepalive
   fi
 
@@ -495,7 +495,7 @@ cmd_share() {
   log_section "Empacotando PowerTerminal para compartilhamento"
   log_info "Saída: $outfile"
   if [[ "$DRY_RUN" == "1" ]]; then
-    log_dry "tar -czf $outfile (excluindo home.local, .pnbak.*, .git)"
+    log_dry "tar -czf $outfile (excluindo home.local, .pnbak.*, .pnnew, .git)"
     return 0
   fi
   # Importante: --exclude usa wildcards relativos ao caminho dentro do tar.
@@ -503,6 +503,7 @@ cmd_share() {
   tar -czf "$outfile" \
     -C "$(dirname "$POWERTERMINAL_HOME")" \
     --exclude='*.pnbak.*' \
+    --exclude='*.pnnew' \
     --exclude='home.local' \
     --exclude='.git' \
     "$(basename "$POWERTERMINAL_HOME")"
@@ -635,6 +636,9 @@ _vf_catalog_module() {
     [[ "$mb" =~ ^[0-9]+$ ]] || mb=0
     [[ "$dados" == 1 ]] && sudo=true
   fi
+  # Pré-requisito ausente também é apt (root): mesma regra do _vf_precisa_sudo,
+  # que o launcher só consegue seguir por este campo.
+  [[ "$sudo" == false && -n "$(pn_missing_requires "$m")" ]] && sudo=true
   if declare -F "mod_${m}_needs" >/dev/null; then
     mapfile -t needs < <(mod_"${m}"_needs)
   fi
@@ -730,7 +734,7 @@ ${C_B}powerterminal install${C_R} [--profile P | --module a,b,c] [--yes] [--dry-
   --profile <minimal|dev|full>   conjunto pré-definido de módulos
   --module a,b,c                 lista CSV (mutuamente exclusivo com --profile)
   --all                          equivale a --profile full
-  --yes / -y                     não pedir confirmação (pede sudo upfront)
+  --yes / -y                     não pedir confirmação (pede sudo upfront se precisar)
   --dry-run                      simula (logs em cinza, nada é executado)
 
   POWERTERMINAL_EDITOR=nvim|vscode|both   editor dos perfis dev/full sem perguntar

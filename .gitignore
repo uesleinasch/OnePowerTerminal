@@ -1,5 +1,7 @@
 # Backups gerados pelo próprio PowerTerminal ao linkar arquivos reais
 *.pnbak.*
+*.pnnew
+.powerterminal-origin
 
 # Tarballs gerados por `powerterminal share`
 *.tar.gz
@@ -34,3 +36,7 @@ Thumbs.db
 CLAUDE.md
 .claude/
 docs/superpowers/
+
+# Launcher Flutter
+launcher/build/
+launcher/.dart_tool/

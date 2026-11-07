@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+action=${1:-}
+shift || true
+module='' fd='' yes=0
+while (($#)); do
+  case $1 in
+    --module) module=${2:-}; shift 2 ;;
+    --events-fd) fd=${2:-}; shift 2 ;;
+    --yes) yes=1; shift ;;
+    *) shift ;;
+  esac
+done
+
+case $action in
+  install | update | remove) ;;
+  *) echo "CLI falsa: ação não suportada: $action" >&2; exit 64 ;;
+esac
+[[ -n $module && -n $fd ]] || { echo 'CLI falsa: faltou --module ou --events-fd' >&2; exit 64; }
+
+# FAKE_NEEDS: "mod:dep1,dep2;mod2:dep" (o needs do catálogo).
+needs_of() {
+  local entry entries
+  IFS=';' read -ra entries <<<"${FAKE_NEEDS:-}"
+  for entry in "${entries[@]}"; do
+    [[ ${entry%%:*} == "$1" ]] && printf '%s\n' "${entry#*:}" | tr ',' '\n'
+  done
+  return 0
+}
+
+expanded() {
+  local queue=("$1") seen=' ' m dep
+  while ((${#queue[@]})); do
+    m=${queue[0]}
+    queue=("${queue[@]:1}")
+    [[ $seen == *" $m "* ]] && continue
+    seen+="$m "
+    [[ $action == install ]] || continue
+    while IFS= read -r dep; do
+      [[ -n $dep ]] && queue+=("$dep")
+    done < <(needs_of "$m")
+  done
+  printf '%s\n' $seen
+}
+
+precisa_sudo() {
+  local m
+  for m in $(expanded "$module"); do
+    [[ ",${FAKE_SUDO_MODULES:-}," == *",$m,"* ]] && return 0
+  done
+  return 1
+}
+
+if ((yes)) && precisa_sudo; then
+  sudo -n true 2>/dev/null || sudo -v || { echo 'sudo não disponível — abortando.' >&2; exit 1; }
+fi
+
+ev() { printf '%s\n' "$1" >&"$fd"; }
+kv() { printf '"module":"%s","action":"%s"' "$module" "$action"; }
+
+printf '\033[1;34m==>\033[0m %s %s\r\n' "$action" "$module"
+ev "{\"event\":\"module_begin\",$(kv),\"index\":1,\"total\":1}"
+
+case $module in
+  boom)
+    printf '\033[31mfalhou\033[0m\r\n' >&2
+    exit 2
+    ;;
+  needsudo) sudo -v ;;
+esac
+
+for n in 1 2; do
+  printf '\033[32m  passo %d/2\033[0m\r\n' "$n"
+  ev "{\"event\":\"step\",\"module\":\"$module\",\"text\":\"Passo $n\",\"n\":$n,\"m\":2}"
+done
+
+if [[ $module == restart ]]; then
+  ev "{\"event\":\"note\",\"module\":\"$module\",\"text\":\"Abra um novo terminal\"}"
+  ev "{\"event\":\"session_restart\",\"module\":\"$module\",\"reason\":\"shell\"}"
+fi
+
+ev "{\"event\":\"module_end\",$(kv),\"ok\":true}"
+ev "{\"event\":\"done\",\"ok\":[\"$module\"],\"failed\":[]}"
+printf '\033]0;PowerTerminal\007pronto\r\n'
