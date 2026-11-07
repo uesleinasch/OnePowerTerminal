@@ -372,4 +372,64 @@ it "nvm cujo diretório já existia não entra no recibo"
   ! pn_receipt_has node
 ) && pass || fail "~/.nvm do usuário entrou no recibo"
 
+legado_setup() { reset; mkdir -p "$(pn_receipt_dir)"; : >"$(pn_receipt_dir)/.migrated-v1"; }
+
+it "recibo tools é repartido entre os módulos novos com o origin original"
+(
+  legado_setup
+  printf 'origin\tdeduced\nfile\t%s/.local/bin/lazygit\nfile\t%s/.local/bin/uv\nfile\t%s/.local/bin/uvx\napt\teza\nfile\t%s/.local/bin/ya\n' "$HOME" "$HOME" "$HOME" "$HOME" >"$(pn_receipt_path tools)"
+  pn_receipts_migrate
+  [[ "$(pn_receipt_entries lazygit)" == "file"$'\t'"$HOME/.local/bin/lazygit" ]]
+  [[ "$(pn_receipt_entries uv)" == "file"$'\t'"$HOME/.local/bin/uv"$'\n'"file"$'\t'"$HOME/.local/bin/uvx" ]]
+  [[ "$(pn_receipt_entries eza)" == $'apt\teza' ]]
+  [[ "$(pn_receipt_entries yazi)" == "file"$'\t'"$HOME/.local/bin/ya" ]]
+  [[ "$(pn_receipt_origin uv)" == deduced && "$(pn_receipt_origin yazi)" == deduced ]]
+  ! pn_receipt_has tools
+) && pass || fail "repartição de tools"
+
+it "recibo extras entra nos módulos, sem duplicar o que já existe"
+(
+  legado_setup
+  PN_RECEIPT_MODULE=yazi pn_receipt_add link "$HOME/.config/yazi"
+  printf 'origin\tdeduced\nlink\t%s/.config/btop\nlink\t%s/.config/yazi\n' "$HOME" "$HOME" >"$(pn_receipt_path extras)"
+  pn_receipts_migrate
+  [[ "$(pn_receipt_entries btop)" == "link"$'\t'"$HOME/.config/btop" ]]
+  [[ "$(pn_receipt_entries yazi)" == "link"$'\t'"$HOME/.config/yazi" ]]
+  [[ "$(pn_receipt_origin btop)" == deduced && "$(pn_receipt_origin yazi)" == installed ]]
+  ! pn_receipt_has extras
+) && pass || fail "repartição de extras"
+
+it "entrada sem dono avisa e o recibo antigo vira .legado, intacto"
+(
+  legado_setup
+  printf 'origin\tinstalled\ndir\t/opt/x\nfile\t%s/.local/bin/eza\n' "$HOME" >"$(pn_receipt_path tools)"
+  cp "$(pn_receipt_path tools)" "$TMP/orig"
+  avisos=""; log_warn() { avisos+="$*"; }
+  pn_receipts_migrate
+  [[ "$avisos" == *"dir /opt/x"* ]]
+  cmp "$TMP/orig" "$(pn_receipt_dir)/.tools.legado"
+  ! pn_receipt_has tools && pn_receipt_has eza
+) && pass || fail "entrada sem dono"
+
+it "segunda execução não muda nada"
+(
+  legado_setup
+  printf 'origin\tinstalled\nfile\t%s/.local/bin/eza\n' "$HOME" >"$(pn_receipt_path tools)"
+  pn_receipts_migrate
+  pn_receipt_has eza
+  a="$(cat "$(pn_receipt_path eza)")"
+  printf 'origin\tinstalled\nfile\t%s/.local/bin/lazygit\n' "$HOME" >"$(pn_receipt_path tools)"
+  pn_receipts_migrate
+  [[ "$a" == "$(cat "$(pn_receipt_path eza)")" ]] && pn_receipt_has tools
+) && pass || fail "idempotência"
+
+it "DRY_RUN não mexe nos recibos antigos"
+(
+  legado_setup
+  printf 'origin\tinstalled\nfile\t%s/.local/bin/eza\n' "$HOME" >"$(pn_receipt_path tools)"
+  DRY_RUN=1
+  pn_receipts_migrate
+  pn_receipt_has tools && ! pn_receipt_has eza && [[ ! -e "$(pn_receipt_dir)/.migrated-v2" ]]
+) && pass || fail "dry-run"
+
 test_summary

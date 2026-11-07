@@ -54,15 +54,72 @@ _pn_tem_link_do_repo() {
   return 1
 }
 
+_pn_legacy_dono() {
+  local tipo="$1" valor="$2" nome
+  case "$tipo" in
+    file|link) nome="$(basename -- "$valor")" ;;
+    apt) nome="$valor" ;;
+    *) return 1 ;;
+  esac
+  case "$nome" in
+    ya) nome=yazi ;;
+    uvx) nome=uv ;;
+  esac
+  case "$nome" in
+    eza|starship|lazygit|lazydocker|uv|yazi|btop|ranger|picom|flameshot) printf '%s' "$nome" ;;
+    *) return 1 ;;
+  esac
+}
+
+pn_receipts_split_legacy() {
+  [[ "${DRY_RUN:-0}" != "1" ]] || return 0
+  local dir marker velho f origin linha tipo valor dono sem_dono
+  dir="$(pn_receipt_dir)"
+  marker="$dir/.migrated-v2"
+  [[ ! -e "$marker" ]] || return 0
+  for velho in tools extras; do
+    f="$(pn_receipt_path "$velho")"
+    [[ -f "$f" ]] || continue
+    origin="$(pn_receipt_origin "$velho")"
+    sem_dono=0
+    while IFS= read -r linha; do
+      [[ -n "$linha" ]] || continue
+      tipo="${linha%%$'\t'*}"
+      valor="${linha#*$'\t'}"
+      if ! dono="$(_pn_legacy_dono "$tipo" "$valor")"; then
+        log_warn "Recibo antigo de $velho: '$tipo $valor' não tem módulo dono; fica em .$velho.legado."
+        sem_dono=1
+        continue
+      fi
+      if ! pn_receipt_has "$dono"; then
+        mkdir -p "$dir"
+        printf 'origin\t%s\n' "${origin:-installed}" >"$(pn_receipt_path "$dono")"
+      fi
+      PN_RECEIPT_MODULE="$dono" pn_receipt_add "$tipo" "$valor"
+    done < <(pn_receipt_entries "$velho")
+    if (( sem_dono )); then
+      mv -f -- "$f" "$dir/.$velho.legado"
+    else
+      rm -f -- "$f"
+    fi
+  done
+  mkdir -p "$dir"
+  : >"$marker"
+}
+
 pn_receipts_migrate() {
   [[ "${DRY_RUN:-0}" != "1" ]] || return 0
   local dir marker m f dst alvo
   dir="$(pn_receipt_dir)"
   marker="$dir/.migrated-v1"
-  [[ ! -e "$marker" ]] || return 0
+  if [[ -e "$marker" ]]; then
+    pn_receipts_split_legacy
+    return 0
+  fi
   if ! _pn_tem_link_do_repo; then
     mkdir -p "$dir"
     : >"$marker"
+    pn_receipts_split_legacy
     return 0
   fi
   for m in "${_PN_ALL_MODULES[@]}"; do
@@ -86,6 +143,7 @@ pn_receipts_migrate() {
   done
   mkdir -p "$dir"
   : >"$marker"
+  pn_receipts_split_legacy
 }
 
 _pn_norm_path() {
