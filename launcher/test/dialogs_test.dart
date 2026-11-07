@@ -11,6 +11,7 @@ import 'package:powerterminal_launcher/ui/dialogs/editor_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/password_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/remove_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/session_restart_dialog.dart';
+import 'package:powerterminal_launcher/ui/format.dart';
 
 final _catalog = Catalog.fromJson(
   jsonDecode(File('test/fixtures/catalog.json').readAsStringSync())
@@ -129,7 +130,15 @@ void main() {
       expect(find.text('AstroNvim depende de Neovim'), findsOneWidget);
       expect(find.text('Instalar os 2'), findsOneWidget);
       expect(find.textContaining('o que você pediu'), findsOneWidget);
-      expect(find.textContaining('Total: ~'), findsOneWidget);
+      final nv = _catalog.byId('nvim')!;
+      final ast = _catalog.byId('astronvim')!;
+      expect(
+        find.text(
+          'Total: ~${nv.minutes + ast.minutes} min · '
+          '${formatMb(nv.mb + ast.mb)} · sudo',
+        ),
+        findsOneWidget,
+      );
       await t.tap(find.text('Cancelar'));
       await t.pumpAndSettle();
       await f;

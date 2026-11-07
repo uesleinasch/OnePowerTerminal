@@ -11,12 +11,15 @@ import 'package:powerterminal_launcher/ui/home_actions_impl.dart';
 
 import 'support/fake_shell.dart';
 
-String _catalogJson({Map<String, String> states = const {}}) {
+String _catalogJson({
+  Map<String, String> states = const {},
+  Set<String> sudo = const {},
+}) {
   final c = jsonDecode(
     File('test/fixtures/catalog.json').readAsStringSync(),
   ) as Map<String, dynamic>;
   for (final m in c['modules'] as List) {
-    m['sudo'] = false;
+    m['sudo'] = sudo.contains(m['id']);
     final s = states[m['id']];
     if (s != null) m['state'] = s;
   }
@@ -33,6 +36,9 @@ class _Rig {
   final List<String> ender;
 }
 
+const restartEvent =
+    '{"event":"session_restart","module":"helpers","reason":"grupo docker"}';
+
 void main() {
   late Directory tmp;
   setUp(() => tmp = Directory.systemTemp.createTempSync('ha_'));
@@ -43,12 +49,13 @@ void main() {
     Map<String, String> states = const {},
     FakeShell? shell,
     int enderExit = 0,
+    Set<String> sudo = const {},
   }) async {
     final sh = shell ?? FakeShell();
     final cli = Cli(
       '/repo',
       runner: (exe, args, {workingDirectory, environment}) async =>
-          ProcessResult(1, 0, _catalogJson(states: states), ''),
+          ProcessResult(1, 0, _catalogJson(states: states, sudo: sudo), ''),
     );
     final controller = QueueController(
       cli: cli,
@@ -166,6 +173,63 @@ void main() {
     expect(rig.shell.runs, isEmpty);
   });
 
+  testWidgets('dev com vscode já presente não pergunta o editor', (t) async {
+    final rig = await pumpRig(t);
+    rig.actions.installProfile('dev');
+    await t.pumpAndSettle();
+    expect(find.text('Qual editor?'), findsNothing);
+    await settle(t, rig.controller);
+    expect(modulesRun(rig.shell), isNot(contains('vscode')));
+  });
+
+  testWidgets('módulo com sudo passa pela senha real e roda', (t) async {
+    final rig = await pumpRig(t, sudo: {'nvim'});
+    rig.actions.install('nvim');
+    await t.pumpAndSettle();
+    expect(find.text('Senha de administrador'), findsOneWidget);
+    await t.enterText(find.byType(TextField), 'minha senha');
+    await t.tap(find.text('Liberar'));
+    await t.pumpAndSettle();
+    await settle(t, rig.controller);
+    expect(rig.shell.passwords, ['minha senha']);
+    expect(modulesRun(rig.shell), ['nvim']);
+  });
+
+  testWidgets('diálogo de sessão espera a senha pendente e o fim da fila', (
+    t,
+  ) async {
+    final rig = await pumpRig(
+      t,
+      sudo: {'nvim'},
+      shell: FakeShell(
+        events: {
+          'helpers': [restartEvent],
+        },
+      ),
+    );
+    rig.actions.install('helpers');
+    rig.actions.install('nvim');
+    for (var i = 0; i < 20; i++) {
+      await t.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await t.pump(const Duration(milliseconds: 120));
+    }
+    expect(rig.shell.runs, hasLength(1));
+    expect(rig.controller.pendingRestarts, isNotEmpty);
+    expect(find.text('Senha de administrador'), findsOneWidget);
+    expect(find.text('Para concluir, encerre a sessão'), findsNothing);
+    await t.enterText(find.byType(TextField), 'x');
+    await t.tap(find.text('Liberar'));
+    await t.pumpAndSettle();
+    await settle(t, rig.controller);
+    expect(modulesRun(rig.shell), ['helpers', 'nvim']);
+    expect(find.text('Para concluir, encerre a sessão'), findsOneWidget);
+    await t.tap(find.text('Depois'));
+    await t.pumpAndSettle();
+    expect(find.text('Para concluir, encerre a sessão'), findsNothing);
+  });
+
   testWidgets('installProfile com editor já presente não pergunta', (t) async {
     final rig = await pumpRig(t);
     rig.actions.installProfile('minimal');
@@ -207,9 +271,6 @@ void main() {
     expect(rig.shell.runs, isEmpty);
   });
 
-  const restartEvent =
-      '{"event":"session_restart","module":"helpers","reason":"grupo docker"}';
-
   testWidgets('fila com SessionRestart abre o diálogo uma vez; Depois limpa', (
     t,
   ) async {
@@ -225,6 +286,7 @@ void main() {
     await settle(t, rig.controller);
     expect(find.text('Para concluir, encerre a sessão'), findsOneWidget);
     expect(find.textContaining('grupo docker'), findsOneWidget);
+    expect(find.textContaining('Cheatsheets'), findsOneWidget);
     await t.tap(find.text('Depois'));
     await t.pumpAndSettle();
     expect(find.text('Para concluir, encerre a sessão'), findsNothing);
