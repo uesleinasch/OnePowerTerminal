@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:powerterminal_launcher/cli/cli.dart';
 import 'package:powerterminal_launcher/model/catalog.dart';
 import 'package:powerterminal_launcher/queue/queue_controller.dart';
 import 'package:powerterminal_launcher/theme/app_theme.dart';
@@ -12,6 +14,7 @@ import 'package:powerterminal_launcher/ui/home_page.dart';
 import 'package:powerterminal_launcher/ui/module_detail.dart';
 
 import 'home_page_test.dart' show controller;
+import 'support/fake_shell.dart';
 import 'module_card_test.dart' show RecordingActions;
 
 final _raw = jsonDecode(
@@ -59,7 +62,107 @@ Future<void> _openZsh(WidgetTester t) async {
   await t.pumpAndSettle();
 }
 
+class _QueueActions extends RecordingActions {
+  _QueueActions(this.q);
+  final QueueController q;
+  @override
+  void install(String id) {
+    super.install(id);
+    Zone.root.run(
+      () => q.enqueue([
+        QueueItem(id, OpKind.install),
+      ], askPassword: ({error}) async => null),
+    );
+  }
+}
+
+Future<void> _liveStatus(WidgetTester t, {required double width}) async {
+  final gate = Completer<void>();
+  var installed = false;
+  String current() => jsonEncode({
+    ..._raw,
+    'modules': [
+      for (final m in _raw['modules'] as List)
+        (m as Map<String, dynamic>)['id'] == 'helpers'
+            ? {...m, 'state': installed ? 'installed' : 'available'}
+            : m,
+    ],
+  });
+  final q = (await t.runAsync(
+    () async => QueueController(
+      cli: Cli(
+        '/repo',
+        runner: (exe, args, {workingDirectory, environment}) async =>
+            ProcessResult(1, 0, current(), ''),
+      ),
+      shellFactory: () async => FakeShell(
+        events: {
+          'helpers': [
+            '{"event":"step","module":"helpers","text":"Baixando","n":1,"m":4}',
+          ],
+        },
+        onRun: (_) async {
+          await gate.future;
+          installed = true;
+        },
+      ),
+      repoDir: '/repo',
+      eventsDir: Directory.systemTemp.createTempSync('pn-detail-live'),
+    ),
+  ))!;
+  await t.runAsync(q.refresh);
+  t.view.physicalSize = Size(width, 4000);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+  final actions = _QueueActions(q);
+  await t.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light(),
+      home: HomePage(controller: q, actions: actions),
+    ),
+  );
+  await t.tap(
+    find.descendant(of: _card('Cheatsheets'), matching: find.text('helpers')),
+  );
+  await t.pumpAndSettle();
+  expect(_inDetail('Instalar'), findsOneWidget);
+  await t.tap(_inDetail('Instalar'));
+  await t.runAsync(() async {
+    for (var i = 0; i < 100 && q.status('helpers').step == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  });
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 100));
+  expect(_inDetail('Instalando'), findsOneWidget);
+  expect(_inDetail('Baixando'), findsOneWidget);
+  expect(_inDetail('25%'), findsOneWidget);
+  expect(
+    find.descendant(
+      of: find.byType(ModuleDetail),
+      matching: find.byType(LinearProgressIndicator),
+    ),
+    findsOneWidget,
+  );
+  expect(_inDetail('Instalar'), findsNothing);
+  gate.complete();
+  await t.runAsync(q.whenIdle);
+  await t.pump();
+  expect(find.byType(ModuleDetail), findsOneWidget);
+  expect(_inDetail('Instalando'), findsNothing);
+  expect(find.byType(LinearProgressIndicator), findsNothing);
+  expect(_inDetail('Instalado'), findsOneWidget);
+}
+
 void main() {
+  testWidgets('painel lateral acompanha a fila: progresso e fim', (t) async {
+    await _liveStatus(t, width: 1400);
+  });
+
+  testWidgets('página estreita acompanha a fila: progresso e fim', (t) async {
+    await _liveStatus(t, width: 620);
+  });
   testWidgets('tocar no card abre o painel com todas as seções', (t) async {
     await _home(t);
     expect(find.text('O que instala'), findsNothing);
