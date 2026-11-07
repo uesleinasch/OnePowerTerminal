@@ -102,7 +102,7 @@ void main() {
     expect(q.pending, isEmpty);
     expect(q.current, isNull);
     expect(shell.runs, isEmpty);
-    expect(shell.closed, 1);
+    expect(factoryCalls, 0);
   });
 
   test('senha errada e depois certa chama askPassword duas vezes', () async {
@@ -326,6 +326,100 @@ void main() {
     },
   );
 
+  test(
+    'sudo enfileirado com run em andamento aparece queued na hora',
+    () async {
+      final gate = Completer<void>();
+      final q = await make(FakeShell(onRun: (_) => gate.future));
+      await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+      await until(() => shell.runs.isNotEmpty);
+      final nvim = q.enqueue([
+        inst('nvim'),
+      ], askPassword: ({error}) async => 'pw');
+      await until(() => q.status('nvim').phase == CardPhase.queued);
+      expect(q.current?.id, 'helpers');
+      expect(shell.runs.length, 1);
+
+      final theme = await q.enqueue([
+        inst('theme'),
+      ], askPassword: ({error}) async => null);
+      expect(theme, isTrue);
+      expect(q.status('theme').phase, CardPhase.queued);
+      expect(q.pending.map((i) => i.id), ['nvim', 'theme']);
+
+      gate.complete();
+      expect(await nvim, isTrue);
+      await q.whenIdle();
+      expect(q.status('nvim').phase, CardPhase.idle);
+      expect(q.status('theme').phase, CardPhase.idle);
+      expect(shell.passwords, ['pw']);
+    },
+  );
+
+  test('notAllowed depois da senha remove só os itens do sudo', () async {
+    final gate = Completer<void>();
+    final q = await make(
+      FakeShell(
+        sudo: [SudoResult.notAllowed],
+        onRun: (c) => c.contains("'helpers'") ? gate.future : Future.value(),
+      ),
+    );
+    await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await until(() => shell.runs.isNotEmpty);
+    await q.enqueue([inst('theme')], askPassword: ({error}) async => null);
+    final nvim = q.enqueue([
+      inst('nvim'),
+    ], askPassword: ({error}) async => 'pw');
+    await until(() => q.status('nvim').phase == CardPhase.queued);
+    gate.complete();
+    expect(await nvim, isFalse);
+    await q.whenIdle();
+    expect(q.status('nvim').phase, CardPhase.idle);
+    expect(q.status('theme').phase, CardPhase.idle);
+    expect(shell.runs.any((r) => r.contains("'nvim'")), isFalse);
+    expect(shell.runs.any((r) => r.contains("'theme'")), isTrue);
+    expect(q.log, contains('Sua conta não pode usar sudo nesta máquina.'));
+  });
+
+  test(
+    'sessão que morreu durante o diálogo: unlock vai para a sessão atual',
+    () async {
+      final gate1 = Completer<void>();
+      final gate2 = Completer<void>();
+      final dialog = Completer<String?>();
+      final s1 = FakeShell(
+        onRun: (c) async {
+          await gate1.future;
+          throw StateError('shell morreu');
+        },
+      );
+      final s2 = FakeShell(
+        onRun: (c) => c.contains("'theme'") ? gate2.future : Future.value(),
+      );
+      final q = await make(s1, next: [s2]);
+      await q.enqueue([
+        inst('helpers'),
+        inst('theme'),
+      ], askPassword: ({error}) async => null);
+      await until(() => s1.runs.isNotEmpty);
+      final nvim = q.enqueue([
+        inst('nvim'),
+      ], askPassword: ({error}) => dialog.future);
+      gate1.complete();
+      await until(() => s2.runs.isNotEmpty);
+      dialog.complete('pw');
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(s2.closed, 0);
+      gate2.complete();
+      expect(await nvim, isTrue);
+      await q.whenIdle();
+      expect(s2.passwords, ['pw']);
+      expect(s2.runs.any((r) => r.contains("'nvim'")), isTrue);
+      expect(q.status('nvim').phase, CardPhase.idle);
+      expect(factoryCalls, 2);
+    },
+  );
+
   test('dispose com run preso não notifica nem abre nova sessão', () async {
     final gate = Completer<void>();
     final q = await make(FakeShell(onRun: (_) => gate.future));
@@ -381,13 +475,13 @@ void main() {
     expect(shell.closed, 1);
   });
 
-  test('askPassword que lança fecha a sessão e relança', () async {
+  test('askPassword que lança relança sem deixar sessão aberta', () async {
     final q = await make(FakeShell());
     await expectLater(
       q.enqueue([inst('nvim')], askPassword: ({error}) async => throw 'boom'),
       throwsA('boom'),
     );
-    expect(shell.closed, 1);
+    expect(factoryCalls, 0);
     expect(q.pending, isEmpty);
   });
 

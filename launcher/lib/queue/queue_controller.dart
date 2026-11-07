@@ -46,6 +46,15 @@ class PendingRestart {
 typedef PasswordPrompt = Future<String?> Function({String? error});
 typedef ShellFactory = Future<ShellSession> Function();
 
+enum _Outcome { ok, wrong, failed }
+
+class _Group {
+  _Group(this.items);
+
+  List<QueueItem> items;
+  var failed = false;
+}
+
 class QueueController extends ChangeNotifier {
   QueueController({
     required this.cli,
@@ -72,13 +81,16 @@ class QueueController extends ChangeNotifier {
   final _log = <String>[];
   late final List<String> _logView;
   final _restarts = <PendingRestart>[];
+  final _awaiting = <_Group>[];
+  final _inflight = <Future<void>>{};
   QueueItem? _current;
   ShellSession? _session;
   Future<ShellSession>? _sessionFuture;
   StreamSubscription<String>? _outputSub;
   Future<void>? _loop;
-  Future<void> _enqueueTail = Future.value();
-  var _enqueuing = 0;
+  Future<_Outcome>? _unlockFuture;
+  Future<void> _dialogTail = Future.value();
+  var _unlockChanged = Completer<void>();
   var _generation = 0;
   var _sudoUnlocked = false;
   var _opCounter = 0;
@@ -131,11 +143,12 @@ class QueueController extends ChangeNotifier {
     List<QueueItem> items, {
     required PasswordPrompt askPassword,
   }) {
-    _enqueuing++;
-    final result = _enqueueTail.then((_) => _enqueue(items, askPassword));
-    _enqueueTail = result.then<void>((_) {}, onError: (_) {}).whenComplete(() {
-      _enqueuing--;
+    final result = _enqueue(items, askPassword);
+    late final Future<void> guard;
+    guard = result.then<void>((_) {}, onError: (_) {}).whenComplete(() {
+      _inflight.remove(guard);
     });
+    _inflight.add(guard);
     return result;
   }
 
@@ -154,72 +167,150 @@ class QueueController extends ChangeNotifier {
   bool _needsSudo(List<QueueItem> fresh) =>
       fresh.any((i) => catalog?.byId(i.id)?.sudo == true);
 
-  Future<bool> _enqueue(
-    List<QueueItem> items,
-    PasswordPrompt askPassword,
-  ) async {
-    if (_disposed) return false;
-    var fresh = _fresh(items);
-    if (fresh.isEmpty) return true;
-    if (_needsSudo(fresh) && !_sudoUnlocked) {
-      final bool unlocked;
-      try {
-        unlocked = await _unlock(askPassword);
-      } catch (_) {
-        await _closeIfIdle();
-        rethrow;
-      }
-      if (!unlocked) {
-        await _closeIfIdle();
-        return false;
-      }
-      fresh = _fresh(items);
-    }
-    if (_disposed) return false;
-    for (final i in fresh) {
+  bool _isAwaiting(String id) =>
+      _awaiting.any((g) => g.items.any((i) => i.id == id));
+
+  void _append(List<QueueItem> items) {
+    for (final i in items) {
       _statuses[i.id] = CardStatus(phase: CardPhase.queued, kind: i.kind);
       _pending.add(i);
     }
     notifyListeners();
     _loop ??= _runLoop();
-    return true;
   }
 
-  Future<bool> _unlock(PasswordPrompt askPassword) async {
+  void _signalUnlock() {
+    final c = _unlockChanged;
+    _unlockChanged = Completer<void>();
+    c.complete();
+  }
+
+  void _failAwaiting() {
+    for (final g in _awaiting) {
+      g.failed = true;
+      for (final i in g.items) {
+        _pending.removeWhere((p) => p.id == i.id);
+        _statuses[i.id] = const CardStatus();
+      }
+    }
+    _awaiting.clear();
+    notifyListeners();
+    _signalUnlock();
+  }
+
+  Future<bool> _enqueue(
+    List<QueueItem> items,
+    PasswordPrompt askPassword,
+  ) async {
+    if (_disposed) return false;
+    final fresh = _fresh(items);
+    if (fresh.isEmpty) return true;
+    if (!_needsSudo(fresh) || _sudoUnlocked) {
+      _append(fresh);
+      return true;
+    }
+    final group = _Group(fresh);
+    var registered = false;
     String? error;
-    while (true) {
-      final ShellSession session;
-      try {
-        session = await _ensureSession();
-      } catch (e) {
-        _addLog('[launcher] Não foi possível abrir o shell: $e');
-        return false;
-      }
-      final password = await askPassword(error: error);
-      if (password == null) return false;
-      final SudoResult result;
-      try {
-        result = await session.unlockSudo(password);
-      } catch (e) {
-        _addLog('[launcher] Falha ao liberar o sudo: $e');
-        if (e is StateError) _dropSession();
-        return false;
-      }
-      switch (result) {
-        case SudoResult.ok:
-          if (!identical(_session, session)) {
-            error = null;
-            continue;
+    try {
+      while (true) {
+        Future<_Outcome>? flight;
+        var cancelled = false;
+        await _withDialog(() async {
+          if (_disposed) {
+            cancelled = true;
+            return;
           }
-          _sudoUnlocked = true;
-          notifyListeners();
-          return true;
-        case SudoResult.wrongPassword:
-          error = 'Senha incorreta. Tente de novo.';
-        case SudoResult.notAllowed:
-          _addLog('Sua conta não pode usar sudo nesta máquina.');
+          if (group.failed || (registered && !_awaiting.contains(group))) {
+            return;
+          }
+          var flightNow = _unlockFuture;
+          if (flightNow == null) {
+            final password = await askPassword(error: error);
+            if (password == null || _disposed) {
+              cancelled = true;
+              return;
+            }
+            flightNow = _unlockFuture = _runUnlock(password);
+          }
+          if (!registered) {
+            registered = true;
+            group.items = _fresh(group.items);
+            _awaiting.add(group);
+            _append(group.items);
+          }
+          flight = flightNow;
+        });
+        if (cancelled) {
+          if (registered) _failAwaiting();
+          await _closeIfIdle();
           return false;
+        }
+        final f = flight;
+        if (f == null) return !group.failed;
+        switch (await f) {
+          case _Outcome.ok:
+            return !group.failed;
+          case _Outcome.wrong:
+            error = 'Senha incorreta. Tente de novo.';
+          case _Outcome.failed:
+            await _closeIfIdle();
+            return false;
+        }
       }
+    } catch (_) {
+      if (registered) _failAwaiting();
+      await _closeIfIdle();
+      rethrow;
+    }
+  }
+
+  Future<void> _withDialog(Future<void> Function() body) {
+    final prev = _dialogTail;
+    final done = Completer<void>();
+    _dialogTail = done.future;
+    return prev.then((_) => body()).whenComplete(() => done.complete());
+  }
+
+  Future<_Outcome> _runUnlock(String password) async {
+    try {
+      while (true) {
+        final ShellSession session;
+        try {
+          session = await _ensureSession();
+        } catch (e) {
+          _addLog('[launcher] Não foi possível abrir o shell: $e');
+          _failAwaiting();
+          return _Outcome.failed;
+        }
+        final SudoResult result;
+        try {
+          result = await session.unlockSudo(password);
+        } catch (e) {
+          if (e is StateError && !identical(_session, session)) continue;
+          _addLog('[launcher] Falha ao liberar o sudo: $e');
+          if (e is StateError) _dropSession();
+          _failAwaiting();
+          return _Outcome.failed;
+        }
+        switch (result) {
+          case SudoResult.ok:
+            if (!identical(_session, session)) continue;
+            _sudoUnlocked = true;
+            _awaiting.clear();
+            notifyListeners();
+            return _Outcome.ok;
+          case SudoResult.wrongPassword:
+            return _Outcome.wrong;
+          case SudoResult.notAllowed:
+            _addLog('Sua conta não pode usar sudo nesta máquina.');
+            _failAwaiting();
+            return _Outcome.failed;
+        }
+      }
+    } finally {
+      _unlockFuture = null;
+      _signalUnlock();
     }
   }
 
@@ -231,7 +322,7 @@ class QueueController extends ChangeNotifier {
   Future<ShellSession> _createSession() async {
     final generation = _generation;
     try {
-      final session = await shellFactory();
+      final session = await Future.sync(shellFactory);
       if (generation != _generation || _disposed) {
         try {
           await session.close();
@@ -248,7 +339,7 @@ class QueueController extends ChangeNotifier {
   }
 
   Future<void> _closeIfIdle() async {
-    if (_loop != null || _pending.isNotEmpty || _enqueuing > 1) return;
+    if (_loop != null || _pending.isNotEmpty || _inflight.length > 1) return;
     await _closeSession();
   }
 
@@ -286,10 +377,15 @@ class QueueController extends ChangeNotifier {
     try {
       while (!_disposed) {
         while (_pending.isNotEmpty && !_disposed) {
-          final item = _pending.removeAt(0);
-          _current = item;
+          final head = _pending.first;
+          if (_isAwaiting(head.id)) {
+            await _unlockChanged.future;
+            continue;
+          }
+          _pending.removeAt(0);
+          _current = head;
           notifyListeners();
-          await _runItem(item);
+          await _runItem(head);
           _current = null;
           if (_disposed) break;
           try {
@@ -298,12 +394,18 @@ class QueueController extends ChangeNotifier {
             _addLog('[launcher] Erro ao atualizar o catálogo: $e');
           }
         }
-        while (_enqueuing > 0 && !_disposed) {
-          await _enqueueTail;
+        while (_inflight.isNotEmpty && !_disposed) {
+          await Future.wait(_inflight.toList());
         }
         if (_pending.isNotEmpty && !_disposed) continue;
         await _closeSession();
-        if (_pending.isEmpty || _disposed) break;
+        if (_disposed) break;
+        if (_pending.isEmpty &&
+            _inflight.isEmpty &&
+            _session == null &&
+            _sessionFuture == null) {
+          break;
+        }
       }
     } finally {
       _current = null;
@@ -323,8 +425,9 @@ class QueueController extends ChangeNotifier {
     var failed = false;
     String? error;
     File? file;
+    ShellSession? used;
     try {
-      final session = await _ensureSession();
+      final session = used = await _ensureSession();
       await eventsDir.create(recursive: true);
       file = File('${eventsDir.path}/${++_opCounter}.jsonl');
       final stop = Completer<void>();
@@ -372,7 +475,9 @@ class QueueController extends ChangeNotifier {
       failed = true;
       error = 'Falhou. Veja o log.';
       _addLog('[launcher] Erro: $e');
-      if (e is StateError) _dropSession();
+      if (e is StateError && used != null && identical(_session, used)) {
+        _dropSession();
+      }
     } finally {
       try {
         await file?.delete();
@@ -407,6 +512,8 @@ class QueueController extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _pending.clear();
+    _awaiting.clear();
+    _signalUnlock();
     unawaited(_closeSession());
     super.dispose();
   }
