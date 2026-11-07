@@ -9,6 +9,16 @@ mod_yazi_name() { echo "yazi"; }
 
 mod_yazi_category() { echo dev; }
 
+mod_yazi_about() {
+  echo "Instala o yazi, um gerenciador de arquivos de terminal, baixando a build estática (musl) do GitHub: os binários yazi e ya vão para ~/.local/bin. Liga também ~/.config/yazi à configuração do repositório. Remover apaga os binários e o link que o PowerTerminal criou."
+}
+
+mod_yazi_provides() {
+  printf 'bin\t%s/.local/bin/yazi\n' "$HOME"
+  printf 'bin\t%s/.local/bin/ya\n' "$HOME"
+  printf 'config\t%s/.config/yazi\n' "$HOME"
+}
+
 mod_yazi_installed() { has_cmd yazi; }
 
 mod_yazi_requires() { printf 'curl\tcurl\n'; }

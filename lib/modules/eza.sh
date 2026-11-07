@@ -9,6 +9,14 @@ mod_eza_name() { echo "eza"; }
 
 mod_eza_category() { echo dev; }
 
+mod_eza_about() {
+  echo "Instala o eza, um substituto moderno do ls. Tenta o pacote do apt e, se não houver, baixa o binário estático (musl) do GitHub para ~/.local/bin. Remover apaga o binário ou purga o pacote, conforme o que o recibo registrou."
+}
+
+mod_eza_provides() {
+  printf 'bin\t%s/.local/bin/eza\n' "$HOME"
+}
+
 mod_eza_installed() { has_cmd eza; }
 
 mod_eza_requires() { printf 'curl\tcurl\n'; }

@@ -226,7 +226,7 @@ primeiro uso, rode `claude` para fazer login.
 | `remove --module a,b` | Desfaz módulos pelo recibo: links, arquivos e pacotes que o PowerTerminal criou; restaura `.pnbak` (`--dry-run`, `--yes`, `--purge-data`) |
 | `status`           | Mostra symlinks gerenciados                                     |
 | `doctor`           | Diagnóstico completo (versões, fontes, links, dependências)     |
-| `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher)          |
+| `catalog --json`   | Catálogo de módulos e estado em JSON (para o launcher): por módulo, além de `name`, `state` e `can_remove` (só com recibo), traz `about`, `provides`, `requires` e `receipt` para o painel de detalhe |
 | `theme [flavor]`   | Troca o flavor Catppuccin em kitty + Neovim + prompt            |
 | `share [arquivo]`  | Empacota o repo em `.tar.gz` (sem `home.local`, sem `.pnbak.*`) |
 | `update [--module a,b]` | Atualiza os módulos instalados com update próprio (`--dry-run`, `--yes`; hint do `:Lazy sync`) |

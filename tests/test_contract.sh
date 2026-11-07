@@ -113,4 +113,43 @@ for f in download_to curl_pipe; do
 done
 assert_eq "" "$faltando"
 
+it "todo modulo declara about e provides"
+faltando=""
+for m in "${MODULOS[@]}"; do
+  for f in about provides; do
+    declare -F "mod_${m}_${f}" >/dev/null || faltando="$faltando ${m}:${f}"
+  done
+done
+assert_eq "" "$faltando"
+
+it "about tem entre 2 e 4 frases em uma linha"
+ruim=""
+for m in "${MODULOS[@]}"; do
+  declare -F "mod_${m}_about" >/dev/null || { ruim="$ruim $m"; continue; }
+  txt="$("mod_${m}_about")"
+  n="$(grep -o '[.!?]\( \|$\)' <<<"$txt" | wc -l)"
+  [[ "$(wc -l <<<"$txt")" == 1 && "$n" -ge 2 && "$n" -le 4 ]] || ruim="$ruim $m($n)"
+done
+assert_eq "" "$ruim"
+
+it "provides emite so linhas kind<TAB>valor com kind permitido"
+ruim=""
+for m in "${MODULOS[@]}"; do
+  declare -F "mod_${m}_provides" >/dev/null || { ruim="$ruim $m"; continue; }
+  n=0
+  while IFS=$'\t' read -r k v extra; do
+    n=$((n+1))
+    case "$k" in bin|apt|dir|config|repo|font|shell|group|service) ;; *) ruim="$ruim ${m}:kind=$k" ;; esac
+    [[ -n "$v" && -z "$extra" ]] || ruim="$ruim ${m}:valor"
+  done < <("mod_${m}_provides" 2>/dev/null)
+  (( n > 0 )) || ruim="$ruim ${m}:vazio"
+done
+assert_eq "" "$ruim"
+
+it "so-links e detectado pelo corpo de installed: astronvim sim, btop nunca"
+assert_ok pn_installed_so_links astronvim
+assert_ok pn_installed_so_links helpers
+assert_fail pn_installed_so_links btop
+assert_fail pn_installed_so_links kitty
+
 test_summary

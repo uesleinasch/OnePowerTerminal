@@ -11,6 +11,14 @@ mod_notiont_name() { echo "notion-t"; }
 
 mod_notiont_category() { echo extras; }
 
+mod_notiont_about() {
+  echo "Instala o notion-t, uma CLI interativa para notas no Notion, a partir do GitHub com o pipx, que o módulo instala pelo apt quando falta. O binário fica em ~/.local/bin e o token do Notion é pedido na primeira execução. Remover desinstala o notion-t do pipx."
+}
+
+mod_notiont_provides() {
+  printf 'bin\t%s/.local/bin/notion-t\n' "$HOME"
+}
+
 mod_notiont_installed() { has_cmd notion-t; }
 
 _PN_NOTIONT_GIT="git+https://github.com/uesleinasch/notion-t.git"

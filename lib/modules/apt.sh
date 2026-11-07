@@ -11,6 +11,17 @@ mod_apt_name() { echo "Pacotes base"; }
 
 mod_apt_category() { echo base; }
 
+mod_apt_about() {
+  echo "Instala pelo apt os pacotes base que o resto do ambiente usa: curl, wget, unzip, ripgrep, fd, fzf, jq, bat, htop, build-essential e afins, mais a fonte FiraCode quando o repositório a oferece. Altera o sistema inteiro e pede sudo. Remover purga do apt só os pacotes que o PowerTerminal instalou, sem tocar nos que já existiam."
+}
+
+mod_apt_provides() {
+  local p
+  for p in "${_PN_APT_PKGS[@]}" fonts-firacode; do
+    printf 'apt\t%s\n' "$p"
+  done
+}
+
 mod_apt_installed() {
   local p
   for p in "${_PN_APT_PKGS[@]}"; do

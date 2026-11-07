@@ -14,6 +14,28 @@ mod_container_name() { echo "Docker ou Podman"; }
 
 mod_container_category() { echo dev; }
 
+mod_container_about() {
+  echo "Instala o Docker Engine, com buildx e Compose, pelo repositório oficial, ou o Podman rootless, conforme a sua escolha. O Docker ativa o serviço e coloca o seu usuário no grupo docker; o Podman configura o mapeamento rootless e o socket. Altera o sistema, pede sudo e é pulado dentro de containers. Remover desfaz o que o recibo registrou e preserva imagens e volumes, a menos que você peça para apagá-los."
+}
+
+mod_container_provides() {
+  local runtime
+  runtime="$(pn_get_answer container.runtime "")"
+  [[ -n "$runtime" ]] || runtime="$(_vf_runtime_decidido 2>/dev/null)"
+  if [[ "$runtime" == podman ]]; then
+    printf 'apt\tpodman\n'
+    printf 'service\tpodman.socket\n'
+  else
+    local p
+    for p in "${_PN_DOCKER_PKGS[@]}"; do
+      printf 'apt\t%s\n' "$p"
+    done
+    printf 'repo\thttps://download.docker.com/linux\n'
+    printf 'service\tdocker.service\n'
+    printf 'group\tdocker\n'
+  fi
+}
+
 mod_container_installed() { has_cmd docker || has_cmd podman; }
 
 mod_container_needs() { echo apt; }

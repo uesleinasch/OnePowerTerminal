@@ -11,6 +11,15 @@ mod_vscode_name() { echo "Visual Studio Code"; }
 
 mod_vscode_category() { echo editor; }
 
+mod_vscode_about() {
+  echo "Instala o Visual Studio Code pelo repositório apt oficial da Microsoft: registra o repositório e a chave, ajusta o debconf para não duplicar a fonte e instala o pacote code. Altera o apt do sistema e pede sudo. Remover purga o pacote, retira o repositório que o PowerTerminal adicionou e repõe a resposta padrão do debconf."
+}
+
+mod_vscode_provides() {
+  printf 'apt\tcode\n'
+  printf 'repo\t%s\n' "$_PN_VSCODE_REPO"
+}
+
 mod_vscode_installed() { has_cmd code; }
 
 _PN_VSCODE_KEY="https://packages.microsoft.com/keys/microsoft.asc"

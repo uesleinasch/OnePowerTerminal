@@ -13,6 +13,17 @@ mod_astronvim_name() { echo "AstroNvim"; }
 
 mod_astronvim_category() { echo editor; }
 
+mod_astronvim_about() {
+  echo "Liga ~/.config/nvim à configuração AstroNvim v5 do repositório e cria as pastas share, state e cache do Neovim em ~/.local. Os plugins são instalados pelo Lazy.nvim na primeira vez que você abre o nvim. Remover desfaz o link e restaura a configuração anterior, se houve backup."
+}
+
+mod_astronvim_provides() {
+  printf 'config\t%s/.config/nvim\n' "$HOME"
+  printf 'dir\t%s/.local/share/nvim\n' "$HOME"
+  printf 'dir\t%s/.local/state/nvim\n' "$HOME"
+  printf 'dir\t%s/.local/cache/nvim\n' "$HOME"
+}
+
 mod_astronvim_installed() { pn_links_installed astronvim; }
 
 mod_astronvim_install() {

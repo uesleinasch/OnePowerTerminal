@@ -9,6 +9,15 @@ mod_ranger_name() { echo "ranger"; }
 
 mod_ranger_category() { echo extras; }
 
+mod_ranger_about() {
+  echo "Instala o ranger, um gerenciador de arquivos de terminal, pelo apt, e liga ~/.config/ranger à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link."
+}
+
+mod_ranger_provides() {
+  printf 'apt\tranger\n'
+  printf 'config\t%s/.config/ranger\n' "$HOME"
+}
+
 mod_ranger_installed() { has_cmd ranger; }
 
 mod_ranger_links() { pn_config_links ranger; }

@@ -647,8 +647,8 @@ _vf_catalog_distro() {
 
 _vf_catalog_module() {
   local m="$1" f meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
-  local -a needs=()
-  local nome categoria
+  local -a needs=() reqs=()
+  local nome categoria about provides="" recibo=""
   for f in meta name category installed; do
     declare -F "mod_${m}_${f}" >/dev/null || die "Módulo $m sem a função mod_${m}_${f}."
   done
@@ -672,6 +672,8 @@ _vf_catalog_module() {
     state=installed; origin="$(pn_receipt_origin "$m")"
   elif mod_"${m}"_installed; then
     state=preexisting; origin=""
+  elif pn_installed_so_links "$m" && pn_links_copia "$m"; then
+    state=preexisting; origin=""
   else
     state=available; origin=""
   fi
@@ -683,11 +685,34 @@ _vf_catalog_module() {
   fi
   _vf_is_editor_module "$m" && editor=true
   declare -F "mod_${m}_update" >/dev/null && upd=true
-  declare -F "mod_${m}_remove" >/dev/null && rem=true
-  printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"data_mb":%s}' \
+  declare -F "mod_${m}_remove" >/dev/null && [[ "$state" == installed ]] && rem=true
+  if declare -F "mod_${m}_about" >/dev/null; then about="$(mod_"${m}"_about)"; else about="$meta"; fi
+  if declare -F "mod_${m}_provides" >/dev/null; then
+    provides="$(_vf_catalog_pares < <(mod_"${m}"_provides))"
+  fi
+  if [[ "$state" == installed ]]; then
+    recibo="$(_vf_catalog_pares < <(pn_receipt_entries "$m"))"
+  fi
+  if declare -F "mod_${m}_requires" >/dev/null; then
+    mapfile -t reqs < <(mod_"${m}"_requires | cut -f1)
+  fi
+  printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"data_mb":%s,"about":%s,"provides":[%s],"requires":%s,"receipt":[%s]}' \
     "$(pn_json_str "$m")" "$(pn_json_str "$nome")" "$(pn_json_str "$categoria")" \
     "$(pn_json_str "$meta")" "$minutos" "$mb" "$sudo" "$(pn_json_array "${needs[@]}")" \
-    "$editor" "$state" "$origin" "$upd" "$rem" "$dados"
+    "$editor" "$state" "$origin" "$upd" "$rem" "$dados" \
+    "$(pn_json_str "$about")" "$provides" "$(pn_json_array "${reqs[@]}")" "$recibo"
+}
+
+# Lê linhas kind<TAB>valor do stdin e emite objetos JSON separados por vírgula,
+# com o $HOME dos valores trocado por ~.
+_vf_catalog_pares() {
+  local kind valor sep="" out=""
+  while IFS=$'\t' read -r kind valor _; do
+    [[ -n "$kind" && -n "$valor" ]] || continue
+    out+="${sep}{\"kind\":$(pn_json_str "$kind"),\"value\":$(pn_json_str "$(pn_tilde "$valor")")}"
+    sep=","
+  done
+  printf '%s' "$out"
 }
 
 cmd_catalog() {

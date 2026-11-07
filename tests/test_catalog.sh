@@ -37,7 +37,7 @@ it "dev inclui os três editores no catálogo"
 assert_eq True "$(campo 'all(x in d["profiles"]["dev"] for x in ("nvim","astronvim","vscode"))' <"$TMP/c.json")"
 
 it "cada módulo traz os campos do contrato"
-assert_eq True "$(campo 'all(set(m)=={"id","name","category","description","minutes","mb","sudo","needs","editor","state","origin","can_update","can_remove","data_mb"} for m in d["modules"])' <"$TMP/c.json")"
+assert_eq True "$(campo 'all(set(m)=={"id","name","category","description","minutes","mb","sudo","needs","editor","state","origin","can_update","can_remove","data_mb","about","provides","requires","receipt"} for m in d["modules"])' <"$TMP/c.json")"
 
 it "módulo sem recibo e com ferramenta presente é preexisting"
 PATH="$TMP/bin:$PATH" "$CLI" catalog --json >"$TMP/p.json" 2>/dev/null || true
@@ -107,5 +107,62 @@ printf 'origin\tde"du\\zido\n' >"$XDG_STATE_HOME/powerterminal/receipts/fonts"
 "$CLI" catalog --json >"$TMP/o.json" 2>/dev/null || true
 assert_eq 'de"du\zido' "$(campo '[m for m in d["modules"] if m["id"]=="fonts"][0]["origin"]' <"$TMP/o.json" 2>&1)"
 rm -f "$XDG_STATE_HOME/powerterminal/receipts/fonts"
+
+mod_estado() { campo '[m for m in d["modules"] if m["id"]=="'"$1"'"][0]["'"${2:-state}"'"]'; }
+
+it "astronvim com ~/.config/nvim em cópia idêntica do repo é preexisting"
+mkdir -p "$HOME/.config"
+cp -r home/.config/nvim "$HOME/.config/nvim"
+"$CLI" catalog --json >"$TMP/a1.json" 2>/dev/null || true
+assert_eq preexisting "$(mod_estado astronvim <"$TMP/a1.json")"
+
+it "astronvim com uma linha diferente na cópia é available"
+printf -- '-- divergente\n' >>"$HOME/.config/nvim/init.lua"
+"$CLI" catalog --json >"$TMP/a2.json" 2>/dev/null || true
+assert_eq available "$(mod_estado astronvim <"$TMP/a2.json")"
+rm -rf "$HOME/.config/nvim"
+
+it "btop com config em cópia idêntica e sem o programa no PATH é available"
+cp -r home/.config/btop "$HOME/.config/btop"
+mkdir -p "$TMP/sembtop"
+for _d in "${_dirs[@]}"; do
+  for _f in "$_d"/*; do
+    _n="${_f##*/}"
+    [[ "$_n" == btop || -e "$TMP/sembtop/$_n" || ! -x "$_f" ]] || ln -s "$_f" "$TMP/sembtop/$_n"
+  done
+done
+PATH="$TMP/sembtop" "$CLI" catalog --json >"$TMP/b.json" 2>/dev/null || true
+assert_eq available "$(mod_estado btop <"$TMP/b.json")"
+rm -rf "$HOME/.config/btop"
+
+it "fontes em ~/.fonts contam para o módulo fonts"
+mkdir -p "$HOME/.fonts"
+for f in Regular Bold Italic "Bold Italic"; do : >"$HOME/.fonts/MesloLGS NF $f.ttf"; done
+"$CLI" catalog --json >"$TMP/f2.json" 2>/dev/null || true
+assert_eq preexisting "$(mod_estado fonts <"$TMP/f2.json")"
+
+it "módulo preexisting não oferece remover"
+assert_eq "preexisting False" "$(campo '[(m["state"]+" "+str(m["can_remove"])) for m in d["modules"] if m["id"]=="fonts"][0]' <"$TMP/f2.json")"
+
+it "módulo com recibo traz receipt não vazio e can_remove verdadeiro"
+assert_eq "installed True True" "$(campo '[(m["state"]+" "+str(len(m["receipt"])>0)+" "+str(m["can_remove"])) for m in d["modules"] if m["id"]=="helpers"][0]' <"$TMP/h.json")"
+
+it "receipt troca o HOME por ~ e não traz origin"
+assert_eq True "$(campo 'all(set(e)=={"kind","value"} and e["kind"]!="origin" and "'"$HOME"'" not in e["value"] for e in [m for m in d["modules"] if m["id"]=="helpers"][0]["receipt"])' <"$TMP/h.json")"
+
+it "módulo sem recibo tem receipt vazio"
+assert_eq "[]" "$(mod_estado vscode receipt <"$TMP/p.json")"
+
+it "provides do kitty inclui o diretório da instalação"
+assert_eq True "$(campo '{"kind":"dir","value":"~/.local/kitty.app"} in [m for m in d["modules"] if m["id"]=="kitty"][0]["provides"]' <"$TMP/c.json")"
+
+it "requires lista só os comandos"
+assert_eq "['curl', 'xz']" "$(mod_estado kitty requires <"$TMP/c.json")"
+
+it "about cai na description quando o módulo não define mod_X_about"
+cp lib/modules/apt.sh "$TMP/repo/lib/modules/apt.sh"
+sed -i '/^mod_apt_about()/,/^}/d' "$TMP/repo/lib/modules/apt.sh"
+"$TMP/repo/bin/powerterminal" catalog --json >"$TMP/ab.json" 2>/dev/null || true
+assert_eq True "$(campo '[(m["about"]==m["description"]) for m in d["modules"] if m["id"]=="apt"][0]' <"$TMP/ab.json")"
 
 test_summary

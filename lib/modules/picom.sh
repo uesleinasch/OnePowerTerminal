@@ -9,6 +9,15 @@ mod_picom_name() { echo "picom"; }
 
 mod_picom_category() { echo extras; }
 
+mod_picom_about() {
+  echo "Instala o picom, um compositor X11 para transparência e sombras, pelo apt, e liga ~/.config/picom à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link."
+}
+
+mod_picom_provides() {
+  printf 'apt\tpicom\n'
+  printf 'config\t%s/.config/picom\n' "$HOME"
+}
+
 mod_picom_installed() { has_cmd picom; }
 
 mod_picom_links() { pn_config_links picom; }

@@ -662,3 +662,32 @@ pn_links_installed() {
   done < <("mod_${1}_links")
   [[ "$achou" == 1 ]]
 }
+
+# Verdadeiro quando mod_<m>_installed é exatamente `pn_links_installed <m>`: só então
+# a cópia real idêntica à origem prova que o módulo já está na máquina.
+pn_installed_so_links() {
+  declare -F "mod_${1}_installed" >/dev/null || return 1
+  [[ "$(declare -f "mod_${1}_installed" | tr -s ' \n' ' ')" == "mod_${1}_installed () { pn_links_installed ${1} } " ]]
+}
+
+# Verdadeiro quando todo destino de mod_<m>_links é cópia real (não symlink) com
+# conteúdo idêntico ao da origem.
+pn_links_copia() {
+  local src dst achou=0
+  while IFS=$'\t' read -r src dst; do
+    [[ -n "$dst" ]] || continue
+    achou=1
+    [[ ! -L "$dst" && -e "$dst" && -e "$src" ]] || return 1
+    diff -rq -- "$src" "$dst" >/dev/null 2>&1 || return 1
+  done < <("mod_${1}_links")
+  [[ "$achou" == 1 ]]
+}
+
+# pn_tilde CAMINHO — troca o prefixo $HOME por ~.
+pn_tilde() {
+  if [[ "$1" == "$HOME" || "$1" == "$HOME"/* ]]; then
+    printf '~%s' "${1#"$HOME"}"
+  else
+    printf '%s' "$1"
+  fi
+}

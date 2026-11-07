@@ -11,6 +11,15 @@ mod_nvim_name() { echo "Neovim"; }
 
 mod_nvim_category() { echo editor; }
 
+mod_nvim_about() {
+  echo "Baixa o release oficial do Neovim, extrai em /opt e cria o link /usr/local/bin/nvim. Só funciona em x86_64 e pede sudo, porque grava fora do seu HOME. Remover apaga o diretório em /opt e o link que o PowerTerminal criou."
+}
+
+mod_nvim_provides() {
+  printf 'dir\t%s/nvim-linux-x86_64\n' "$_PN_NVIM_PREFIX"
+  printf 'bin\t%s\n' "$_PN_NVIM_LINK"
+}
+
 mod_nvim_installed() { has_cmd nvim; }
 
 _PN_NVIM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"

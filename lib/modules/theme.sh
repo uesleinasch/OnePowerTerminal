@@ -15,6 +15,15 @@ mod_theme_name() { echo "Tema Catppuccin"; }
 
 mod_theme_category() { echo shell; }
 
+mod_theme_about() {
+  echo "Aplica o mesmo flavor Catppuccin ao Kitty, ao Neovim, ao prompt e ao tema do Claude Code. A escolha fica em ~/.config/powerterminal/theme e o Kitty recebe um include derivado, current-theme.conf. Remover repõe o mocha onde ainda são links do repositório e não toca nas configurações do Claude Code."
+}
+
+mod_theme_provides() {
+  printf 'config\t%s\n' "$_PN_THEME_STATE_DIR"
+  printf 'config\t%s\n' "$_PN_THEME_KITTY_INCLUDE"
+}
+
 mod_theme_installed() { pn_links_installed theme; }
 
 _PN_THEME_FLAVORS=(latte frappe macchiato mocha)
