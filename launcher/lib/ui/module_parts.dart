@@ -109,9 +109,14 @@ class ModuleTag extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 4),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fg),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: fg),
+            ),
           ),
         ],
       ),
