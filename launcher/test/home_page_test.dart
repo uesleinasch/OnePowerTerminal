@@ -92,7 +92,7 @@ void main() {
 
   testWidgets('sem filtro mostra todos os módulos e a barra', (t) async {
     await show(t, await controller());
-    expect(cards(t), 15);
+    expect(cards(t), 23);
     expect(find.text('PowerTerminal'), findsOneWidget);
     expect(find.text('v0.2.0 · Ubuntu 22.04.5 LTS · x86_64'), findsOneWidget);
     expect(find.text('sudo liberado'), findsNothing);
@@ -123,7 +123,7 @@ void main() {
     await t.pump();
     expect(find.text('vscode'), findsOneWidget);
     expect(find.text('zsh'), findsNothing);
-    expect(cards(t), lessThan(15));
+    expect(cards(t), lessThan(23));
   });
 
   testWidgets('busca sem resultado mostra o vazio', (t) async {
@@ -136,9 +136,9 @@ void main() {
   testWidgets('resumo em dev com só o vscode não conta o nvim', (t) async {
     final a = await show(t, await controller());
     await pickProfile(t, 'dev');
-    expect(find.text('8 de 11 instalados'), findsOneWidget);
-    expect(find.text('Instalar 3 restantes'), findsOneWidget);
-    await t.tap(find.text('Instalar 3 restantes'));
+    expect(find.text('8 de 16 instalados'), findsOneWidget);
+    expect(find.text('Instalar 8 restantes'), findsOneWidget);
+    await t.tap(find.text('Instalar 8 restantes'));
     expect(a.calls, ['installProfile:dev']);
   });
 
@@ -148,8 +148,8 @@ void main() {
       await controller(states: {'nvim': 'installed', 'vscode': 'available'}),
     );
     await pickProfile(t, 'dev');
-    expect(find.text('8 de 12 instalados'), findsOneWidget);
-    expect(find.text('Instalar 4 restantes'), findsOneWidget);
+    expect(find.text('8 de 17 instalados'), findsOneWidget);
+    expect(find.text('Instalar 9 restantes'), findsOneWidget);
   });
 
   testWidgets('erro ao recarregar com catálogo vira banner sobre os cards', (
@@ -171,7 +171,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Tentar de novo'), findsOneWidget);
-    expect(cards(t), 15);
+    expect(cards(t), 23);
     fail = false;
     await t.tap(find.text('Tentar de novo'));
     await t.runAsync(
@@ -179,7 +179,7 @@ void main() {
     );
     await t.pump();
     expect(find.text('Tentar de novo'), findsNothing);
-    expect(cards(t), 15);
+    expect(cards(t), 23);
   });
 
   testWidgets('erro de catálogo mostra Tentar de novo', (t) async {

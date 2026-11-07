@@ -170,7 +170,9 @@ class ModuleCard extends StatelessWidget {
           ),
         );
       } else {
-        if (!m.canRemove) {
+        if (m.state == ModuleState.preexisting) {
+          buttons.add(Text('Instalado fora do PowerTerminal', style: note));
+        } else if (!m.canRemove) {
           buttons.add(Text('Base de outros módulos', style: note));
         } else {
           buttons.add(

@@ -18,7 +18,12 @@
    "astronvim",
    "vscode",
    "kitty",
-   "tools",
+   "eza",
+   "starship",
+   "lazygit",
+   "lazydocker",
+   "uv",
+   "yazi",
    "node",
    "claude",
    "helpers",
@@ -33,11 +38,19 @@
    "astronvim",
    "vscode",
    "kitty",
-   "tools",
+   "eza",
+   "starship",
+   "lazygit",
+   "lazydocker",
+   "uv",
+   "yazi",
    "node",
    "claude",
    "helpers",
-   "extras",
+   "btop",
+   "ranger",
+   "picom",
+   "flameshot",
    "notiont",
    "container",
    "theme"
@@ -58,7 +71,72 @@
    "origin": null,
    "can_update": true,
    "can_remove": false,
-   "data_mb": null
+   "data_mb": null,
+   "about": "Instala pelo apt os pacotes base que o resto do ambiente usa: curl, wget, unzip, ripgrep, fd, fzf, jq, bat, htop, build-essential e afins, mais a fonte FiraCode quando o repositório a oferece. Altera o sistema inteiro e pede sudo. Remover purga do apt só os pacotes que o PowerTerminal instalou, sem tocar nos que já existiam.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "ca-certificates"
+    },
+    {
+     "kind": "apt",
+     "value": "curl"
+    },
+    {
+     "kind": "apt",
+     "value": "wget"
+    },
+    {
+     "kind": "apt",
+     "value": "unzip"
+    },
+    {
+     "kind": "apt",
+     "value": "fontconfig"
+    },
+    {
+     "kind": "apt",
+     "value": "build-essential"
+    },
+    {
+     "kind": "apt",
+     "value": "ripgrep"
+    },
+    {
+     "kind": "apt",
+     "value": "fd-find"
+    },
+    {
+     "kind": "apt",
+     "value": "fzf"
+    },
+    {
+     "kind": "apt",
+     "value": "jq"
+    },
+    {
+     "kind": "apt",
+     "value": "tree"
+    },
+    {
+     "kind": "apt",
+     "value": "bat"
+    },
+    {
+     "kind": "apt",
+     "value": "htop"
+    },
+    {
+     "kind": "apt",
+     "value": "xclip"
+    },
+    {
+     "kind": "apt",
+     "value": "fonts-firacode"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "fonts",
@@ -75,8 +153,29 @@
    "state": "available",
    "origin": null,
    "can_update": false,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Baixa as quatro variantes da fonte MesloLGS NF, usada pelo Powerlevel10k para os ícones do prompt, e atualiza o cache de fontes. Os arquivos ficam em ~/.local/share/fonts, sem tocar no sistema. Remover apaga as fontes que o PowerTerminal baixou.",
+   "provides": [
+    {
+     "kind": "font",
+     "value": "~/.local/share/fonts/MesloLGS NF Regular.ttf"
+    },
+    {
+     "kind": "font",
+     "value": "~/.local/share/fonts/MesloLGS NF Bold.ttf"
+    },
+    {
+     "kind": "font",
+     "value": "~/.local/share/fonts/MesloLGS NF Italic.ttf"
+    },
+    {
+     "kind": "font",
+     "value": "~/.local/share/fonts/MesloLGS NF Bold Italic.ttf"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "zsh",
@@ -92,7 +191,52 @@
    "origin": "deduced",
    "can_update": true,
    "can_remove": true,
-   "data_mb": null
+   "data_mb": null,
+   "about": "Instala o zsh pelo apt, o Oh-My-Zsh, o tema Powerlevel10k e os plugins autosuggestions e syntax-highlighting, e liga ~/.zshrc e ~/.p10k.zsh à configuração do repositório. Também troca o shell de login para o zsh, o que só vale no próximo login. Remover desfaz o que o recibo registra e, se o zsh sair, devolve o shell de login ao bash.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "zsh"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.oh-my-zsh"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.oh-my-zsh/custom/themes/powerlevel10k"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.oh-my-zsh/custom/plugins/zsh-autosuggestions"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting"
+    },
+    {
+     "kind": "config",
+     "value": "~/.zshrc"
+    },
+    {
+     "kind": "config",
+     "value": "~/.p10k.zsh"
+    },
+    {
+     "kind": "shell",
+     "value": "zsh"
+    }
+   ],
+   "requires": [
+    "git",
+    "curl"
+   ],
+   "receipt": [
+    {
+     "kind": "dir",
+     "value": "~/.oh-my-zsh"
+    }
+   ]
   },
   {
    "id": "nvim",
@@ -107,8 +251,21 @@
    "state": "available",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Baixa o release oficial do Neovim, extrai em /opt e cria o link /usr/local/bin/nvim. Só funciona em x86_64 e pede sudo, porque grava fora do seu HOME. Remover apaga o diretório em /opt e o link que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "dir",
+     "value": "/opt/nvim-linux-x86_64"
+    },
+    {
+     "kind": "bin",
+     "value": "/usr/local/bin/nvim"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "astronvim",
@@ -125,8 +282,29 @@
    "state": "available",
    "origin": null,
    "can_update": false,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Liga ~/.config/nvim à configuração AstroNvim v5 do repositório e cria as pastas share, state e cache do Neovim em ~/.local. Os plugins são instalados pelo Lazy.nvim na primeira vez que você abre o nvim. Remover desfaz o link e restaura a configuração anterior, se houve backup.",
+   "provides": [
+    {
+     "kind": "config",
+     "value": "~/.config/nvim"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.local/share/nvim"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.local/state/nvim"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.local/cache/nvim"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "vscode",
@@ -141,8 +319,21 @@
    "state": "preexisting",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o Visual Studio Code pelo repositório apt oficial da Microsoft: registra o repositório e a chave, ajusta o debconf para não duplicar a fonte e instala o pacote code. Altera o apt do sistema e pede sudo. Remover purga o pacote, retira o repositório que o PowerTerminal adicionou e repõe a resposta padrão do debconf.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "code"
+    },
+    {
+     "kind": "repo",
+     "value": "https://packages.microsoft.com/repos/code"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "kitty",
@@ -158,23 +349,234 @@
    "origin": "deduced",
    "can_update": true,
    "can_remove": true,
-   "data_mb": null
+   "data_mb": null,
+   "about": "Instala o terminal Kitty pelo instalador oficial em ~/.local/kitty.app, liga kitty e kitten em ~/.local/bin, copia os atalhos do menu e liga ~/.config/kitty à configuração do repositório. Tudo fica no seu HOME, sem sudo. Remover apaga a instalação, os links e os atalhos que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "dir",
+     "value": "~/.local/kitty.app"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/kitty"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/kitten"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/kitty"
+    },
+    {
+     "kind": "config",
+     "value": "~/.local/share/applications/kitty.desktop"
+    },
+    {
+     "kind": "config",
+     "value": "~/.local/share/applications/kitty-open.desktop"
+    }
+   ],
+   "requires": [
+    "curl",
+    "xz"
+   ],
+   "receipt": [
+    {
+     "kind": "dir",
+     "value": "~/.local/kitty.app"
+    },
+    {
+     "kind": "link",
+     "value": "~/.local/bin/kitty"
+    },
+    {
+     "kind": "link",
+     "value": "~/.local/bin/kitten"
+    }
+   ]
   },
   {
-   "id": "tools",
-   "name": "CLIs modernas",
+   "id": "eza",
+   "name": "eza",
    "category": "dev",
-   "description": "CLIs extras: eza, starship, lazygit, lazydocker, uv, yazi",
-   "minutes": 3,
-   "mb": 80,
+   "description": "eza: ls moderno, com ícones e git",
+   "minutes": 1,
+   "mb": 5,
    "sudo": true,
    "needs": [],
    "editor": false,
    "state": "preexisting",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o eza, um substituto moderno do ls. Tenta o pacote do apt e, se não houver, baixa o binário estático (musl) do GitHub para ~/.local/bin. Remover apaga o binário ou purga o pacote, conforme o que o recibo registrou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/eza"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
+  },
+  {
+   "id": "starship",
+   "name": "starship",
+   "category": "dev",
+   "description": "starship: prompt minimalista e rápido",
+   "minutes": 1,
+   "mb": 10,
+   "sudo": false,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o starship, um prompt de shell rápido, pelo instalador oficial em ~/.local/bin. Não altera a configuração do shell. Remover apaga o binário se foi o PowerTerminal quem o criou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/starship"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
+  },
+  {
+   "id": "lazygit",
+   "name": "lazygit",
+   "category": "dev",
+   "description": "lazygit: TUI para git",
+   "minutes": 1,
+   "mb": 20,
+   "sudo": false,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o lazygit, uma interface de terminal para o git, baixando o binário da versão mais recente do GitHub para ~/.local/bin, e liga ~/.config/lazygit à configuração do repositório. Remover apaga o binário e o link que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/lazygit"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/lazygit"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
+  },
+  {
+   "id": "lazydocker",
+   "name": "lazydocker",
+   "category": "dev",
+   "description": "lazydocker: TUI para docker",
+   "minutes": 1,
+   "mb": 20,
+   "sudo": false,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o lazydocker, uma interface de terminal para o Docker, pelo script oficial em ~/.local/bin, e liga ~/.config/lazydocker à configuração do repositório. Ele só é útil com Docker ou Podman instalados. Remover apaga o binário e o link que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/lazydocker"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/lazydocker"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
+  },
+  {
+   "id": "uv",
+   "name": "uv",
+   "category": "dev",
+   "description": "uv: gerenciador Python da Astral",
+   "minutes": 1,
+   "mb": 40,
+   "sudo": false,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o uv, gerenciador de pacotes e ambientes Python da Astral, pelo instalador oficial, que grava uv e uvx em ~/.local/bin. Não mexe no Python do sistema. Remover apaga os binários que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/uv"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/uvx"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
+  },
+  {
+   "id": "yazi",
+   "name": "yazi",
+   "category": "dev",
+   "description": "yazi: gerenciador de arquivos no terminal",
+   "minutes": 1,
+   "mb": 15,
+   "sudo": false,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o yazi, um gerenciador de arquivos de terminal, baixando a build estática (musl) do GitHub: os binários yazi e ya vão para ~/.local/bin. Liga também ~/.config/yazi à configuração do repositório. Remover apaga os binários e o link que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/yazi"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/ya"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/yazi"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
   },
   {
    "id": "node",
@@ -190,7 +592,24 @@
    "origin": "deduced",
    "can_update": true,
    "can_remove": true,
-   "data_mb": null
+   "data_mb": null,
+   "about": "Instala o Node.js LTS por um gerenciador de versões: o nvm, em ~/.nvm, ou o n, em ~/n, conforme a sua escolha. Nada é instalado no sistema e não pede sudo. Remover apaga o diretório do gerenciador que o PowerTerminal criou.",
+   "provides": [
+    {
+     "kind": "dir",
+     "value": "~/n"
+    }
+   ],
+   "requires": [
+    "git",
+    "curl"
+   ],
+   "receipt": [
+    {
+     "kind": "dir",
+     "value": "~/n"
+    }
+   ]
   },
   {
    "id": "claude",
@@ -205,8 +624,23 @@
    "state": "preexisting",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o Claude Code, a CLI da Anthropic, pelo instalador nativo: o binário fica em ~/.local/bin e os arquivos em ~/.local/share/claude. Não pede sudo. Remover apaga essa instalação, mas deixa ~/.claude e ~/.claude.json, que são dados seus.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/claude"
+    },
+    {
+     "kind": "dir",
+     "value": "~/.local/share/claude"
+    }
+   ],
+   "requires": [
+    "curl"
+   ],
+   "receipt": []
   },
   {
    "id": "helpers",
@@ -221,24 +655,141 @@
    "state": "available",
    "origin": null,
    "can_update": false,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Liga os cheatsheets myastro, mykitty e myyazi em ~/.local/bin, para consultar atalhos do AstroNvim, do Kitty e do Yazi no terminal. Só cria links para o repositório e não pede sudo. Remover desfaz os links e restaura o arquivo anterior, se houve backup.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/myastro"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/mykitty"
+    },
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/myyazi"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
-   "id": "extras",
-   "name": "Configs extras",
+   "id": "btop",
+   "name": "btop",
    "category": "extras",
-   "description": "Configs auxiliares (btop, ranger, yazi, lazygit, lazydocker, picom, flameshot)",
+   "description": "btop: monitor de recursos no terminal",
    "minutes": 1,
    "mb": 5,
-   "sudo": false,
+   "sudo": true,
    "needs": [],
    "editor": false,
    "state": "available",
    "origin": null,
-   "can_update": false,
-   "can_remove": true,
-   "data_mb": null
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o btop, um monitor de recursos de terminal, pelo apt, e liga ~/.config/btop à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "btop"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/btop"
+    }
+   ],
+   "requires": [],
+   "receipt": []
+  },
+  {
+   "id": "ranger",
+   "name": "ranger",
+   "category": "extras",
+   "description": "ranger: gerenciador de arquivos no terminal",
+   "minutes": 1,
+   "mb": 5,
+   "sudo": true,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o ranger, um gerenciador de arquivos de terminal, pelo apt, e liga ~/.config/ranger à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "ranger"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/ranger"
+    }
+   ],
+   "requires": [],
+   "receipt": []
+  },
+  {
+   "id": "picom",
+   "name": "picom",
+   "category": "extras",
+   "description": "picom: compositor X11 (transparência e sombras)",
+   "minutes": 1,
+   "mb": 5,
+   "sudo": true,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o picom, um compositor X11 para transparência e sombras, pelo apt, e liga ~/.config/picom à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "picom"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/picom"
+    }
+   ],
+   "requires": [],
+   "receipt": []
+  },
+  {
+   "id": "flameshot",
+   "name": "flameshot",
+   "category": "extras",
+   "description": "flameshot: captura de tela com anotações",
+   "minutes": 1,
+   "mb": 10,
+   "sudo": true,
+   "needs": [],
+   "editor": false,
+   "state": "available",
+   "origin": null,
+   "can_update": true,
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o flameshot, uma ferramenta de captura de tela com anotações, pelo apt, e liga ~/.config/flameshot à configuração do repositório. Altera o sistema e pede sudo. Remover purga o pacote, se foi o PowerTerminal quem o instalou, e desfaz o link.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "flameshot"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/flameshot"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "notiont",
@@ -253,8 +804,17 @@
    "state": "preexisting",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": null
+   "can_remove": false,
+   "data_mb": null,
+   "about": "Instala o notion-t, uma CLI interativa para notas no Notion, a partir do GitHub com o pipx, que o módulo instala pelo apt quando falta. O binário fica em ~/.local/bin e o token do Notion é pedido na primeira execução. Remover desinstala o notion-t do pipx.",
+   "provides": [
+    {
+     "kind": "bin",
+     "value": "~/.local/bin/notion-t"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "container",
@@ -271,8 +831,45 @@
    "state": "preexisting",
    "origin": null,
    "can_update": true,
-   "can_remove": true,
-   "data_mb": 2048
+   "can_remove": false,
+   "data_mb": 2048,
+   "about": "Instala o Docker Engine, com buildx e Compose, pelo repositório oficial, ou o Podman rootless, conforme a sua escolha. O Docker ativa o serviço e coloca o seu usuário no grupo docker; o Podman configura o mapeamento rootless e o socket. Altera o sistema, pede sudo e é pulado dentro de containers. Remover desfaz o que o recibo registrou e preserva imagens e volumes, a menos que você peça para apagá-los.",
+   "provides": [
+    {
+     "kind": "apt",
+     "value": "docker-ce"
+    },
+    {
+     "kind": "apt",
+     "value": "docker-ce-cli"
+    },
+    {
+     "kind": "apt",
+     "value": "containerd.io"
+    },
+    {
+     "kind": "apt",
+     "value": "docker-buildx-plugin"
+    },
+    {
+     "kind": "apt",
+     "value": "docker-compose-plugin"
+    },
+    {
+     "kind": "repo",
+     "value": "https://download.docker.com/linux"
+    },
+    {
+     "kind": "service",
+     "value": "docker.service"
+    },
+    {
+     "kind": "group",
+     "value": "docker"
+    }
+   ],
+   "requires": [],
+   "receipt": []
   },
   {
    "id": "theme",
@@ -288,7 +885,25 @@
    "origin": "deduced",
    "can_update": false,
    "can_remove": true,
-   "data_mb": null
+   "data_mb": null,
+   "about": "Aplica o mesmo flavor Catppuccin ao Kitty, ao Neovim, ao prompt e ao tema do Claude Code. A escolha fica em ~/.config/powerterminal/theme e o Kitty recebe um include derivado, current-theme.conf. Remover repõe o mocha onde ainda são links do repositório e não toca nas configurações do Claude Code.",
+   "provides": [
+    {
+     "kind": "config",
+     "value": "~/.config/powerterminal"
+    },
+    {
+     "kind": "config",
+     "value": "~/.config/kitty/current-theme.conf"
+    }
+   ],
+   "requires": [],
+   "receipt": [
+    {
+     "kind": "link",
+     "value": "~/.config/powerterminal"
+    }
+   ]
   }
  ]
 }

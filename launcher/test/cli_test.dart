@@ -30,7 +30,7 @@ void main() {
       },
     );
     final c = await cli.catalog();
-    expect(c.modules.length, 15);
+    expect(c.modules.length, 23);
     expect(exe, '/repo/bin/powerterminal');
     expect(cli.executable, '/repo/bin/powerterminal');
     expect(args, ['catalog', '--json']);
