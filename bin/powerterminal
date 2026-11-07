@@ -29,7 +29,32 @@ done
 trap pn_cleanup EXIT
 
 # Lista canônica e ordenada
-_PN_ALL_MODULES=(apt fonts zsh nvim astronvim vscode kitty tools node claude helpers extras notiont container theme)
+_PN_ALL_MODULES=(apt fonts zsh nvim astronvim vscode kitty eza starship lazygit lazydocker uv yazi node claude helpers extras notiont container theme)
+
+# _vf_module_aliases NOME — módulos de um apelido (um por linha); falha se NOME não é apelido.
+_vf_module_aliases() {
+  case "$1" in
+    tools) printf '%s\n' eza starship lazygit lazydocker uv yazi ;;
+    *) return 1 ;;
+  esac
+}
+
+# _vf_expand_aliases CSV — lista CSV com os apelidos trocados pelos módulos, um por linha, sem repetir.
+_vf_expand_aliases() {
+  local -a itens=()
+  local -A visto=()
+  local m x
+  IFS=',' read -ra itens <<< "$1"
+  for m in "${itens[@]}"; do
+    if _vf_module_aliases "$m" >/dev/null; then
+      while IFS= read -r x; do
+        [[ -n "${visto[$x]:-}" ]] || { visto[$x]=1; echo "$x"; }
+      done < <(_vf_module_aliases "$m")
+    elif [[ -z "${visto[$m]:-}" ]]; then
+      visto[$m]=1; echo "$m"
+    fi
+  done
+}
 
 _vf_editor_modules() {
   case "$1" in
@@ -66,7 +91,7 @@ _vf_profile_modules() {
   case "$perfil" in
     minimal) echo "apt fonts zsh helpers"; return 0 ;;
     dev)
-      for m in apt fonts zsh kitty tools node claude helpers container theme; do quer[$m]=1; done ;;
+      for m in apt fonts zsh kitty eza starship lazygit lazydocker uv yazi node claude helpers container theme; do quer[$m]=1; done ;;
     full)
       for m in "${_PN_ALL_MODULES[@]}"; do
         _vf_is_editor_module "$m" || quer[$m]=1
@@ -177,7 +202,7 @@ cmd_install() {
     modules=( $(_vf_profile_modules "$profile" || die "Profile inválido: $profile (use minimal|dev|full)") )
   elif [[ -n "$modules_csv" ]]; then
     local pedidos=()
-    IFS=',' read -ra pedidos <<< "$modules_csv"
+    while IFS= read -r m; do pedidos+=("$m"); done < <(_vf_expand_aliases "$modules_csv")
     for m in "${pedidos[@]}"; do
       declare -F "mod_${m}_install" >/dev/null || die "Módulo desconhecido: $m"
       # pn_expand_deps filtra pela ordem canônica: um módulo fora do array
@@ -365,7 +390,7 @@ cmd_remove() {
 
   local -a pedidos=() alvos=()
   local -A pedido=()
-  IFS=',' read -ra pedidos <<< "$modules_csv"
+  while IFS= read -r m; do pedidos+=("$m"); done < <(_vf_expand_aliases "$modules_csv")
   for m in "${pedidos[@]}"; do
     _vf_is_registered "$m" || die "Módulo desconhecido: $m"
     declare -F "mod_${m}_remove" >/dev/null || die "O módulo $m não pode ser removido."
@@ -560,7 +585,7 @@ cmd_update() {
   local -a pedidos=() alvos=()
   local -A pedido=()
   if [[ -n "$modules_csv" ]]; then
-    IFS=',' read -ra pedidos <<< "$modules_csv"
+    while IFS= read -r m; do pedidos+=("$m"); done < <(_vf_expand_aliases "$modules_csv")
     for m in "${pedidos[@]}"; do
       _vf_is_registered "$m" || die "Módulo desconhecido: $m"
       declare -F "mod_${m}_update" >/dev/null \
@@ -797,8 +822,8 @@ ${C_B}powerterminal update${C_R} [--module a,b] [--yes] [--dry-run] [--events-fd
   --dry-run          simula: mostra o que seria rodado
   --events-fd N      eventos JSON Lines no descritor N
 
-Módulos com atualização própria: apt, zsh, nvim, vscode, kitty, tools, node,
-claude, container, notiont. Os demais mudam junto com a release do PowerTerminal.
+Módulos com atualização própria: apt, zsh, nvim, vscode, kitty, eza, starship, lazygit,
+lazydocker, uv, yazi, node, claude, container, notiont (tools = as seis CLIs). Os demais mudam junto com a release do PowerTerminal.
 O update só reinstala o que o recibo diz ser do PowerTerminal e só faz upgrade de
 pacote apt já instalado; módulo ausente não é instalado, e o recibo não muda.
 EOF

@@ -186,7 +186,7 @@ section_pnvim() {
   key "Q"                    "sai SEM gravar o cwd-file (não troca de dir)"
   note "EDITOR=nvim: abrir um arquivo no yazi o abre no Neovim"
   note "Função y + EDITOR definidos em ~/.zshrc (gerenciado pelo PowerTerminal)"
-  note "Binário instalado pelo módulo 'tools' (build musl em ~/.local/bin)"
+  note "Binário instalado pelo módulo 'yazi' (build musl em ~/.local/bin)"
 }
 
 section_config() {
