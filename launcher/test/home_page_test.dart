@@ -152,6 +152,36 @@ void main() {
     expect(find.text('Instalar 4 restantes'), findsOneWidget);
   });
 
+  testWidgets('erro ao recarregar com catálogo vira banner sobre os cards', (
+    t,
+  ) async {
+    var fail = false;
+    final q = await controller(
+      result: () => fail
+          ? ProcessResult(1, 2, '', 'falhou feio')
+          : ProcessResult(1, 0, _fixture, ''),
+    );
+    await show(t, q);
+    fail = true;
+    await t.runAsync(q.refresh);
+    await t.pump();
+    expect(q.catalog, isNotNull);
+    expect(
+      find.text('Não foi possível ler o catálogo da CLI.'),
+      findsOneWidget,
+    );
+    expect(find.text('Tentar de novo'), findsOneWidget);
+    expect(cards(t), 15);
+    fail = false;
+    await t.tap(find.text('Tentar de novo'));
+    await t.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await t.pump();
+    expect(find.text('Tentar de novo'), findsNothing);
+    expect(cards(t), 15);
+  });
+
   testWidgets('erro de catálogo mostra Tentar de novo', (t) async {
     final q = await controller(
       result: () => ProcessResult(1, 2, '', 'falhou feio'),

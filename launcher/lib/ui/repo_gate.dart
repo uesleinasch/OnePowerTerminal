@@ -4,11 +4,26 @@ import 'package:flutter/material.dart';
 
 import '../cli/cli.dart';
 import '../repo/repo_copy.dart';
+import '../session/text_clean.dart';
 import '../theme/app_theme.dart';
 
 const kInstallCommand =
     'curl -fsSL https://raw.githubusercontent.com/uesleinasch/OnePowerTerminal/main/install.sh | bash';
-const kPullCommand = 'git -C ~/PowerTerminal pull --ff-only';
+final _plainPath = RegExp(r'^[A-Za-z0-9._/+-]+$');
+
+String pullCommand(String dir, String home) {
+  final base = home.endsWith('/') ? home.substring(0, home.length - 1) : home;
+  final rest = base.isNotEmpty && dir.startsWith('$base/')
+      ? dir.substring(base.length + 1)
+      : null;
+  final String path;
+  if (rest != null && _plainPath.hasMatch(rest)) {
+    path = '~/$rest';
+  } else {
+    path = _plainPath.hasMatch(dir) ? dir : shQuote(dir);
+  }
+  return 'git -C $path pull --ff-only';
+}
 
 enum _Stage {
   loading,
@@ -189,7 +204,7 @@ class _RepoGateState extends State<RepoGate> {
           body: _detail.isEmpty
               ? 'Rode no terminal:'
               : '$_detail\n\nRode no terminal:',
-          command: kPullCommand,
+          command: pullCommand(_repo.dir, _repo.home),
         );
     }
   }

@@ -67,8 +67,8 @@ class _HomePageState extends State<HomePage> {
       builder: (context, _) {
         final ctl = widget.controller;
         final catalog = ctl.catalog;
-        if (ctl.catalogError != null) return _errorView(context);
         if (catalog == null) {
+          if (ctl.catalogError != null) return _errorView(context);
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -89,6 +89,7 @@ class _HomePageState extends State<HomePage> {
                   onToggleTheme: widget.onToggleTheme,
                   onOpenActivity: () => _open.value = true,
                 ),
+                if (ctl.catalogError != null) _errorBanner(context),
                 Expanded(
                   child: _withPanel(
                     w,
@@ -240,11 +241,34 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  String _errorMessage() {
+    final e = widget.controller.catalogError;
+    return e is CatalogError ? e.message : '$e';
+  }
+
+  Widget _errorBanner(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return MaterialBanner(
+      backgroundColor: cs.errorContainer,
+      leading: Icon(Icons.error_rounded, color: cs.onErrorContainer),
+      content: Text(
+        _errorMessage(),
+        style: TextStyle(color: cs.onErrorContainer),
+      ),
+      actions: [
+        TextButton(
+          onPressed: widget.controller.refresh,
+          child: const Text('Tentar de novo'),
+        ),
+      ],
+    );
+  }
+
   Widget _errorView(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final e = widget.controller.catalogError;
-    final message = e is CatalogError ? e.message : '$e';
+    final message = _errorMessage();
     final stderr = e is CatalogError ? e.stderr : null;
     return Scaffold(
       body: Center(

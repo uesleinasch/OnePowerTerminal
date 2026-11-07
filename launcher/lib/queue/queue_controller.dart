@@ -97,11 +97,14 @@ class QueueController extends ChangeNotifier {
   var _opCounter = 0;
   var _disposed = false;
   var _logNotifyScheduled = false;
+  var _logAppended = 0;
+  Future<void>? _shutdown;
 
   List<QueueItem> get pending => List.unmodifiable(_pending);
   QueueItem? get current => _current;
   bool get sudoUnlocked => _sudoUnlocked;
   List<String> get log => _logView;
+  int get logAppended => _logAppended;
   List<PendingRestart> get pendingRestarts => List.unmodifiable(_restarts);
 
   CardStatus status(String id) => _statuses[id] ?? const CardStatus();
@@ -519,6 +522,7 @@ class QueueController extends ChangeNotifier {
 
   void _addLog(String line) {
     _log.add(line);
+    _logAppended++;
     if (_log.length > _maxLog) _log.removeRange(0, _log.length - _maxLog);
     if (_logNotifyScheduled) return;
     _logNotifyScheduled = true;
@@ -528,6 +532,11 @@ class QueueController extends ChangeNotifier {
     });
   }
 
+  Future<void> shutdown() {
+    dispose();
+    return _shutdown ?? Future.value();
+  }
+
   @override
   void dispose() {
     if (_disposed) return;
@@ -535,7 +544,7 @@ class QueueController extends ChangeNotifier {
     _pending.clear();
     _awaiting.clear();
     _signalUnlock();
-    unawaited(_closeSession());
+    _shutdown = _closeSession();
     super.dispose();
   }
 }
