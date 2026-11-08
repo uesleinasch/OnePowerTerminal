@@ -37,7 +37,7 @@ for c in chsh gpasswd usermod; do mkshim "$c"; done
 # apt-get -s X responde com o conteúdo de $TMP/sim-X (simulação da purga, do autoremove).
 mkshim apt-get "[[ \"\${1:-}\" == -s ]] && cat \"$TMP/sim-\${2:-}\" 2>/dev/null; exit 0"
 mkshim dpkg "[[ \"\${1:-}\" == -s ]] && grep -qxF -- \"\${2:-}\" '$TMP/dpkg-ausentes' 2>/dev/null && exit 1; exit 0"
-mkshim pipx "[[ \"\${1:-}\" == list ]] && cat '$TMP/pipx-list' 2>/dev/null; exit 0"
+mkshim pipx "[[ \"\${1:-}\" == list ]] && { [[ -f '$TMP/pipx-list' ]] && printf '{\"venvs\": {\"%s\": {}}}\n' \"\$(cat '$TMP/pipx-list')\" || echo '{\"venvs\": {}}'; }; exit 0"
 mkshim systemctl "[[ \"\${2:-}\" == cat ]] && exit \"\$(cat '$TMP/unit-rc' 2>/dev/null || echo 0)\"; exit 0"
 
 # apt-get dos testes que sourceiam as funções: só simula, sem log (o LOG guarda o que o as_sudo faria).
@@ -211,7 +211,7 @@ out="$(pt remove --module notiont --yes 2>&1)" && rc=0 || rc=$?
 
 it "pipx que lista o pacote desinstala"
 reset
-printf 'notion-t 0.1.0\n' >"$TMP/pipx-list"
+printf 'notion-t' >"$TMP/pipx-list"
 recibo notiont 'origin	installed' 'pipx	notion-t'
 pt remove --module notiont --yes >/dev/null 2>&1 || true
 [[ ! -e "$R/notiont" ]] && grep -qx 'pipx uninstall notion-t' "$LOG" && pass || fail "$(cat "$LOG")"
@@ -262,6 +262,7 @@ assert_eq "helpers fonts" "$(python3 -c 'import json,sys;print(" ".join(e["modul
 undo_env() {
   reset
   export HOME="$TMP/home" XDG_STATE_HOME="$TMP/state"
+  export POWERTERMINAL_TESTING=1 POWERTERMINAL_APT_ETC="$TMP/etc-apt-vazio"; _PN_APT_ETC="$POWERTERMINAL_APT_ETC"
   DRY_RUN=0
   POWERTERMINAL_NOTES_FILE="$TMP/notes"; : >"$POWERTERMINAL_NOTES_FILE"
   as_sudo() { printf 'sudo %s\n' "$*" >>"$LOG"; }
@@ -475,7 +476,7 @@ it "group, pipx, subids, user_unit e apt_repo chamam o comando certo"
   run() { printf '%s\n' "$*" >>"$LOG"; }
   apt_update_once() { printf 'apt-get update\n' >>"$LOG"; }
   _pn_user_in_group() { return 0; }
-  pipx() { [[ "$1" == list ]] && echo "notion-t 0.1.0"; return 0; }
+  pipx() { [[ "$1" == list ]] && echo '{"venvs": {"notion-t": {}}}'; return 0; }
   systemctl() { return 0; }
   _PN_SUBID_RANGE_START=100000 _PN_SUBID_RANGE_END=165535
   u="$(id -un)"
@@ -576,6 +577,7 @@ assert_contains "$out" "Nada do PowerTerminal"
 
 it "remove de vscode purga o code e apaga o repositório"
 reset
+export POWERTERMINAL_TESTING=1 POWERTERMINAL_APT_ETC="$TMP/etc-apt-vazio"
 recibo vscode 'origin	installed' 'apt_repo	vscode' 'apt	code'
 pt remove --module vscode --yes >/dev/null 2>&1 || true
 grep -qxF 'sudo env DEBIAN_FRONTEND=noninteractive apt-get purge -y code' "$LOG" \
@@ -652,7 +654,7 @@ echo /usr/bin/zsh >"$TMP/login-shell"
 mkdir -p "$TMP/home/.oh-my-zsh"
 recibo zsh 'origin	installed' 'apt	zsh' "dir	$TMP/home/.oh-my-zsh"
 pt remove --module zsh --yes >/dev/null 2>&1 && rc=0 || rc=$?
-[[ "$rc" -ne 0 && -d "$TMP/home/.oh-my-zsh" ]] && ! grep -q purge "$LOG" \
+[[ "$rc" -ne 0 && -d "$TMP/home/.oh-my-zsh" ]] && ! grep -q 'purge -y' "$LOG" \
   && [[ "$(wc -l <"$R/zsh")" -eq 3 ]] && pass || fail "rc=$rc $(cat "$LOG")"
 
 it "zsh não é purgado quando outra conta usa zsh como shell de login"

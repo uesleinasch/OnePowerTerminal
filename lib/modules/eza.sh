@@ -18,6 +18,7 @@ mod_eza_provides() {
 }
 
 mod_eza_adopt() {
+  _pn_adopt_apt eza
   _pn_adopt_path file "$HOME/.local/bin/eza" eza
 }
 

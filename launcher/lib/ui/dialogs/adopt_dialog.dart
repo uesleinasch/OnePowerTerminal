@@ -15,7 +15,8 @@ Future<bool> showAdoptDialog(
       title: Text('Gerenciar ${module.name}?'),
       content: Text(
         'O PowerTerminal aplica a config dele (a sua vira backup) e passa a '
-        'cuidar deste programa. Remover depois desinstala o programa também.',
+        'cuidar do que reconhecer deste programa. O que ele assumir sai junto '
+        'no Remover.',
         style: Theme.of(ctx).textTheme.bodyMedium
             ?.copyWith(color: Theme.of(ctx).colorScheme.onSurfaceVariant),
       ),
