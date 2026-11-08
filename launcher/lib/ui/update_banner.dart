@@ -30,6 +30,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
   double? _progress;
   String? _error;
   String? _savedPath;
+  bool _waiting = false;
 
   void _open(Uri url) {
     final open = widget.openUrl;
@@ -43,12 +44,16 @@ class _UpdateBannerState extends State<UpdateBanner> {
     setState(() {
       _progress = 0;
       _error = null;
+      _waiting = false;
     });
     try {
       final result = await updater.run(
         widget.release,
         onProgress: (p) {
           if (mounted) setState(() => _progress = p);
+        },
+        onWaiting: () {
+          if (mounted) setState(() => _waiting = true);
         },
       );
       if (mounted) {
@@ -61,6 +66,7 @@ class _UpdateBannerState extends State<UpdateBanner> {
       if (mounted) {
         setState(() {
           _progress = null;
+          _waiting = false;
           _error = e is SelfUpdateException ? e.message : 'Falha: $e';
         });
       }
@@ -76,6 +82,8 @@ class _UpdateBannerState extends State<UpdateBanner> {
     if (_savedPath != null) {
       text =
           'Salvo em $_savedPath. Feche o PowerTerminal e abra o arquivo novo.';
+    } else if (_waiting) {
+      text = 'Aguardando a fila terminar…';
     } else if (_error != null) {
       text = _error!;
     } else {

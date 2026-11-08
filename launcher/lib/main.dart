@@ -55,7 +55,12 @@ void main() {
       prefsFile: prefsFile,
       update: selfUpdate ? update : null,
       updater: selfUpdate
-          ? SelfUpdater(appImagePath: appImage, downloadsDir: '$home/Downloads')
+          ? SelfUpdater(
+              appImagePath: appImage,
+              downloadsDir: '$home/Downloads',
+              isBusy: () => controller.isBusy,
+              waitIdle: controller.whenIdle,
+            )
           : null,
       eventsDir: eventsDir,
       gate: (home) => RepoGate(

@@ -62,6 +62,7 @@ class UpdateChecker {
       final tag = json['tag_name'];
       if (tag is! String) return null;
       final version = tag.startsWith('v') ? tag.substring(1) : tag;
+      if (!RegExp(r'^\d+(\.\d+)*$').hasMatch(version)) return null;
       if (!isNewerVersion(version, current)) return null;
       final assets = json['assets'];
       if (assets is! List) return null;
