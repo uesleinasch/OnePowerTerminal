@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,6 +10,7 @@ import '../queue/queue_controller.dart';
 import '../system/prefs.dart';
 import '../theme/app_theme.dart';
 import 'activity_panel.dart';
+import 'dialogs/dialog_layout.dart';
 import 'format.dart';
 import 'home_actions.dart';
 import 'module_card.dart';
@@ -51,8 +53,84 @@ class _HomePageState extends State<HomePage> {
   late final ValueNotifier<bool> _ownOpen = ValueNotifier(false);
   ValueNotifier<bool> get _open => widget.activityOpen ?? _ownOpen;
 
+  StreamSubscription<OpFinished>? _finishedSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _finishedSub = widget.controller.finished.listen(_onFinished);
+  }
+
+  @override
+  void didUpdateWidget(HomePage old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      unawaited(_finishedSub?.cancel());
+      _finishedSub = widget.controller.finished.listen(_onFinished);
+    }
+  }
+
+  void _onFinished(OpFinished f) {
+    if (!f.ok || !mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    final name = widget.controller.catalog?.byId(f.id)?.name ?? f.id;
+    final verb = switch (f.kind) {
+      OpKind.install => 'instalado.',
+      OpKind.update => 'atualizado.',
+      OpKind.remove => 'removido.',
+    };
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('$name $verb'),
+          duration: const Duration(milliseconds: 4200),
+          action: f.notes.isEmpty
+              ? null
+              : SnackBarAction(
+                  label: 'Ver próximos passos',
+                  onPressed: () => _showNotes(name, f.notes),
+                ),
+        ),
+      );
+  }
+
+  void _showNotes(String name, List<String> notes) {
+    if (!mounted) return;
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          constraints: kDialogConstraints,
+          title: Text('Próximos passos de $name'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final n in notes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(n),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Fechar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    unawaited(_finishedSub?.cancel());
     _ownOpen.dispose();
     super.dispose();
   }

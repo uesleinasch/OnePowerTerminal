@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powerterminal_launcher/cli/cli.dart';
+import 'package:powerterminal_launcher/model/catalog.dart';
 import 'package:powerterminal_launcher/queue/queue_controller.dart';
+import 'package:powerterminal_launcher/session/pty_shell.dart';
 import 'package:powerterminal_launcher/theme/app_theme.dart';
 import 'package:powerterminal_launcher/ui/format.dart';
 import 'package:powerterminal_launcher/ui/home_page.dart';
@@ -32,6 +34,7 @@ Future<QueueController> controller({
   ProcessResult Function()? result,
   Map<String, String> states = const {},
   Map<String, String> descriptions = const {},
+  ShellFactory? shell,
 }) async {
   final body = _withStates(states, descriptions);
   final q = QueueController(
@@ -40,7 +43,7 @@ Future<QueueController> controller({
       runner: (exe, args, {workingDirectory, environment}) async =>
           result?.call() ?? ProcessResult(1, 0, body, ''),
     ),
-    shellFactory: () async => FakeShell(),
+    shellFactory: shell ?? () async => FakeShell(),
     repoDir: '/repo',
     eventsDir: Directory.systemTemp.createTempSync('pn-home-test'),
   );
@@ -78,7 +81,89 @@ Future<void> pickProfile(WidgetTester t, String p) async {
 
 int cards(WidgetTester t) => find.byType(Card).evaluate().length;
 
+Future<void> finish(WidgetTester t, QueueController q, QueueItem item) async {
+  await t.runAsync(() async {
+    await q.enqueue([item], askPassword: ({error}) async => null);
+    await q.whenIdle();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+  });
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 300));
+}
+
 void main() {
+  group('aviso de conclusão', () {
+    Future<QueueController> withShell(
+      WidgetTester t,
+      FakeShell Function() make,
+    ) async {
+      final shell = (await t.runAsync(() async => make()))!;
+      return (await t.runAsync(() => controller(shell: () async => shell)))!;
+    }
+
+    testWidgets('instalação ok mostra o snackbar por 4,2 s, sem ação', (
+      t,
+    ) async {
+      final q = await withShell(t, FakeShell.new);
+      await show(t, q);
+      final name = q.catalog!.byId('helpers')!.name;
+      await finish(t, q, const QueueItem('helpers', OpKind.install));
+      expect(find.text('$name instalado.'), findsOneWidget);
+      expect(find.text('Ver próximos passos'), findsNothing);
+      expect(
+        t.widget<SnackBar>(find.byType(SnackBar)).duration,
+        const Duration(milliseconds: 4200),
+      );
+    });
+
+    for (final (kind, text) in [
+      (OpKind.update, 'atualizado.'),
+      (OpKind.remove, 'removido.'),
+    ]) {
+      testWidgets('${kind.name} usa o verbo "$text"', (t) async {
+        final q = await withShell(t, FakeShell.new);
+        await show(t, q);
+        final name = q.catalog!.byId('helpers')!.name;
+        await finish(t, q, QueueItem('helpers', kind));
+        expect(find.text('$name $text'), findsOneWidget);
+      });
+    }
+
+    testWidgets('com notas, a ação abre o diálogo com elas', (t) async {
+      final q = await withShell(
+        t,
+        () => FakeShell(
+          events: {
+            'helpers': [
+              '{"event":"note","module":"helpers","text":"Abra um novo terminal."}',
+              '{"event":"note","module":"helpers","text":"Rode p10k configure."}',
+            ],
+          },
+        ),
+      );
+      await show(t, q);
+      await finish(t, q, const QueueItem('helpers', OpKind.install));
+      await t.tap(find.text('Ver próximos passos'));
+      await t.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('Abra um novo terminal.'), findsOneWidget);
+      expect(find.text('Rode p10k configure.'), findsOneWidget);
+      await t.tap(find.text('Fechar'));
+      await t.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets('falha não mostra snackbar de sucesso', (t) async {
+      final q = await withShell(
+        t,
+        () => FakeShell(results: {"'helpers'": const RunResult(1, false)}),
+      );
+      await show(t, q);
+      await finish(t, q, const QueueItem('helpers', OpKind.install));
+      expect(find.byType(SnackBar), findsNothing);
+    });
+  });
+
   testWidgets('largura de 500 px não gera exceção', (t) async {
     final q = await controller();
     t.view.physicalSize = const Size(500, 3000);

@@ -38,6 +38,16 @@ class QueueItem {
   final bool purgeData;
 }
 
+@immutable
+class OpFinished {
+  const OpFinished(this.id, this.kind, this.ok, this.notes);
+
+  final String id;
+  final OpKind kind;
+  final bool ok;
+  final List<String> notes;
+}
+
 class PendingRestart {
   const PendingRestart(this.module, this.reason);
 
@@ -99,7 +109,9 @@ class QueueController extends ChangeNotifier {
   var _logNotifyScheduled = false;
   var _logAppended = 0;
   Future<void>? _shutdown;
+  final _finished = StreamController<OpFinished>.broadcast();
 
+  Stream<OpFinished> get finished => _finished.stream;
   List<QueueItem> get pending => List.unmodifiable(_pending);
   QueueItem? get current => _current;
   bool get sudoUnlocked => _sudoUnlocked;
@@ -448,6 +460,7 @@ class QueueController extends ChangeNotifier {
     _addLog('[launcher] ${_verb(item.kind)} ${item.id}');
     var failed = false;
     String? error;
+    final notes = <String>[];
     File? file;
     ShellSession? used;
     try {
@@ -469,6 +482,8 @@ class QueueController extends ChangeNotifier {
           case SessionRestart(:final module, :final reason):
             _restarts.add(PendingRestart(module, reason));
             notifyListeners();
+          case Note(:final module, :final text) when module == item.id:
+            notes.add(text);
           case ModuleEnd(:final ok) when !ok:
             failed = true;
           default:
@@ -512,6 +527,9 @@ class QueueController extends ChangeNotifier {
           ? CardStatus(phase: CardPhase.failed, kind: item.kind, error: error)
           : CardStatus(kind: item.kind),
     );
+    if (!_finished.isClosed) {
+      _finished.add(OpFinished(item.id, item.kind, !failed, notes));
+    }
   }
 
   String _verb(OpKind k) => switch (k) {
@@ -545,6 +563,7 @@ class QueueController extends ChangeNotifier {
     _awaiting.clear();
     _signalUnlock();
     _shutdown = _closeSession();
+    unawaited(_finished.close());
     super.dispose();
   }
 }

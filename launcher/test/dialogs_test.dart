@@ -11,7 +11,9 @@ import 'package:powerterminal_launcher/ui/dialogs/editor_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/password_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/remove_dialog.dart';
 import 'package:powerterminal_launcher/ui/dialogs/session_restart_dialog.dart';
+import 'package:powerterminal_launcher/ui/dashed_border.dart';
 import 'package:powerterminal_launcher/ui/format.dart';
+import 'package:powerterminal_launcher/ui/module_parts.dart';
 
 final _catalog = Catalog.fromJson(
   jsonDecode(File('test/fixtures/catalog.json').readAsStringSync())
@@ -33,6 +35,14 @@ Future<BuildContext> _host(WidgetTester t) async {
   );
   return ctx;
 }
+
+double _dialogWidth(WidgetTester t) => t
+    .getSize(
+      find
+          .descendant(of: find.byType(Dialog), matching: find.byType(Material))
+          .first,
+    )
+    .width;
 
 void main() {
   group('senha', () {
@@ -104,6 +114,20 @@ void main() {
       await f;
     });
 
+    testWidgets('campo outlined com rótulo flutuante e largura 420', (t) async {
+      final ctx = await _host(t);
+      final f = showPasswordDialog(ctx);
+      await t.pumpAndSettle();
+      final d = t.widget<TextField>(find.byType(TextField)).decoration!;
+      expect(d.border, isA<OutlineInputBorder>());
+      expect(d.labelText, 'Senha');
+      expect(d.floatingLabelBehavior, FloatingLabelBehavior.always);
+      expect(_dialogWidth(t), 420);
+      await t.tap(find.text('Cancelar'));
+      await t.pumpAndSettle();
+      await f;
+    });
+
     testWidgets('botão mostra e oculta a senha', (t) async {
       final ctx = await _host(t);
       final f = showPasswordDialog(ctx);
@@ -134,8 +158,8 @@ void main() {
       final ast = _catalog.byId('astronvim')!;
       expect(
         find.text(
-          'Total: ~${nv.minutes + ast.minutes} min · '
-          '${formatMb(nv.mb + ast.mb)} · sudo',
+          'Total: 2 módulos · ~${nv.minutes + ast.minutes} min · '
+          '${formatMb(nv.mb + ast.mb)}',
         ),
         findsOneWidget,
       );
@@ -143,6 +167,58 @@ void main() {
       await t.pumpAndSettle();
       await f;
       expect(result, isFalse);
+    });
+
+    testWidgets('linhas com avatar de 40, tags, alvo tracejado e total', (
+      t,
+    ) async {
+      final ctx = await _host(t);
+      final nv = _catalog.byId('nvim')!;
+      final ast = _catalog.byId('astronvim')!;
+      final f = showDependencyDialog(ctx, target: ast, deps: [nv]);
+      await t.pumpAndSettle();
+      expect(_dialogWidth(t), 420);
+      expect(find.byType(CircleAvatar), findsNWidgets(2));
+      for (final a in find.byType(CircleAvatar).evaluate()) {
+        expect(
+          t.getSize(find.byElementPredicate((e) => e == a)),
+          const Size(40, 40),
+        );
+      }
+      final depRow = find.byKey(const ValueKey('dep-row-nvim'));
+      final targetRow = find.byKey(const ValueKey('dep-row-astronvim'));
+      expect(
+        find.descendant(of: depRow, matching: find.text('~${nv.minutes} min')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: depRow, matching: find.text(formatMb(nv.mb))),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: depRow, matching: find.text('sudo')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: depRow, matching: find.byType(ModuleTag)),
+        findsNWidgets(nv.sudo ? 3 : 2),
+      );
+      bool dashed(Finder row) => find
+          .descendant(of: row, matching: find.byType(CustomPaint))
+          .evaluate()
+          .any((e) => (e.widget as CustomPaint).painter is DashedBorderPainter);
+      expect(dashed(targetRow), isTrue);
+      expect(dashed(depRow), isFalse);
+      expect(
+        find.text(
+          'Total: 2 módulos · ~${nv.minutes + ast.minutes} min · '
+          '${formatMb(nv.mb + ast.mb)}',
+        ),
+        findsOneWidget,
+      );
+      await t.tap(find.text('Cancelar'));
+      await t.pumpAndSettle();
+      await f;
     });
 
     testWidgets('Instalar devolve true', (t) async {
@@ -275,6 +351,49 @@ void main() {
       await t.pumpAndSettle();
       await f;
       expect(result()!.purgeData, isTrue);
+    });
+
+    testWidgets('lista o que sai pelo recibo, até 6 itens e "e mais N"', (
+      t,
+    ) async {
+      final base = _catalog.byId('helpers')!;
+      ModuleInfo withReceipt(int n) => ModuleInfo(
+        id: base.id,
+        name: base.name,
+        category: base.category,
+        description: base.description,
+        minutes: base.minutes,
+        mb: base.mb,
+        sudo: base.sudo,
+        editor: base.editor,
+        canUpdate: base.canUpdate,
+        canRemove: true,
+        needs: base.needs,
+        state: base.state,
+        receipt: [
+          for (var i = 0; i < n; i++)
+            ModuleItem(kind: 'link', value: '~/.local/bin/item$i'),
+        ],
+      );
+      final ctx = await _host(t);
+      final f = showRemoveDialog(ctx, module: withReceipt(9), dependents: []);
+      await t.pumpAndSettle();
+      expect(_dialogWidth(t), 420);
+      expect(find.text('~/.local/bin/item0'), findsOneWidget);
+      expect(find.text('~/.local/bin/item5'), findsOneWidget);
+      expect(find.text('~/.local/bin/item6'), findsNothing);
+      expect(find.text('e mais 3'), findsOneWidget);
+      await t.tap(find.text('Cancelar'));
+      await t.pumpAndSettle();
+      await f;
+
+      final f2 = showRemoveDialog(ctx, module: withReceipt(6), dependents: []);
+      await t.pumpAndSettle();
+      expect(find.text('~/.local/bin/item5'), findsOneWidget);
+      expect(find.textContaining('e mais'), findsNothing);
+      await t.tap(find.text('Cancelar'));
+      await t.pumpAndSettle();
+      await f2;
     });
 
     testWidgets('módulo sem dados não mostra o checkbox', (t) async {
