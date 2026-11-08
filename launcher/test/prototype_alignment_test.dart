@@ -192,7 +192,7 @@ void main() {
     testWidgets('sobrevive a recriar a HomePage com o mesmo arquivo', (
       t,
     ) async {
-      final f = File('${dir.path}/powerterminal/launcher.json');
+      final f = File('${dir.path}/powerterminal-launcher/launcher.json');
       final q = await controller();
       await home(t, q, prefs: f, key: UniqueKey());
       await pickProfile(t, 'minimal');

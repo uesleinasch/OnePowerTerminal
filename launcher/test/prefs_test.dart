@@ -9,7 +9,7 @@ void main() {
   tearDown(() => dir.deleteSync(recursive: true));
 
   test('salva e lê o perfil, criando a pasta', () {
-    final f = File('${dir.path}/powerterminal/launcher.json');
+    final f = File('${dir.path}/powerterminal-launcher/launcher.json');
     const Prefs(profile: 'dev').save(f);
     expect(Prefs.load(f).profile, 'dev');
     expect(f.readAsStringSync(), '{"profile":"dev"}');
@@ -30,15 +30,15 @@ void main() {
   test('defaultFile respeita XDG_CONFIG_HOME e cai em ~/.config', () {
     expect(
       Prefs.defaultFile({'XDG_CONFIG_HOME': '/x', 'HOME': '/h'}).path,
-      '/x/powerterminal/launcher.json',
+      '/x/powerterminal-launcher/launcher.json',
     );
     expect(
       Prefs.defaultFile({'HOME': '/h'}).path,
-      '/h/.config/powerterminal/launcher.json',
+      '/h/.config/powerterminal-launcher/launcher.json',
     );
     expect(
       Prefs.defaultFile({'XDG_CONFIG_HOME': '', 'HOME': '/h'}).path,
-      '/h/.config/powerterminal/launcher.json',
+      '/h/.config/powerterminal-launcher/launcher.json',
     );
   });
 }

@@ -53,6 +53,15 @@ class _HomePageState extends State<HomePage> {
   late final ValueNotifier<bool> _ownOpen = ValueNotifier(false);
   ValueNotifier<bool> get _open => widget.activityOpen ?? _ownOpen;
 
+  late final HomeActions _actions = _LogAwareActions(widget.actions, _showLog);
+
+  void _showLog() {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    setState(() => _detailId = null);
+    _open.value = true;
+  }
+
   StreamSubscription<OpFinished>? _finishedSub;
 
   @override
@@ -86,6 +95,7 @@ class _HomePageState extends State<HomePage> {
         SnackBar(
           content: Text('$name $verb'),
           duration: const Duration(milliseconds: 4200),
+          persist: false,
           action: f.notes.isEmpty
               ? null
               : SnackBarAction(
@@ -219,7 +229,7 @@ class _HomePageState extends State<HomePage> {
                         ProfileSummary(
                           catalog: catalog,
                           profile: _profile,
-                          actions: widget.actions,
+                          actions: _actions,
                         ),
                         const SizedBox(height: 20),
                         ..._sections(context, catalog),
@@ -289,7 +299,7 @@ class _HomePageState extends State<HomePage> {
           module: module,
           status: ctl.status(id),
           catalog: catalog,
-          actions: widget.actions,
+          actions: _actions,
           onClose: asPage ? () => Navigator.of(context).pop() : _closeDetail,
           onDequeue: () => ctl.dequeue(id),
           waitingFor: runningId == null ? null : catalog.byId(runningId)?.name,
@@ -388,7 +398,7 @@ class _HomePageState extends State<HomePage> {
                               status: widget.controller.status(
                                 mods[start + i].id,
                               ),
-                              actions: widget.actions,
+                              actions: _actions,
                               onDequeue: () =>
                                   widget.controller.dequeue(mods[start + i].id),
                               waitingFor: waitingFor,
@@ -479,4 +489,24 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
+
+class _LogAwareActions implements HomeActions {
+  const _LogAwareActions(this._inner, this._onShowLog);
+
+  final HomeActions _inner;
+  final VoidCallback _onShowLog;
+
+  @override
+  void install(String id) => _inner.install(id);
+  @override
+  void update(String id) => _inner.update(id);
+  @override
+  void remove(String id) => _inner.remove(id);
+  @override
+  void installProfile(String profile) => _inner.installProfile(profile);
+  @override
+  void updateProfile(String profile) => _inner.updateProfile(profile);
+  @override
+  void showLog() => _onShowLog();
 }
