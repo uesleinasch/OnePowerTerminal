@@ -113,7 +113,7 @@ void main() {
     expect(find.text('Atividade'), findsOneWidget);
     expect(find.text('Nada na fila.'), findsOneWidget);
     expect(
-      find.text('Log · ~/.local/state/powerterminal/install.log'),
+      find.text('Log'),
       findsOneWidget,
     );
   });

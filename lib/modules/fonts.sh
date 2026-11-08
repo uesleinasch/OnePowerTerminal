@@ -45,7 +45,7 @@ mod_fonts_install() {
     local file="${entry%%|*}"
     local url="${entry#*|}"
     local dst="$_PN_FONTS_DIR/$file"
-    if [[ -f "$dst" ]]; then
+    if [[ -f "$dst" || -f "$HOME/.fonts/$file" ]]; then
       log_info "OK: $file"
     else
       download_to "$url" "$dst"

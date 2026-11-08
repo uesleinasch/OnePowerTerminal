@@ -11,7 +11,7 @@ class Prefs {
     final base = xdg != null && xdg.isNotEmpty
         ? xdg
         : '${env['HOME'] ?? ''}/.config';
-    return File('$base/powerterminal/launcher.json');
+    return File('$base/powerterminal-launcher/launcher.json');
   }
 
   static Prefs load(File file) {

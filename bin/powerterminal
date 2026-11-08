@@ -677,6 +677,11 @@ _vf_catalog_module() {
   else
     state=available; origin=""
   fi
+  if [[ "$state" == installed && -n "$(pn_receipt_entries "$m")" \
+    && -z "$(pn_receipt_entries "$m" | awk -F'\t' '$1 != "link"')" ]] \
+    && ! mod_"${m}"_installed; then
+    state=available; origin=""
+  fi
   if [[ -n "$origin" ]]; then origin="$(pn_json_str "$origin")"; else origin=null; fi
   dados=null
   if declare -F "mod_${m}_data_mb" >/dev/null; then
@@ -684,7 +689,7 @@ _vf_catalog_module() {
     [[ "$dados" =~ ^[0-9]+$ ]] || dados=null
   fi
   _vf_is_editor_module "$m" && editor=true
-  declare -F "mod_${m}_update" >/dev/null && upd=true
+  declare -F "mod_${m}_update" >/dev/null && [[ "$state" == installed ]] && upd=true
   declare -F "mod_${m}_remove" >/dev/null && [[ "$state" == installed ]] && rem=true
   if declare -F "mod_${m}_about" >/dev/null; then about="$(mod_"${m}"_about)"; else about="$meta"; fi
   if declare -F "mod_${m}_provides" >/dev/null; then
