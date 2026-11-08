@@ -289,6 +289,7 @@ passo_env() {
   mkdir -p "$HOME/.local/bin"
   POWERTERMINAL_HOME="$REPO_REAL"
   source "$REPO_REAL/lib/modules/kitty.sh"
+  # shellcheck source=/dev/null
   for f in eza starship lazygit lazydocker uv yazi; do source "$REPO_REAL/lib/modules/$f.sh"; done
   source "$REPO_REAL/lib/modules/node.sh"
   PN_RECEIPT_MODULE="$1"

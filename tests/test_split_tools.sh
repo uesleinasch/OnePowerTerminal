@@ -21,6 +21,7 @@ it "o módulo tools não existe mais"
 
 source lib/core.sh
 source lib/receipt.sh
+# shellcheck source=/dev/null
 for f in lib/modules/*.sh; do source "$f"; done
 
 it "cada ferramenta cumpre o contrato do módulo"
@@ -144,7 +145,7 @@ it "o perfil dev contém os seis e não contém tools"
 for f in _vf_is_editor_module _vf_editor_modules _vf_editor_default _vf_profile_modules; do
   eval "$(sed -n "/^$f()/,/^}/p" "$CLI")"
 done
-_PN_ALL_MODULES=($lista)
+read -ra _PN_ALL_MODULES <<<"$lista"
 dev="$(_vf_profile_modules dev nvim)"
 ruim=""
 for m in "${NOVOS[@]}"; do [[ " $dev " == *" $m "* ]] || ruim="$ruim $m"; done
