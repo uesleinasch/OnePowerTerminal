@@ -161,7 +161,7 @@ _vf_run_modules() {
       # O update reinstala por cima do que o install já registrou (ou não, se era do
       # usuário): gravar aqui poria no recibo o que o remove não pode apagar.
       if [[ "$action" == update ]]; then PN_RECEIPT_MODULE=""; fi
-      "mod_${m}_${action}"
+      if [[ "$action" == adopt ]]; then _vf_adopt_module "$m"; else "mod_${m}_${action}"; fi
     ) || rc=$?
     if [[ "$rc" -eq 0 ]]; then
       ok+=("$m")
@@ -173,6 +173,81 @@ _vf_run_modules() {
     fi
   done
   pn_event "done" "ok:=$(pn_json_array "${ok[@]+"${ok[@]}"}")" "failed:=$(pn_json_array "${failed[@]+"${failed[@]}"}")"
+}
+
+_vf_adopt_module() {
+  local m="$1" f
+  f="$(pn_receipt_path "$m")"
+  if [[ "$DRY_RUN" != "1" ]]; then
+    mkdir -p "$(dirname "$f")"
+    printf 'origin\tadopted\n' >"$f"
+  fi
+  if declare -F "mod_${m}_links" >/dev/null; then pn_link_module_links "$m"; fi
+  if declare -F "mod_${m}_adopt" >/dev/null; then "mod_${m}_adopt"; fi
+  if [[ "$DRY_RUN" != "1" && -z "$(pn_receipt_entries "$m")" ]]; then
+    rm -f "$f"
+    log_error "Nada para adotar em $m: nenhuma forma de instalação conhecida foi encontrada."
+    return 1
+  fi
+}
+
+_vf_is_preexisting() {
+  local m="$1"
+  pn_receipt_has "$m" && return 1
+  "mod_${m}_installed" && return 0
+  pn_installed_so_links "$m" && pn_links_copia "$m"
+}
+
+cmd_adopt() {
+  local modules_csv="" m
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
+      --yes|-y) POWERTERMINAL_NONINTERACTIVE=1; shift ;;
+      --dry-run) DRY_RUN=1; shift ;;
+      --events-fd) pn_events_open "${2:?--events-fd requer um número}"; shift 2 ;;
+      -h|--help) cmd_help adopt; return 0 ;;
+      *) die "Flag desconhecida: $1 (rode 'powerterminal help adopt')" ;;
+    esac
+  done
+  [[ -n "$modules_csv" ]] || die "adopt exige --module a,b (rode 'powerterminal help adopt')."
+
+  local -a pedidos=() alvos=()
+  while IFS= read -r m; do pedidos+=("$m"); done < <(_vf_expand_aliases "$modules_csv")
+  for m in "${pedidos[@]}"; do
+    _vf_is_registered "$m" || die "Módulo desconhecido: $m"
+    [[ "$m" != apt ]] || die "O módulo apt não pode ser adotado: ele é a base dos outros."
+  done
+
+  require_not_root
+  require_supported_distro
+  pn_receipts_migrate
+
+  for m in "${pedidos[@]}"; do
+    if _vf_is_preexisting "$m"; then
+      alvos+=("$m")
+    else
+      log_info "$m não está no estado 'já estava instalado' — nada a adotar."
+    fi
+  done
+
+  if [[ ${#alvos[@]} -eq 0 ]]; then
+    log_info "Nenhum módulo para adotar."
+    return 0
+  fi
+
+  log_info "Adotar: ${alvos[*]}"
+  [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será alterado."
+
+  local ok=() failed=()
+  _vf_run_modules adopt "${alvos[@]}"
+  print_post_install_notes
+
+  if [[ ${#failed[@]} -gt 0 ]]; then
+    log_warn "Módulos com falha: ${failed[*]}"
+    exit 1
+  fi
+  log_success "Adoção concluída."
 }
 
 cmd_install() {
@@ -375,7 +450,7 @@ _vf_remove_preview_receipts() {
 }
 
 cmd_remove() {
-  local modules_csv="" yes=0 purge=0 m i deps lista=""
+  local modules_csv="" yes=0 purge=0 adotados=0 m i deps lista=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --module|--modules) modules_csv="${2:?--module requer lista CSV}"; shift 2 ;;
@@ -421,6 +496,10 @@ cmd_remove() {
     deps="$(_vf_dependentes "$m" "${alvos[@]}")"
     [[ -n "$deps" ]] && log_warn "$deps dependem de $m e vão parar de funcionar."
     lista+="${lista:+, }$m"
+    if [[ "$(pn_receipt_origin "$m")" == adopted ]]; then
+      adotados=1
+      log_warn "$("mod_${m}_name") já existia antes do PowerTerminal: remover desinstala o programa também."
+    fi
   done
   [[ "$purge" -eq 1 ]] && log_warn "--purge-data: imagens, containers e volumes do runtime também serão apagados."
   [[ "$DRY_RUN" == "1" ]] && log_warn "DRY-RUN ativo — nada será apagado."
@@ -429,6 +508,10 @@ cmd_remove() {
     ui_confirm "Remover $lista?" || { log_info "Cancelado."; exit 0; }
     # Só o --yes deste comando pula esta pergunta: um POWERTERMINAL_NONINTERACTIVE
     # herdado do ambiente não pode apagar dados sem ninguém confirmar.
+    if [[ "$adotados" -eq 1 ]]; then
+      POWERTERMINAL_NONINTERACTIVE=0 ui_confirm "Desinstalar também o que já existia antes do PowerTerminal?" \
+        || { log_info "Cancelado."; exit 0; }
+    fi
     if [[ "$purge" -eq 1 ]]; then
       POWERTERMINAL_NONINTERACTIVE=0 ui_confirm "Apagar imagens, containers e volumes? Não dá para desfazer." \
         || { log_info "Cancelado."; exit 0; }
@@ -646,7 +729,7 @@ _vf_catalog_distro() {
 }
 
 _vf_catalog_module() {
-  local m="$1" f meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false
+  local m="$1" f meta cost minutos=0 mb=0 sudo=false state origin dados editor=false upd=false rem=false adopt=false
   local -a needs=() reqs=()
   local nome categoria about provides="" recibo=""
   for f in meta name category installed; do
@@ -682,6 +765,10 @@ _vf_catalog_module() {
     && ! mod_"${m}"_installed; then
     state=available; origin=""
   fi
+  if [[ "$state" == preexisting && "$m" != apt ]] \
+    && { declare -F "mod_${m}_adopt" >/dev/null || declare -F "mod_${m}_links" >/dev/null; }; then
+    adopt=true
+  fi
   if [[ -n "$origin" ]]; then origin="$(pn_json_str "$origin")"; else origin=null; fi
   dados=null
   if declare -F "mod_${m}_data_mb" >/dev/null; then
@@ -701,10 +788,10 @@ _vf_catalog_module() {
   if declare -F "mod_${m}_requires" >/dev/null; then
     mapfile -t reqs < <(mod_"${m}"_requires | cut -f1)
   fi
-  printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"data_mb":%s,"about":%s,"provides":[%s],"requires":%s,"receipt":[%s]}' \
+  printf '{"id":%s,"name":%s,"category":%s,"description":%s,"minutes":%s,"mb":%s,"sudo":%s,"needs":%s,"editor":%s,"state":"%s","origin":%s,"can_update":%s,"can_remove":%s,"can_adopt":%s,"data_mb":%s,"about":%s,"provides":[%s],"requires":%s,"receipt":[%s]}' \
     "$(pn_json_str "$m")" "$(pn_json_str "$nome")" "$(pn_json_str "$categoria")" \
     "$(pn_json_str "$meta")" "$minutos" "$mb" "$sudo" "$(pn_json_array "${needs[@]}")" \
-    "$editor" "$state" "$origin" "$upd" "$rem" "$dados" \
+    "$editor" "$state" "$origin" "$upd" "$rem" "$adopt" "$dados" \
     "$(pn_json_str "$about")" "$provides" "$(pn_json_array "${reqs[@]}")" "$recibo"
 }
 
@@ -761,6 +848,7 @@ ${C_B}Comandos:${C_R}
   theme     troca o flavor Catppuccin (kitty + Neovim + prompt)
   share     empacota o repo num .tar.gz para compartilhar com colegas
   update    atualiza módulos instalados (update --module a,b)
+  adopt     passa a gerenciar módulo já instalado fora (adopt --module a,b)
   help      ajuda (use 'help <comando>' para detalhes)
 
 ${C_B}Profiles:${C_R}
@@ -859,6 +947,20 @@ O update só reinstala o que o recibo diz ser do PowerTerminal e só faz upgrade
 pacote apt já instalado; módulo ausente não é instalado, e o recibo não muda.
 EOF
       ;;
+    adopt)
+      cat <<EOF
+${C_B}powerterminal adopt${C_R} --module a,b [--dry-run] [--events-fd N]
+
+  --module a,b       módulos no estado "já estava instalado"
+  --dry-run          simula: mostra o que seria feito
+  --events-fd N      eventos JSON Lines no descritor N
+
+Não baixa nem instala nada: aplica a config do repo com link_safe (a sua vira
+.pnbak) e registra num recibo com origem "adotado" o que existe do programa em
+formas que o remove sabe desfazer. Depois da adoção o módulo é gerenciado, e
+remover desinstala também o programa (com segunda confirmação). O apt não é adotável.
+EOF
+      ;;
     link|unlink|status|doctor|share)
       printf "powerterminal %s — %s\n" "$topic" "Use 'powerterminal $topic --dry-run' (quando aplicável) para simular."
       ;;
@@ -879,6 +981,7 @@ main() {
     theme)   cmd_theme   "$@" ;;
     share)   cmd_share   "$@" ;;
     update)  cmd_update  "$@" ;;
+    adopt)   cmd_adopt   "$@" ;;
     help|-h|--help) cmd_help "${1:-}" ;;
     version|--version|-V) cat "$POWERTERMINAL_ROOT/VERSION" ;;
     *) die "Comando desconhecido: $cmd. Rode 'powerterminal help'." ;;

@@ -37,7 +37,7 @@ it "dev inclui os três editores no catálogo"
 assert_eq True "$(campo 'all(x in d["profiles"]["dev"] for x in ("nvim","astronvim","vscode"))' <"$TMP/c.json")"
 
 it "cada módulo traz os campos do contrato"
-assert_eq True "$(campo 'all(set(m)=={"id","name","category","description","minutes","mb","sudo","needs","editor","state","origin","can_update","can_remove","data_mb","about","provides","requires","receipt"} for m in d["modules"])' <"$TMP/c.json")"
+assert_eq True "$(campo 'all(set(m)=={"id","name","category","description","minutes","mb","sudo","needs","editor","state","origin","can_update","can_remove","can_adopt","data_mb","about","provides","requires","receipt"} for m in d["modules"])' <"$TMP/c.json")"
 
 it "módulo sem recibo e com ferramenta presente é preexisting"
 PATH="$TMP/bin:$PATH" "$CLI" catalog --json >"$TMP/p.json" 2>/dev/null || true
