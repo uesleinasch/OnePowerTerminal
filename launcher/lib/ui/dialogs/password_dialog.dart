@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'dialog_layout.dart';
+
 final _control = RegExp(r'[\x00-\x1f\x7f]');
 
 Future<String?> showPasswordDialog(BuildContext context, {String? error}) {
@@ -48,51 +50,51 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return AlertDialog(
+      constraints: kDialogConstraints,
       icon: const Icon(Icons.lock_rounded),
       title: const Text('Senha de administrador'),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Alguns módulos instalam pacotes do sistema. A senha libera o '
-              'sudo durante esta fila e é descartada em seguida; o '
-              'PowerTerminal não a salva.',
-              style: Theme.of(context).textTheme.bodyMedium
-                  ?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              maxLines: 1,
-              obscureText: !_visible,
-              autofillHints: const [AutofillHints.password],
-              enableSuggestions: false,
-              autocorrect: false,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'Senha',
-                errorText: _error,
-                suffixIcon: IconButton(
-                  tooltip: _visible ? 'Ocultar senha' : 'Mostrar senha',
-                  icon: Icon(
-                    _visible
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded,
-                  ),
-                  onPressed: () => setState(() => _visible = !_visible),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Alguns módulos instalam pacotes do sistema. A senha libera o '
+            'sudo durante esta fila e é descartada em seguida; o '
+            'PowerTerminal não a salva.',
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            maxLines: 1,
+            obscureText: !_visible,
+            autofillHints: const [AutofillHints.password],
+            enableSuggestions: false,
+            autocorrect: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            onChanged: (_) {
+              if (_error != null) setState(() => _error = null);
+            },
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              labelText: 'Senha',
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              errorText: _error,
+              suffixIcon: IconButton(
+                tooltip: _visible ? 'Ocultar senha' : 'Mostrar senha',
+                icon: Icon(
+                  _visible
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
                 ),
+                onPressed: () => setState(() => _visible = !_visible),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       actions: [
         TextButton(

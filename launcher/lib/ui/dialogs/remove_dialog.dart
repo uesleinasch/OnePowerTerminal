@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../model/catalog.dart';
+import '../../theme/app_theme.dart';
 import '../format.dart';
+import '../module_detail.dart' show itemIcon;
 import 'dependency_dialog.dart';
+import 'dialog_layout.dart';
+
+const _maxItems = 6;
 
 class RemoveChoice {
   RemoveChoice({this.purgeData = false});
@@ -79,82 +84,108 @@ class _RemoveDialogState extends State<_RemoveDialog> {
     final many = deps.length > 1;
     final hasData = m.id == 'container' && m.dataMb != null;
     return AlertDialog(
+      constraints: kDialogConstraints,
       icon: Icon(Icons.delete_rounded, color: cs.error),
       title: Text('Remover ${m.name}?'),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                m.origin == 'deduced'
-                    ? 'Instalado antes do controle de remoção: só os links e '
-                          'arquivos do PowerTerminal saem. Configurações '
-                          'pessoais em ~/.config e backups .pnbak ficam onde '
-                          'estão.'
-                    : 'Sai o que o PowerTerminal instalou. Configurações '
-                          'pessoais em ~/.config e backups .pnbak ficam onde '
-                          'estão.',
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-              ),
-              if (deps.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: cs.errorContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              m.origin == 'deduced'
+                  ? 'Instalado antes do controle de remoção: só os links e '
+                        'arquivos do PowerTerminal saem. Configurações '
+                        'pessoais em ~/.config e backups .pnbak ficam onde '
+                        'estão.'
+                  : 'Sai o que o PowerTerminal instalou. Configurações '
+                        'pessoais em ~/.config e backups .pnbak ficam onde '
+                        'estão.',
+              style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            if (m.receipt.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final i in m.receipt.take(_maxItems))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.warning_rounded,
-                        color: cs.onErrorContainer,
-                        size: 24,
+                        itemIcon(i.kind),
+                        size: 16,
+                        color: cs.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${joinNames([for (final d in deps) d.name])} '
-                              '${many ? 'dependem' : 'depende'} de ${m.name}',
-                              style: tt.titleSmall?.copyWith(
-                                color: cs.onErrorContainer,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${many ? 'Eles continuam instalados, mas param' : 'Continua instalado, mas para'}'
-                              ' de funcionar até ${m.name} voltar.',
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onErrorContainer,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          i.value,
+                          style: tt.bodySmall?.copyWith(fontFamily: kMonoFont),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-              if (hasData)
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  value: _purge,
-                  onChanged: (v) => setState(() => _purge = v ?? false),
-                  title: Text(
-                    'Apagar também imagens, containers e volumes '
-                    '(${formatMb(m.dataMb!)})',
-                  ),
+              if (m.receipt.length > _maxItems)
+                Text(
+                  'e mais ${m.receipt.length - _maxItems}',
+                  style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
             ],
-          ),
+            if (deps.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.warning_rounded,
+                      color: cs.onErrorContainer,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${joinNames([for (final d in deps) d.name])} '
+                            '${many ? 'dependem' : 'depende'} de ${m.name}',
+                            style: tt.titleSmall?.copyWith(
+                              color: cs.onErrorContainer,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${many ? 'Eles continuam instalados, mas param' : 'Continua instalado, mas para'}'
+                            ' de funcionar até ${m.name} voltar.',
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onErrorContainer,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (hasData)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _purge,
+                onChanged: (v) => setState(() => _purge = v ?? false),
+                title: Text(
+                  'Apagar também imagens, containers e volumes '
+                  '(${formatMb(m.dataMb!)})',
+                ),
+              ),
+          ],
         ),
       ),
       actions: [

@@ -272,6 +272,71 @@ void main() {
     expect(q.pendingRestarts, isEmpty);
   });
 
+  test('finished emite uma vez por item, com as notas do módulo', () async {
+    final q = await make(
+      FakeShell(
+        events: {
+          "'helpers'": [
+            '{"event":"note","module":"helpers","text":"abra um novo terminal"}',
+            '{"event":"note","module":"outro","text":"não é daqui"}',
+            '{"event":"note","module":"helpers","text":"segunda nota"}',
+          ],
+        },
+      ),
+    );
+    final got = <OpFinished>[];
+    q.finished.listen(got.add);
+    await q.enqueue([
+      inst('helpers'),
+      QueueItem('theme', OpKind.update),
+    ], askPassword: ({error}) async => null);
+    await q.whenIdle();
+    await Future<void>.delayed(Duration.zero);
+    expect(got.map((f) => '${f.id}:${f.kind.name}:${f.ok}'), [
+      'helpers:install:true',
+      'theme:update:true',
+    ]);
+    expect(got[0].notes, ['abra um novo terminal', 'segunda nota']);
+    expect(got[1].notes, isEmpty);
+  });
+
+  test('finished emite ok=false quando o comando falha', () async {
+    final q = await make(
+      FakeShell(results: {"'helpers'": const RunResult(1, true)}),
+    );
+    final got = <OpFinished>[];
+    q.finished.listen(got.add);
+    await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await q.whenIdle();
+    await Future<void>.delayed(Duration.zero);
+    expect(got, hasLength(1));
+    expect(got.single.ok, isFalse);
+  });
+
+  test('finished emite ok=false quando a sessão morre no meio', () async {
+    final q = await make(
+      FakeShell(
+        onRun: (_) async =>
+            throw StateError('A sessão do shell foi encerrada.'),
+      ),
+    );
+    final got = <OpFinished>[];
+    q.finished.listen(got.add);
+    await q.enqueue([inst('helpers')], askPassword: ({error}) async => null);
+    await q.whenIdle();
+    await Future<void>.delayed(Duration.zero);
+    expect(got.map((f) => f.ok), [false]);
+  });
+
+  test('shutdown fecha finished sem erro', () async {
+    final q = await make(FakeShell());
+    var done = false;
+    q.finished.listen((_) {}, onDone: () => done = true);
+    await q.shutdown();
+    await Future<void>.delayed(Duration.zero);
+    expect(done, isTrue);
+  });
+
   test('dequeue só remove pendente; id repetido é ignorado', () async {
     late QueueController q;
     QueueItem? during;
