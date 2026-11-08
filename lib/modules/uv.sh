@@ -18,6 +18,11 @@ mod_uv_provides() {
   printf 'bin\t%s/.local/bin/uvx\n' "$HOME"
 }
 
+mod_uv_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/uv" uv
+  _pn_adopt_path file "$HOME/.local/bin/uvx" uvx
+}
+
 mod_uv_installed() { has_cmd uv; }
 
 mod_uv_requires() { printf 'curl\tcurl\n'; }

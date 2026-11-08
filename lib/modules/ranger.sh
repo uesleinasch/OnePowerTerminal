@@ -18,6 +18,10 @@ mod_ranger_provides() {
   printf 'config\t%s/.config/ranger\n' "$HOME"
 }
 
+mod_ranger_adopt() {
+  _pn_adopt_apt ranger ranger
+}
+
 mod_ranger_installed() { has_cmd ranger; }
 
 mod_ranger_links() { pn_config_links ranger; }

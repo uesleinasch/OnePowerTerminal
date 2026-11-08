@@ -20,6 +20,12 @@ mod_nvim_provides() {
   printf 'bin\t%s\n' "$_PN_NVIM_LINK"
 }
 
+mod_nvim_adopt() {
+  _pn_adopt_path dir "$_PN_NVIM_PREFIX/nvim-linux-x86_64" nvim
+  [[ -d "$_PN_NVIM_PREFIX/nvim-linux-x86_64" ]] && _pn_adopt_path file "$_PN_NVIM_LINK"
+  return 0
+}
+
 mod_nvim_installed() { has_cmd nvim; }
 
 _PN_NVIM_URL="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz"

@@ -24,6 +24,14 @@ mod_fonts_provides() {
   done
 }
 
+mod_fonts_adopt() {
+  local entry
+  for entry in "${_PN_FONTS[@]}"; do
+    [[ -f "$_PN_FONTS_DIR/${entry%%|*}" ]] && _pn_receipt file "$_PN_FONTS_DIR/${entry%%|*}"
+  done
+  return 0
+}
+
 mod_fonts_installed() {
   local entry
   for entry in "${_PN_FONTS[@]}"; do

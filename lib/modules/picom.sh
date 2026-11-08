@@ -18,6 +18,10 @@ mod_picom_provides() {
   printf 'config\t%s/.config/picom\n' "$HOME"
 }
 
+mod_picom_adopt() {
+  _pn_adopt_apt picom picom
+}
+
 mod_picom_installed() { has_cmd picom; }
 
 mod_picom_links() { pn_config_links picom; }

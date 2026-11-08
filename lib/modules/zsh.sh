@@ -26,6 +26,11 @@ mod_zsh_provides() {
   printf 'shell\tzsh\n'
 }
 
+mod_zsh_adopt() {
+  _pn_adopt_apt zsh zsh
+  _pn_adopt_path dir "$_PN_OMZ_DIR"
+}
+
 mod_zsh_installed() {
   has_cmd zsh && [[ -d "$_PN_OMZ_DIR" ]]
 }

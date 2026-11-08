@@ -19,6 +19,11 @@ mod_yazi_provides() {
   printf 'config\t%s/.config/yazi\n' "$HOME"
 }
 
+mod_yazi_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/yazi" yazi
+  _pn_adopt_path file "$HOME/.local/bin/ya" ya
+}
+
 mod_yazi_installed() { has_cmd yazi; }
 
 mod_yazi_requires() { printf 'curl\tcurl\n'; }

@@ -18,6 +18,10 @@ mod_flameshot_provides() {
   printf 'config\t%s/.config/flameshot\n' "$HOME"
 }
 
+mod_flameshot_adopt() {
+  _pn_adopt_apt flameshot flameshot
+}
+
 mod_flameshot_installed() { has_cmd flameshot; }
 
 mod_flameshot_links() { pn_config_links flameshot; }

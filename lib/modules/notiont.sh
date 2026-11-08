@@ -19,6 +19,14 @@ mod_notiont_provides() {
   printf 'bin\t%s/.local/bin/notion-t\n' "$HOME"
 }
 
+mod_notiont_adopt() {
+  if has_cmd pipx && pipx list --short 2>/dev/null | grep -q '^notion-t '; then
+    _pn_receipt pipx notion-t
+  else
+    _pn_adopt_forma_estranha notion-t pipx
+  fi
+}
+
 mod_notiont_installed() { has_cmd notion-t; }
 
 _PN_NOTIONT_GIT="git+https://github.com/uesleinasch/notion-t.git"
