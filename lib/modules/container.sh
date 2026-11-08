@@ -36,6 +36,15 @@ mod_container_provides() {
   fi
 }
 
+mod_container_adopt() {
+  local p
+  for p in "${_PN_DOCKER_PKGS[@]}" podman; do
+    _pn_adopt_apt "$p"
+  done
+  if [[ "$(pn_dpkg_estado docker-ce)" == installed ]]; then _pn_adopt_apt_repo docker; fi
+  return 0
+}
+
 mod_container_installed() { has_cmd docker || has_cmd podman; }
 
 mod_container_needs() { echo apt; }

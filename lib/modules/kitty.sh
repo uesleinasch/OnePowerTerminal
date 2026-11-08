@@ -25,6 +25,22 @@ mod_kitty_provides() {
   printf 'config\t%s/.local/share/applications/kitty-open.desktop\n' "$HOME"
 }
 
+mod_kitty_adopt() {
+  _pn_adopt_path dir "$_PN_KITTY_DIR" kitty
+  [[ -d "$_PN_KITTY_DIR" ]] || return 0
+  local b f
+  for b in kitty kitten; do
+    [[ -L "$HOME/.local/bin/$b" ]] || continue
+    [[ "$(readlink "$HOME/.local/bin/$b")" == "$_PN_KITTY_DIR/bin/$b" ]] && _pn_receipt link "$HOME/.local/bin/$b"
+  done
+  for f in kitty.desktop kitty-open.desktop; do
+    [[ -f "$HOME/.local/share/applications/$f" ]] \
+      && grep -qF -- "$_PN_KITTY_DIR" "$HOME/.local/share/applications/$f" \
+      && _pn_receipt file "$HOME/.local/share/applications/$f"
+  done
+  return 0
+}
+
 mod_kitty_installed() { [[ -x "$_PN_KITTY_DIR/bin/kitty" ]]; }
 
 mod_kitty_requires() { printf 'curl\tcurl\nxz\txz-utils\n'; }

@@ -18,6 +18,10 @@ mod_lazydocker_provides() {
   printf 'config\t%s/.config/lazydocker\n' "$HOME"
 }
 
+mod_lazydocker_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/lazydocker" lazydocker
+}
+
 mod_lazydocker_installed() { has_cmd lazydocker; }
 
 mod_lazydocker_requires() { printf 'curl\tcurl\n'; }

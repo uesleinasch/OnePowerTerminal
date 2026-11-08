@@ -20,6 +20,11 @@ mod_vscode_provides() {
   printf 'repo\t%s\n' "$_PN_VSCODE_REPO"
 }
 
+mod_vscode_adopt() {
+  _pn_adopt_apt code code
+  _pn_adopt_apt_repo vscode
+}
+
 mod_vscode_installed() { has_cmd code; }
 
 _PN_VSCODE_KEY="https://packages.microsoft.com/keys/microsoft.asc"

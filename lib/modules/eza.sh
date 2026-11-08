@@ -17,6 +17,10 @@ mod_eza_provides() {
   printf 'bin\t%s/.local/bin/eza\n' "$HOME"
 }
 
+mod_eza_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/eza" eza
+}
+
 mod_eza_installed() { has_cmd eza; }
 
 mod_eza_requires() { printf 'curl\tcurl\n'; }

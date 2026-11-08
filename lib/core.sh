@@ -127,6 +127,39 @@ _pn_receipt_criado() {
   _pn_receipt "$2" "$3"
 }
 
+# _pn_adopt_forma_estranha PROG CAMINHO — avisa que PROG existe, mas não em CAMINHO.
+_pn_adopt_forma_estranha() {
+  local onde
+  onde="$(command -v "$1" 2>/dev/null || true)"
+  [[ -n "$onde" ]] || return 0
+  log_warn "$1 em $onde não foi instalado de um jeito que o PowerTerminal saiba remover; fica fora do recibo."
+}
+
+# _pn_adopt_path TIPO CAMINHO [PROG] — adota só o caminho fixo do módulo, se existir.
+_pn_adopt_path() {
+  if _pn_existe "$2"; then
+    _pn_receipt "$1" "$2"
+  elif [[ -n "${3:-}" ]]; then
+    _pn_adopt_forma_estranha "$3" "$2"
+  fi
+}
+
+# _pn_adopt_apt PACOTE [PROG] — adota o pacote só se o dpkg diz instalado.
+_pn_adopt_apt() {
+  if [[ "$(pn_dpkg_estado "$1")" == installed ]]; then
+    _pn_receipt apt "$1"
+  elif [[ -n "${2:-}" ]]; then
+    _pn_adopt_forma_estranha "$2" "apt $1"
+  fi
+}
+
+# _pn_adopt_apt_repo NOME — adota o repositório se existe e não é de outro recibo.
+_pn_adopt_apt_repo() {
+  _pn_apt_repo_existe "$1" || return 0
+  _pn_apt_repo_nosso "$1" && return 0
+  _pn_receipt apt_repo "$1"
+}
+
 # ---- Apt ---------------------------------------------------------------------
 apt_install() {
   require_supported_distro

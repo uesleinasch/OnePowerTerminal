@@ -17,6 +17,10 @@ mod_starship_provides() {
   printf 'bin\t%s/.local/bin/starship\n' "$HOME"
 }
 
+mod_starship_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/starship" starship
+}
+
 mod_starship_installed() { has_cmd starship; }
 
 mod_starship_requires() { printf 'curl\tcurl\n'; }

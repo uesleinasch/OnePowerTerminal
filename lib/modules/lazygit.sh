@@ -18,6 +18,10 @@ mod_lazygit_provides() {
   printf 'config\t%s/.config/lazygit\n' "$HOME"
 }
 
+mod_lazygit_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/lazygit" lazygit
+}
+
 mod_lazygit_installed() { has_cmd lazygit; }
 
 mod_lazygit_requires() { printf 'curl\tcurl\n'; }

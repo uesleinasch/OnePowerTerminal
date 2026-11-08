@@ -22,6 +22,11 @@ mod_claude_provides() {
   printf 'dir\t%s/.local/share/claude\n' "$HOME"
 }
 
+mod_claude_adopt() {
+  _pn_adopt_path file "$HOME/.local/bin/claude" claude
+  _pn_adopt_path dir "$HOME/.local/share/claude"
+}
+
 mod_claude_installed() {
   has_cmd claude || [[ -x "$HOME/.local/bin/claude" ]]
 }

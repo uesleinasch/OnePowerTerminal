@@ -18,6 +18,10 @@ mod_btop_provides() {
   printf 'config\t%s/.config/btop\n' "$HOME"
 }
 
+mod_btop_adopt() {
+  _pn_adopt_apt btop btop
+}
+
 mod_btop_installed() { has_cmd btop; }
 
 mod_btop_links() { pn_config_links btop; }

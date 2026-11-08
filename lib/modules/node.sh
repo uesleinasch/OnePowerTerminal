@@ -26,6 +26,12 @@ mod_node_provides() {
   fi
 }
 
+mod_node_adopt() {
+  [[ -f "$_PN_NVM_DIR/nvm.sh" ]] && _pn_receipt dir "$_PN_NVM_DIR"
+  [[ -f "$_PN_N_PREFIX/bin/n" ]] && _pn_receipt dir "$_PN_N_PREFIX"
+  return 0
+}
+
 mod_node_installed() {
   [[ -s "$_PN_NVM_DIR/nvm.sh" ]] || [[ -x "$_PN_N_PREFIX/bin/n" ]] || _vf_is_real_n
 }
