@@ -254,7 +254,9 @@ class _HomePageState extends State<HomePage> {
                           onProfile: (p) {
                             setState(() => _profile = p);
                             final f = widget.prefsFile;
-                            if (f != null) Prefs(profile: p).save(f);
+                            if (f != null) {
+                              Prefs.load(f).copyWith(profile: p).save(f);
+                            }
                           },
                           onlyInstalled: _onlyInstalled,
                           onOnlyInstalled: (v) =>

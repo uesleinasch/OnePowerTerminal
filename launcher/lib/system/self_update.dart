@@ -42,7 +42,7 @@ Future<void> defaultDownload(
     }
     final total = res.contentLength;
     var got = 0;
-    await for (final chunk in res) {
+    await for (final chunk in res.timeout(const Duration(seconds: 30))) {
       sink.add(chunk);
       got += chunk.length;
       if (total > 0) onProgress(got / total);
@@ -57,7 +57,7 @@ Future<void> defaultDownload(
 }
 
 Future<void> defaultExit() =>
-    ServicesBinding.instance.exitApplication(AppExitType.required);
+    ServicesBinding.instance.exitApplication(AppExitType.cancelable);
 
 class SelfUpdater {
   SelfUpdater({
@@ -67,10 +67,14 @@ class SelfUpdater {
     DownloadFile? download,
     Future<void> Function(String exe)? start,
     Future<void> Function()? exit,
+    bool Function()? isBusy,
+    Future<void> Function()? waitIdle,
   }) : fetch = fetch ?? defaultFetch,
        download = download ?? defaultDownload,
        start = start ?? _defaultStart,
-       exit = exit ?? defaultExit;
+       exit = exit ?? defaultExit,
+       isBusy = isBusy ?? (() => false),
+       waitIdle = waitIdle ?? (() async {});
 
   final String appImagePath;
   final String downloadsDir;
@@ -78,6 +82,8 @@ class SelfUpdater {
   final DownloadFile download;
   final Future<void> Function(String exe) start;
   final Future<void> Function() exit;
+  final bool Function() isBusy;
+  final Future<void> Function() waitIdle;
 
   static Future<void> _defaultStart(String exe) async {
     await Process.start(exe, const [], mode: ProcessStartMode.detached);
@@ -86,18 +92,21 @@ class SelfUpdater {
   Future<SelfUpdateResult> run(
     ReleaseInfo release, {
     void Function(double progress)? onProgress,
+    void Function()? onWaiting,
   }) async {
     final name = release.appImageName;
     final expected = _expectedSum(await fetch(release.sumsUrl), name);
     final target = File(appImagePath);
     final writable = _canWriteBeside(target.parent);
     final File dest;
+    File? saved;
     if (writable) {
       final base = target.uri.pathSegments.last;
       dest = File('${target.parent.path}/.$base.pntmp');
     } else {
       Directory(downloadsDir).createSync(recursive: true);
-      dest = File('$downloadsDir/$name');
+      saved = _freeName(name);
+      dest = File('${saved.path}.pntmp');
     }
     try {
       await download(release.appImageUrl, dest, onProgress ?? (_) {});
@@ -113,8 +122,14 @@ class SelfUpdater {
           'Não foi possível tornar o arquivo executável.',
         );
       }
-      if (!writable) {
-        return SelfUpdateResult(path: dest.path, replaced: false);
+      if (saved != null) {
+        saved = _freeName(name);
+        dest.renameSync(saved.path);
+        return SelfUpdateResult(path: saved.path, replaced: false);
+      }
+      if (isBusy()) {
+        onWaiting?.call();
+        await waitIdle();
       }
       dest.renameSync(target.path);
     } catch (_) {
@@ -124,6 +139,18 @@ class SelfUpdater {
     await start(target.path);
     await exit();
     return SelfUpdateResult(path: target.path, replaced: true);
+  }
+
+  File _freeName(String name) {
+    var f = File('$downloadsDir/$name');
+    if (!f.existsSync()) return f;
+    final dot = name.lastIndexOf('.');
+    final stem = name.substring(0, dot);
+    final ext = name.substring(dot);
+    for (var i = 1; ; i++) {
+      f = File('$downloadsDir/$stem ($i)$ext');
+      if (!f.existsSync()) return f;
+    }
   }
 
   static String _expectedSum(String sums, String name) {
