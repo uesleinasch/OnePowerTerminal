@@ -440,7 +440,7 @@ myyazi files       # filtra uma seção (nav, files, find, tabs, cli, …)
 
 O `launcher/` é um app Flutter para Linux que dá uma interface gráfica à CLI: mostra o catálogo de módulos, enfileira instalações, atualizações e remoções e acompanha o progresso. Ele não instala nada por conta própria; cada ação é um comando `bin/powerterminal`, e a senha do `sudo` é pedida na própria janela e nunca é gravada.
 
-O AppImage sai nas releases a partir da v0.3.0. Para rodar do código:
+Baixe o `PowerTerminal-<versão>-x86_64.AppImage` da [última release](https://github.com/uesleinasch/OnePowerTerminal/releases/latest), dê permissão de execução (`chmod +x`) e abra. Ele precisa do GTK3, presente em Ubuntu, Debian e Pop!_OS com desktop, e avisa quando sai uma versão nova. Para rodar do código:
 
 ```bash
 cd launcher && flutter run -d linux

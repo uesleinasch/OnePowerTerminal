@@ -30,4 +30,11 @@ flutter test
 
 ## AppImage
 
-O AppImage sai nas releases a partir da v0.3.0. Até lá, o launcher roda pelo código-fonte.
+Baixe o `PowerTerminal-<versão>-x86_64.AppImage` da [última release](https://github.com/uesleinasch/OnePowerTerminal/releases/latest) e abra:
+
+```bash
+chmod +x PowerTerminal-*-x86_64.AppImage
+./PowerTerminal-*-x86_64.AppImage
+```
+
+Ele precisa do GTK3, presente em Ubuntu, Debian e Pop!_OS com desktop. Na primeira abertura extrai a cópia do repositório para `~/PowerTerminal`, e avisa quando sai uma versão nova, com **Baixar e reiniciar**.
