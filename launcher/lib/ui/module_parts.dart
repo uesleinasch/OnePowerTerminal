@@ -32,6 +32,7 @@ class ModuleStatusChip extends StatelessWidget {
             switch (status.kind) {
               OpKind.update => 'Atualizando',
               OpKind.remove => 'Removendo',
+              OpKind.adopt => 'Adotando',
               _ => 'Instalando',
             },
             cs.primaryContainer,
@@ -210,7 +211,14 @@ class ModuleActions extends StatelessWidget {
         );
       } else {
         if (m.state == ModuleState.preexisting) {
-          buttons.add(Text('Instalado fora do PowerTerminal', style: note));
+          buttons.add(
+            m.canAdopt
+                ? FilledButton.tonal(
+                    onPressed: () => actions.adopt(m.id),
+                    child: const Text('Gerenciar com o PowerTerminal'),
+                  )
+                : Text('Instalado fora do PowerTerminal', style: note),
+          );
         } else if (!m.canRemove) {
           buttons.add(Text('Base de outros módulos', style: note));
         } else {

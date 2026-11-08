@@ -88,6 +88,7 @@ class _HomePageState extends State<HomePage> {
       OpKind.install => 'instalado.',
       OpKind.update => 'atualizado.',
       OpKind.remove => 'removido.',
+      OpKind.adopt => 'agora é gerenciado pelo PowerTerminal.',
     };
     messenger
       ..hideCurrentSnackBar()
@@ -503,6 +504,8 @@ class _LogAwareActions implements HomeActions {
   void update(String id) => _inner.update(id);
   @override
   void remove(String id) => _inner.remove(id);
+  @override
+  void adopt(String id) => _inner.adopt(id);
   @override
   void installProfile(String profile) => _inner.installProfile(profile);
   @override

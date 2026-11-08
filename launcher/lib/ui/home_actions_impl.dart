@@ -6,6 +6,7 @@ import '../model/catalog.dart';
 import '../model/deps.dart';
 import '../queue/queue_controller.dart';
 import '../system/session_ender.dart';
+import 'dialogs/adopt_dialog.dart';
 import 'dialogs/dependency_dialog.dart';
 import 'dialogs/editor_dialog.dart';
 import 'dialogs/password_dialog.dart';
@@ -96,6 +97,17 @@ class HomeActionsImpl implements HomeActions {
     );
     if (choice == null) return;
     _enqueue([QueueItem(id, OpKind.remove, purgeData: choice.purgeData)]);
+  }
+
+  @override
+  void adopt(String id) => unawaited(_adopt(id));
+
+  Future<void> _adopt(String id) async {
+    final ctx = _context;
+    final module = controller.catalog?.byId(id);
+    if (ctx == null || module == null) return;
+    if (!await showAdoptDialog(ctx, module: module)) return;
+    _enqueue([QueueItem(id, OpKind.adopt)]);
   }
 
   @override
