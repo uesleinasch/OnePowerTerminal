@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -8,7 +9,9 @@ import 'queue/queue_controller.dart';
 import 'repo/repo_copy.dart';
 import 'session/pty_shell.dart';
 import 'system/prefs.dart';
+import 'system/self_update.dart';
 import 'system/session_ender.dart';
+import 'system/update_check.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_mode.dart';
 import 'ui/home_actions_impl.dart';
@@ -28,6 +31,12 @@ void main() {
         : null,
   );
   final repoDir = repo.dir;
+  final appImage = Platform.environment['APPIMAGE'];
+  final currentVersion = repo.snapshotVersion();
+  final selfUpdate =
+      appImage != null && appImage.isNotEmpty && currentVersion != null;
+  final update = ValueNotifier<ReleaseInfo?>(null);
+  final prefsFile = Prefs.defaultFile(Platform.environment);
   final eventsDir = Directory.systemTemp.createTempSync('powerterminal-events');
   final controller = QueueController(
     cli: Cli(repoDir),
@@ -43,12 +52,25 @@ void main() {
       controller: controller,
       navigatorKey: navigatorKey,
       activityOpen: activityOpen,
-      prefsFile: Prefs.defaultFile(Platform.environment),
+      prefsFile: prefsFile,
+      update: selfUpdate ? update : null,
+      updater: selfUpdate
+          ? SelfUpdater(appImagePath: appImage, downloadsDir: '$home/Downloads')
+          : null,
       eventsDir: eventsDir,
       gate: (home) => RepoGate(
         repo: repo,
         builder: (_) => home,
-        onReady: (_) => controller.refresh(),
+        onReady: (_) {
+          unawaited(controller.refresh());
+          if (selfUpdate) {
+            unawaited(
+              UpdateChecker()
+                  .checkDue(current: currentVersion, prefsFile: prefsFile)
+                  .then((r) => update.value = r),
+            );
+          }
+        },
       ),
       actions: HomeActionsImpl(
         controller: controller,
@@ -69,6 +91,8 @@ class PowerTerminalApp extends StatefulWidget {
     this.themeMode = ThemeMode.system,
     this.activityOpen,
     this.prefsFile,
+    this.update,
+    this.updater,
     this.eventsDir,
     this.gate,
   });
@@ -79,6 +103,8 @@ class PowerTerminalApp extends StatefulWidget {
   final ThemeMode themeMode;
   final ValueNotifier<bool>? activityOpen;
   final File? prefsFile;
+  final ValueNotifier<ReleaseInfo?>? update;
+  final SelfUpdater? updater;
   final Directory? eventsDir;
   final Widget Function(Widget home)? gate;
 
@@ -166,6 +192,8 @@ class _PowerTerminalAppState extends State<PowerTerminalApp> {
           actions: widget.actions,
           activityOpen: widget.activityOpen,
           prefsFile: widget.prefsFile,
+          update: widget.update,
+          updater: widget.updater,
           onToggleTheme: _toggleTheme,
         ),
       ),

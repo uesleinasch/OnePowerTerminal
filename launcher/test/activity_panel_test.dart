@@ -112,10 +112,7 @@ void main() {
     await pumpPanel(t, q);
     expect(find.text('Atividade'), findsOneWidget);
     expect(find.text('Nada na fila.'), findsOneWidget);
-    expect(
-      find.text('Log'),
-      findsOneWidget,
-    );
+    expect(find.text('Log'), findsOneWidget);
   });
 
   testWidgets('mostra o atual com % e os pendentes com o tipo', (t) async {

@@ -7,6 +7,8 @@ import 'package:powerterminal_launcher/cli/cli.dart';
 import 'package:powerterminal_launcher/model/catalog.dart';
 import 'package:powerterminal_launcher/queue/queue_controller.dart';
 import 'package:powerterminal_launcher/session/pty_shell.dart';
+import 'package:powerterminal_launcher/system/prefs.dart';
+import 'package:powerterminal_launcher/system/update_check.dart';
 import 'package:powerterminal_launcher/theme/app_theme.dart';
 import 'package:powerterminal_launcher/ui/format.dart';
 import 'package:powerterminal_launcher/ui/home_page.dart';
@@ -320,4 +322,44 @@ void main() {
       },
     );
   }
+
+  testWidgets('aviso de versão nova: três ações e "Agora não" grava', (
+    t,
+  ) async {
+    final q = await controller();
+    final dir = Directory.systemTemp.createTempSync('pn-home-update');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final prefs = File('${dir.path}/launcher.json');
+    final update = ValueNotifier<ReleaseInfo?>(
+      ReleaseInfo(
+        version: '0.3.0',
+        tag: 'v0.3.0',
+        htmlUrl: Uri.parse('https://example.test/r'),
+        appImageUrl: Uri.parse('https://example.test/app'),
+        sumsUrl: Uri.parse('https://example.test/sums'),
+      ),
+    );
+    t.view.physicalSize = const Size(1400, 4000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: HomePage(
+          controller: q,
+          actions: RecordingActions(),
+          prefsFile: prefs,
+          update: update,
+        ),
+      ),
+    );
+    expect(find.text('PowerTerminal 0.3.0 disponível'), findsOneWidget);
+    expect(find.text('Notas da versão'), findsOneWidget);
+    expect(find.text('Agora não'), findsOneWidget);
+    expect(find.text('Baixar e reiniciar'), findsOneWidget);
+    await t.tap(find.text('Agora não'));
+    await t.pump();
+    expect(find.text('PowerTerminal 0.3.0 disponível'), findsNothing);
+    expect(Prefs.load(prefs).dismissedVersion, '0.3.0');
+  });
 }
