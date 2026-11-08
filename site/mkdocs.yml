@@ -37,6 +37,7 @@ nav:
   - CLI: cli.md
   - Launcher: launcher.md
   - Contribuir: contribuir.md
+  - Código de conduta: CODE_OF_CONDUCT.md
 
 markdown_extensions:
   - admonition
@@ -54,6 +55,3 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
-validation:
-  links:
-    not_found: info
