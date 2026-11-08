@@ -8,6 +8,8 @@ import '../cli/cli.dart';
 import '../model/catalog.dart';
 import '../queue/queue_controller.dart';
 import '../system/prefs.dart';
+import '../system/self_update.dart';
+import '../system/update_check.dart';
 import '../theme/app_theme.dart';
 import 'activity_panel.dart';
 import 'dialogs/dialog_layout.dart';
@@ -18,6 +20,7 @@ import 'module_detail.dart';
 import 'profile_filter.dart';
 import 'profile_summary.dart';
 import 'top_bar.dart';
+import 'update_banner.dart';
 
 export 'home_actions.dart';
 
@@ -29,6 +32,9 @@ class HomePage extends StatefulWidget {
     this.onToggleTheme,
     this.activityOpen,
     this.prefsFile,
+    this.update,
+    this.updater,
+    this.openUrl,
   });
 
   final QueueController controller;
@@ -36,6 +42,9 @@ class HomePage extends StatefulWidget {
   final VoidCallback? onToggleTheme;
   final ValueNotifier<bool>? activityOpen;
   final File? prefsFile;
+  final ValueNotifier<ReleaseInfo?>? update;
+  final SelfUpdater? updater;
+  final void Function(Uri url)? openUrl;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -46,6 +55,17 @@ class _HomePageState extends State<HomePage> {
   late final String? _savedProfile = widget.prefsFile == null
       ? null
       : Prefs.load(widget.prefsFile!).profile;
+  Prefs get _prefs {
+    final f = widget.prefsFile;
+    return f == null ? const Prefs() : Prefs.load(f);
+  }
+
+  void _dismissUpdate(ReleaseInfo r) {
+    final f = widget.prefsFile;
+    if (f != null) _prefs.copyWith(dismissedVersion: r.version).save(f);
+    widget.update?.value = null;
+  }
+
   var _restored = false;
   var _onlyInstalled = false;
   var _query = '';
@@ -204,6 +224,20 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
                 if (ctl.catalogError != null) _errorBanner(context),
+                if (widget.update != null)
+                  ValueListenableBuilder<ReleaseInfo?>(
+                    valueListenable: widget.update!,
+                    builder: (context, release, _) => release == null
+                        ? const SizedBox.shrink()
+                        : UpdateBanner(
+                            key: ValueKey(release.version),
+                            release: release,
+                            updater: widget.updater,
+                            busy: ctl.isBusy,
+                            openUrl: widget.openUrl,
+                            onDismiss: () => _dismissUpdate(release),
+                          ),
+                  ),
                 Expanded(
                   child: _withPanel(
                     w,

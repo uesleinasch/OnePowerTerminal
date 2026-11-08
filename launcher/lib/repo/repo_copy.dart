@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
 import '../cli/cli.dart';
+import '../system/version.dart';
 
 const kMinContract = 1;
 
@@ -12,7 +12,6 @@ const _originFile = '.powerterminal-origin';
 const _versionFile = 'VERSION';
 const _dotfilesPrefix = 'home/';
 const _extractPrefix = '.PowerTerminal.pnextract-';
-final _numericVersion = RegExp(r'^\d+(\.\d+)*$');
 
 enum RepoKind { absent, gitClone, extracted, foreign }
 
@@ -53,23 +52,7 @@ class RepoCopy {
   bool get needsUpgrade =>
       snapshotDir != null &&
       inspect() == RepoKind.extracted &&
-      _newer(snapshotVersion(), _manifestVersion() ?? copyVersion());
-
-  static bool _newer(String? snap, String? have) {
-    if (snap == have) return false;
-    if (snap == null || have == null) return true;
-    if (!_numericVersion.hasMatch(snap) || !_numericVersion.hasMatch(have)) {
-      return true;
-    }
-    final a = snap.split('.').map(int.parse).toList();
-    final b = have.split('.').map(int.parse).toList();
-    for (var i = 0; i < max(a.length, b.length); i++) {
-      final x = i < a.length ? a[i] : 0;
-      final y = i < b.length ? b[i] : 0;
-      if (x != y) return x > y;
-    }
-    return false;
-  }
+      isNewerVersion(snapshotVersion(), _manifestVersion() ?? copyVersion());
 
   Future<void> extract() async {
     final snap = _requireSnapshot();
