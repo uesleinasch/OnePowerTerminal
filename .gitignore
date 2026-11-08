@@ -40,3 +40,7 @@ docs/superpowers/
 # Launcher Flutter
 launcher/build/
 launcher/.dart_tool/
+
+# Site (GitHub Pages)
+_site/
+site/content/modulos.md

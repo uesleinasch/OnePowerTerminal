@@ -1,0 +1,59 @@
+site_name: PowerTerminal
+site_description: Replica um ambiente de desenvolvimento completo (Zsh, Neovim, Kitty e CLIs) em Ubuntu, Debian e Pop!_OS.
+site_url: https://uesleinasch.github.io/OnePowerTerminal/
+repo_url: https://github.com/uesleinasch/OnePowerTerminal
+repo_name: uesleinasch/OnePowerTerminal
+edit_uri: ""
+docs_dir: content
+site_dir: ../_site
+
+theme:
+  name: material
+  language: pt-BR
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Mudar para o tema escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Mudar para o tema claro
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+
+nav:
+  - Início: index.md
+  - Instalação: instalacao.md
+  - Módulos: modulos.md
+  - CLI: cli.md
+  - Launcher: launcher.md
+  - Contribuir: contribuir.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: .
+      check_paths: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+validation:
+  links:
+    not_found: info
