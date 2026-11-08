@@ -18,7 +18,7 @@ declare -F | awk '$$3 ~ /^mod_.*_links$$/ {print $$3}' | while read -r fn; do "$
   | awk -F'\t' -v root="$(POWERTERMINAL_HOME)/" 'substr($$1, 1, length(root)) == root'
 endef
 
-.PHONY: help sync sync-check status site
+.PHONY: help sync sync-check status site appimage
 
 help:
 	@echo "PowerTerminal — atalhos Make"
@@ -79,3 +79,9 @@ status:
 site:
 	@python3 site/gen_modulos.py
 	@mkdocs build --strict -f site/mkdocs.yml
+
+FLUTTER ?= flutter
+
+appimage:
+	@cd launcher && "$(FLUTTER)" build linux --release
+	@packaging/appimage/build-appimage.sh "$$(tr -d '[:space:]' < VERSION)" launcher/build/linux/x64/release/bundle dist
