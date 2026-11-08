@@ -20,6 +20,8 @@ class RecordingActions implements HomeActions {
   @override
   void remove(String id) => calls.add('remove:$id');
   @override
+  void adopt(String id) => calls.add('adopt:$id');
+  @override
   void installProfile(String profile) => calls.add('installProfile:$profile');
   @override
   void updateProfile(String profile) => calls.add('updateProfile:$profile');
@@ -147,6 +149,22 @@ void main() {
     expect(find.text('Instalado fora do PowerTerminal'), findsOneWidget);
     expect(find.text('Remover'), findsNothing);
     expect(find.text('Já estava instalado'), findsOneWidget);
+  });
+
+  testWidgets('preexisting com canAdopt mostra Gerenciar e chama adopt', (
+    t,
+  ) async {
+    final actions = await pump(t, 'eza', const CardStatus());
+    expect(find.text('Gerenciar com o PowerTerminal'), findsOneWidget);
+    expect(find.text('Instalado fora do PowerTerminal'), findsNothing);
+    await t.tap(find.text('Gerenciar com o PowerTerminal'));
+    expect(actions.calls, ['adopt:eza']);
+  });
+
+  testWidgets('preexisting sem canAdopt mostra a nota', (t) async {
+    await pump(t, 'vscode', const CardStatus());
+    expect(find.text('Instalado fora do PowerTerminal'), findsOneWidget);
+    expect(find.text('Gerenciar com o PowerTerminal'), findsNothing);
   });
 
   testWidgets('módulo sem canUpdate não mostra Atualizar', (t) async {

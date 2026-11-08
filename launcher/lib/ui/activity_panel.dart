@@ -11,6 +11,7 @@ String _kindLabel(OpKind k) => switch (k) {
   OpKind.install => 'instalar',
   OpKind.update => 'atualizar',
   OpKind.remove => 'remover',
+  OpKind.adopt => 'gerenciar',
 };
 
 enum LogLineKind { plain, launcher, success, dryRun }

@@ -195,7 +195,7 @@ class QueueController extends ChangeNotifier {
   bool _needsSudo(List<QueueItem> fresh) {
     final c = catalog;
     if (c == null) return false;
-    return fresh.any((i) {
+    return fresh.where((i) => i.kind != OpKind.adopt).any((i) {
       final ids = i.kind == OpKind.install
           ? dependencyClosure(c, [i.id])
           : {i.id};
@@ -536,6 +536,7 @@ class QueueController extends ChangeNotifier {
     OpKind.install => 'instalar',
     OpKind.update => 'atualizar',
     OpKind.remove => 'remover',
+    OpKind.adopt => 'gerenciar',
   };
 
   void _addLog(String line) {

@@ -82,6 +82,7 @@ class _RemoveDialogState extends State<_RemoveDialog> {
     final m = widget.module;
     final deps = widget.dependents;
     final many = deps.length > 1;
+    final adopted = m.origin == 'adopted';
     final hasData = m.id == 'container' && m.dataMb != null;
     return AlertDialog(
       constraints: kDialogConstraints,
@@ -130,6 +131,36 @@ class _RemoveDialogState extends State<_RemoveDialog> {
                   'e mais ${m.receipt.length - _maxItems}',
                   style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
+            ],
+            if (adopted) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.warning_rounded,
+                      color: cs.onErrorContainer,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${m.name} já existia antes do PowerTerminal: remover '
+                        'desinstala o programa também.',
+                        style: tt.bodyMedium?.copyWith(
+                          color: cs.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
             if (deps.isNotEmpty) ...[
               const SizedBox(height: 16),
@@ -199,7 +230,9 @@ class _RemoveDialogState extends State<_RemoveDialog> {
             foregroundColor: cs.onError,
           ),
           onPressed: _confirm,
-          child: Text(deps.isEmpty ? 'Remover' : 'Remover mesmo assim'),
+          child: Text(
+            deps.isEmpty && !adopted ? 'Remover' : 'Remover mesmo assim',
+          ),
         ),
       ],
     );

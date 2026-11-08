@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -308,6 +309,30 @@ void main() {
       expect(find.text('Remover'), findsOneWidget);
       expect(find.text('Remover mesmo assim'), findsNothing);
       expect(find.textContaining('backups .pnbak ficam'), findsOneWidget);
+    });
+
+    testWidgets('adotado avisa que desinstala e vira Remover mesmo assim', (
+      t,
+    ) async {
+      final ctx = await _host(t);
+      final base = _catalog.byId('zsh')!;
+      final adopted = ModuleInfo.fromJson({
+        ...jsonDecode(
+              File('test/fixtures/catalog.json').readAsStringSync(),
+            )['modules'].firstWhere((m) => m['id'] == base.id)
+            as Map<String, dynamic>,
+        'origin': 'adopted',
+      });
+      unawaited(showRemoveDialog(ctx, module: adopted, dependents: []));
+      await t.pumpAndSettle();
+      expect(
+        find.text(
+          '${adopted.name} já existia antes do PowerTerminal: remover '
+          'desinstala o programa também.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Remover mesmo assim'), findsOneWidget);
     });
 
     testWidgets('origin deduced mostra a frase do recibo', (t) async {

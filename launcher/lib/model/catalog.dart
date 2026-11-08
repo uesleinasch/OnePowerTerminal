@@ -1,6 +1,6 @@
 enum ModuleState { installed, preexisting, available }
 
-enum OpKind { install, update, remove }
+enum OpKind { install, update, remove, adopt }
 
 class ModuleInfo {
   const ModuleInfo({
@@ -14,6 +14,7 @@ class ModuleInfo {
     required this.editor,
     required this.canUpdate,
     required this.canRemove,
+    this.canAdopt = false,
     required this.needs,
     required this.state,
     this.origin,
@@ -26,7 +27,7 @@ class ModuleInfo {
 
   final String id, name, category, description;
   final int minutes, mb;
-  final bool sudo, editor, canUpdate, canRemove;
+  final bool sudo, editor, canUpdate, canRemove, canAdopt;
   final List<String> needs;
   final ModuleState state;
   final String? origin;
@@ -48,6 +49,7 @@ class ModuleInfo {
     editor: _get<bool>(j, 'editor'),
     canUpdate: _get<bool>(j, 'can_update'),
     canRemove: _get<bool>(j, 'can_remove'),
+    canAdopt: _opt<bool>(j, 'can_adopt') ?? false,
     needs: _strings(j, 'needs'),
     state: _state(_get<String>(j, 'state')),
     origin: _opt<String>(j, 'origin'),
