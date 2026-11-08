@@ -22,6 +22,6 @@ Os testes usam um `sudo` e uma CLI falsos (`test/support/`) e precisam do `scrip
 
 ## Distribuição
 
-O AppImage sai nas releases a partir da v0.3.0.
+O AppImage sai em cada [release](https://github.com/uesleinasch/OnePowerTerminal/releases/latest), montado pelo `.github/workflows/release.yml` a partir de `packaging/appimage/` (`make appimage` gera um localmente em `dist/`).
 
 Veja o [README do projeto](../README.md) para o PowerTerminal em si.
