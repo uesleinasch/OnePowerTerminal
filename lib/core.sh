@@ -362,7 +362,8 @@ link_safe() {
     # Symlink de terceiros (stow, chezmoi…) não gera .pnbak — o link em si é
     # barato, mas o alvo se perderia em silêncio. O log preserva a informação.
     if [[ "${PN_ADOPTING:-0}" == 1 && "$cur" != "$POWERTERMINAL_HOME"/* ]]; then
-      local bak="${dst}.pnbak.$(date +%Y%m%d%H%M%S)"
+      local bak
+      bak="${dst}.pnbak.$(date +%Y%m%d%H%M%S)"
       log_info "Backup: $dst → $bak"
       run mv "$dst" "$bak"
     else

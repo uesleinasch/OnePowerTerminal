@@ -126,7 +126,9 @@ class PtyShell implements ShellSession {
   }) async {
     final proc = await Process.start(
       'script',
-      const ['-qfec', 'bash --noprofile --norc', '/dev/null'],
+      // O script roda o comando via $SHELL; um bash não interativo ali
+      // descarta PS1/PS2 do ambiente, então eles vão direto ao bash interno.
+      const ['-qfec', 'env PS1= PS2= bash --noprofile --norc', '/dev/null'],
       workingDirectory: workingDirectory,
       environment: {
         ...environment,

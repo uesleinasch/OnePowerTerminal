@@ -798,13 +798,13 @@ _vf_catalog_module() {
 # Lê linhas kind<TAB>valor do stdin e emite objetos JSON separados por vírgula,
 # com o $HOME dos valores trocado por ~.
 _vf_catalog_pares() {
-  local kind valor sep="" out=""
+  local kind valor sep="" json=""
   while IFS=$'\t' read -r kind valor _; do
     [[ -n "$kind" && -n "$valor" ]] || continue
-    out+="${sep}{\"kind\":$(pn_json_str "$kind"),\"value\":$(pn_json_str "$(pn_tilde "$valor")")}"
+    json+="${sep}{\"kind\":$(pn_json_str "$kind"),\"value\":$(pn_json_str "$(pn_tilde "$valor")")}"
     sep=","
   done
-  printf '%s' "$out"
+  printf '%s' "$json"
 }
 
 cmd_catalog() {
