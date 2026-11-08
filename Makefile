@@ -18,7 +18,7 @@ declare -F | awk '$$3 ~ /^mod_.*_links$$/ {print $$3}' | while read -r fn; do "$
   | awk -F'\t' -v root="$(POWERTERMINAL_HOME)/" 'substr($$1, 1, length(root)) == root'
 endef
 
-.PHONY: help sync sync-check status
+.PHONY: help sync sync-check status site
 
 help:
 	@echo "PowerTerminal — atalhos Make"
@@ -75,3 +75,7 @@ sync-check:
 
 status:
 	@"$(POWERTERMINAL_HOME)/bin/powerterminal" status
+
+site:
+	@python3 site/gen_modulos.py
+	@mkdocs build --strict -f site/mkdocs.yml

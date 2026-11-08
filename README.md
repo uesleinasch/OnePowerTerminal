@@ -1,5 +1,7 @@
 # PowerTerminal
 
+Site e documentação: <https://uesleinasch.github.io/OnePowerTerminal/>
+
 [![CI](https://github.com/uesleinasch/OnePowerTerminal/actions/workflows/ci.yml/badge.svg)](https://github.com/uesleinasch/OnePowerTerminal/actions/workflows/ci.yml)
 [![Licença: MIT](https://img.shields.io/badge/licença-MIT-blue.svg)](LICENSE)
 
