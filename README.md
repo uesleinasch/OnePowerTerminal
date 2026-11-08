@@ -150,6 +150,9 @@ POWERTERMINAL_NODE_MANAGER=n   ~/PowerTerminal/bin/powerterminal install --modul
 # Diagnóstico
 powerterminal doctor
 
+# Passar a gerenciar o que já estava instalado fora do PowerTerminal
+powerterminal adopt --module astronvim
+
 # Empacotar para um colega
 powerterminal share dotfiles-$(date +%Y%m%d).tar.gz
 ```

@@ -353,7 +353,7 @@ unlink_safe() {
   # Pega o backup mais recente. Sort lexicográfico em sufixo YYYYMMDDHHMMSS é
   # locale-independente e monotônico (resolve ties melhor que `ls -1t`).
   local last_bak
-  last_bak="$(ls -1 "${dst}".pnbak.* 2>/dev/null | LC_ALL=C sort -r | head -1 || true)"
+  last_bak="$(ls -1d "${dst}".pnbak.* 2>/dev/null | LC_ALL=C sort -r | head -1 || true)"
   if [[ -n "$last_bak" ]]; then
     log_info "Restaurando backup: $last_bak → $dst"
     run mv "$last_bak" "$dst"
