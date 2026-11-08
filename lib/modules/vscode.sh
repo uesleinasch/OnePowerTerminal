@@ -22,7 +22,8 @@ mod_vscode_provides() {
 
 mod_vscode_adopt() {
   _pn_adopt_apt code code
-  _pn_adopt_apt_repo vscode
+  [[ "$(pn_dpkg_estado code)" == installed ]] && _pn_adopt_apt_repo vscode
+  return 0
 }
 
 mod_vscode_installed() { has_cmd code; }

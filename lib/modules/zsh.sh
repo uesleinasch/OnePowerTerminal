@@ -28,7 +28,8 @@ mod_zsh_provides() {
 
 mod_zsh_adopt() {
   _pn_adopt_apt zsh zsh
-  _pn_adopt_path dir "$_PN_OMZ_DIR"
+  [[ -d "$_PN_OMZ_DIR" ]] && log_warn "Oh-My-Zsh em $_PN_OMZ_DIR não foi instalado pelo PowerTerminal; fica fora do recibo."
+  return 0
 }
 
 mod_zsh_installed() {
@@ -173,6 +174,7 @@ _vf_zsh_precisa_voltar_bash() {
   pn_receipt_has zsh || return 1
   [[ -z "$(pn_receipt_entries zsh login_shell)" ]] || return 1
   _vf_zsh_recibo_tem apt zsh || return 1
+  [[ -z "$(_pn_apt_purga_leva_junto zsh)" ]] || return 1
   [[ -z "$(_pn_contas_com_shell zsh)" ]] || return 1
   [[ "$(basename -- "$(login_shell)")" == zsh ]]
 }

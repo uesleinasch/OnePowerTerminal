@@ -182,7 +182,7 @@ _vf_adopt_module() {
     mkdir -p "$(dirname "$f")"
     printf 'origin\tadopted\n' >"$f"
   fi
-  if declare -F "mod_${m}_links" >/dev/null; then pn_link_module_links "$m"; fi
+  if declare -F "mod_${m}_links" >/dev/null; then PN_ADOPTING=1 pn_link_module_links "$m"; fi
   if declare -F "mod_${m}_adopt" >/dev/null; then "mod_${m}_adopt"; fi
   if [[ "$DRY_RUN" != "1" && -z "$(pn_receipt_entries "$m")" ]]; then
     rm -f "$f"

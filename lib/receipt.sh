@@ -335,9 +335,8 @@ _pn_undo_subids() {
 }
 
 _pn_undo_pipx() {
-  local p="$1" lista=""
-  has_cmd pipx && lista="$(pipx list --short 2>/dev/null || true)"
-  if [[ $'\n'"$(awk '{print $1}' <<<"$lista")"$'\n' != *$'\n'"$p"$'\n'* ]]; then
+  local p="$1"
+  if ! _pn_pipx_tem "$p"; then
     log_info "Já ausente: pacote pipx $p."
     return 0
   fi
@@ -355,6 +354,10 @@ _pn_undo_user_unit() {
 
 _pn_undo_apt_repo() {
   local n="$1"
+  if [[ -e "$_PN_APT_ETC/sources.list.d/$n.sources" ]]; then
+    log_warn "Repositório $n tem um $n.sources (deb822) que usa a chave; chave e repositório mantidos."
+    return 0
+  fi
   as_sudo rm -f "/etc/apt/keyrings/$n.asc" "/etc/apt/sources.list.d/$n.list" || return 1
   _PN_APT_UPDATED=""
   apt_update_once || log_warn "apt-get update falhou depois de remover o repositório $n."

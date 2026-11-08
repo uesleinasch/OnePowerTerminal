@@ -22,7 +22,9 @@ mod_nvim_provides() {
 
 mod_nvim_adopt() {
   _pn_adopt_path dir "$_PN_NVIM_PREFIX/nvim-linux-x86_64" nvim
-  [[ -d "$_PN_NVIM_PREFIX/nvim-linux-x86_64" ]] && _pn_adopt_path file "$_PN_NVIM_LINK"
+  if [[ -L "$_PN_NVIM_LINK" && "$(readlink "$_PN_NVIM_LINK")" == "$_PN_NVIM_PREFIX/nvim-linux-x86_64"/* ]]; then
+    _pn_adopt_path file "$_PN_NVIM_LINK"
+  fi
   return 0
 }
 

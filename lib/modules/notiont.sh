@@ -20,7 +20,7 @@ mod_notiont_provides() {
 }
 
 mod_notiont_adopt() {
-  if has_cmd pipx && pipx list --short 2>/dev/null | grep -q '^notion-t '; then
+  if _pn_pipx_tem notion-t; then
     _pn_receipt pipx notion-t
   else
     _pn_adopt_forma_estranha notion-t pipx

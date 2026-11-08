@@ -155,9 +155,21 @@ _pn_adopt_apt() {
 
 # _pn_adopt_apt_repo NOME — adota o repositório se existe e não é de outro recibo.
 _pn_adopt_apt_repo() {
-  _pn_apt_repo_existe "$1" || return 0
+  _pn_existe "$_PN_APT_ETC/sources.list.d/$1.list" || return 0
+  _pn_existe "$_PN_APT_ETC/sources.list.d/$1.sources" && return 0
   _pn_apt_repo_nosso "$1" && return 0
   _pn_receipt apt_repo "$1"
+}
+
+# _pn_pipx_tem PACOTE — sucesso se o pipx lista o pacote (list --json: o pipx 1.0 não tem --short).
+_pn_pipx_tem() {
+  has_cmd pipx && has_cmd python3 || return 1
+  pipx list --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    sys.exit(0 if sys.argv[1] in json.load(sys.stdin).get("venvs", {}) else 1)
+except Exception:
+    sys.exit(1)' "$1"
 }
 
 # ---- Apt ---------------------------------------------------------------------
@@ -283,6 +295,7 @@ apt_add_repo() {
 }
 
 _PN_APT_ETC=/etc/apt
+if [[ "${POWERTERMINAL_TESTING:-0}" == 1 ]]; then _PN_APT_ETC="${POWERTERMINAL_APT_ETC:-$_PN_APT_ETC}"; fi
 
 # Lista one-line, fonte deb822 ou só o keyring: qualquer um deles indica um
 # repositório configurado fora do PowerTerminal, que o remove apagaria junto.
@@ -348,9 +361,15 @@ link_safe() {
     fi
     # Symlink de terceiros (stow, chezmoi…) não gera .pnbak — o link em si é
     # barato, mas o alvo se perderia em silêncio. O log preserva a informação.
-    [[ "$cur" == "$POWERTERMINAL_HOME"/* ]] \
-      || log_warn "Substituindo symlink que não é do PowerTerminal: $dst → $cur"
-    run rm -f "$dst"
+    if [[ "${PN_ADOPTING:-0}" == 1 && "$cur" != "$POWERTERMINAL_HOME"/* ]]; then
+      local bak="${dst}.pnbak.$(date +%Y%m%d%H%M%S)"
+      log_info "Backup: $dst → $bak"
+      run mv "$dst" "$bak"
+    else
+      [[ "$cur" == "$POWERTERMINAL_HOME"/* ]] \
+        || log_warn "Substituindo symlink que não é do PowerTerminal: $dst → $cur"
+      run rm -f "$dst"
+    fi
   elif [[ -e "$dst" ]]; then
     backup_path "$dst"
   fi
