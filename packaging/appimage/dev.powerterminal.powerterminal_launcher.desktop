@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PowerTerminal
+Comment=Instala e gerencia o ambiente de desenvolvimento PowerTerminal
+Exec=powerterminal_launcher
+Icon=powerterminal
+Categories=Development;System;
+Terminal=false
+StartupWMClass=dev.powerterminal.powerterminal_launcher

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+APPDIR="${APPDIR:-$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")}"
+export APPDIR
+exec "$APPDIR/usr/bin/powerterminal_launcher" "$@"

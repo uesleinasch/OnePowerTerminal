@@ -1,1 +1,11 @@
 vendor/gum binary
+
+launcher/ export-ignore
+site/ export-ignore
+docs/ export-ignore
+tests/ export-ignore
+docker/ export-ignore
+.github/ export-ignore
+packaging/ export-ignore
+Makefile export-ignore
+.claude/ export-ignore

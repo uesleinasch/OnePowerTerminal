@@ -41,6 +41,9 @@ docs/superpowers/
 launcher/build/
 launcher/.dart_tool/
 
+# AppImage gerado por `make appimage`
+dist/
+
 # Site (GitHub Pages)
 _site/
 site/content/modulos.md

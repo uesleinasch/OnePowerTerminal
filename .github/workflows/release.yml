@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  verifica:
+    name: Verifica versão e notas
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conferir tag, VERSION e notas
+        run: |
+          versao="$(tr -d '[:space:]' < VERSION)"
+          if [[ "${GITHUB_REF_NAME#v}" != "$versao" ]]; then
+            echo "::error::A tag ${GITHUB_REF_NAME} não bate com VERSION (${versao})."
+            exit 1
+          fi
+          if [[ ! -f ".github/release-notes/${GITHUB_REF_NAME}.md" ]]; then
+            echo "::error::Faltam as notas em .github/release-notes/${GITHUB_REF_NAME}.md."
+            exit 1
+          fi
+
+  ci:
+    needs: verifica
+    uses: ./.github/workflows/ci.yml
+
+  appimage:
+    name: AppImage e release
+    needs: ci
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.5
+          channel: stable
+          cache: true
+
+      - name: Dependências do build
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev clang cmake pkg-config libfuse2 file
+
+      - name: Build Linux
+        working-directory: launcher
+        run: flutter build linux --release
+
+      - name: Montar AppImage
+        run: |
+          versao="${GITHUB_REF_NAME#v}"
+          packaging/appimage/build-appimage.sh "$versao" launcher/build/linux/x64/release/bundle dist
+          cd dist && sha256sum PowerTerminal-*.AppImage > SHA256SUMS
+
+      - name: Publicar release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notas=".github/release-notes/${GITHUB_REF_NAME}.md"
+          titulo="$(head -n1 "$notas" | sed 's/^# //')"
+          tail -n +2 "$notas" > "$RUNNER_TEMP/notas.md"
+          gh release create "$GITHUB_REF_NAME" dist/PowerTerminal-*.AppImage dist/SHA256SUMS \
+            --title "$titulo" --notes-file "$RUNNER_TEMP/notas.md"

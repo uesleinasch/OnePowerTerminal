@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   lint:
@@ -28,11 +29,11 @@ jobs:
           shellcheck --version
 
       - name: shellcheck
-        run: shellcheck --severity=warning --shell=bash install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh
+        run: shellcheck --severity=warning --shell=bash install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh packaging/appimage/build-appimage.sh packaging/appimage/AppRun
 
       - name: Sintaxe bash
         run: |
-          for f in install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh; do
+          for f in install.sh bin/powerterminal lib/*.sh lib/modules/*.sh bin-helpers/* tests/*.sh packaging/appimage/build-appimage.sh packaging/appimage/AppRun; do
             bash -n "$f"
           done
 
