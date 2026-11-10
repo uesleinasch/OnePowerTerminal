@@ -49,6 +49,15 @@ class SudoPrompt extends ScanHit {
 }
 
 final _rcLine = RegExp('^(.*)$kRcMarker (\\d{1,3})\$');
+
+// O sudo clássico usa o SUDO_PROMPT (ou o -p) como prompt inteiro. O sudo-rs,
+// padrão do Ubuntu 26.04+, ignora o SUDO_PROMPT e embrulha o -p:
+// "[sudo: __PN_SUDO__] Senha: ". Sem -p ele mostra "[sudo: authenticate] ...",
+// que também conta como prompt para um sudo expirado no meio de um comando
+// não ficar esperando uma senha que nunca chega.
+final _sudoPromptRe = RegExp(
+  '\\[sudo: (?:$kSudoPrompt|authenticate)\\][^\\n:]*: ?|$kSudoPrompt',
+);
 final _controlChars = RegExp(r'[\x00-\x1F\x7F]');
 
 class MarkerScanner {
@@ -70,12 +79,12 @@ class MarkerScanner {
     _buffer += chunk;
     final hits = <ScanHit>[];
     while (true) {
-      final prompt = _buffer.indexOf(kSudoPrompt);
+      final prompt = _sudoPromptRe.firstMatch(_buffer);
       final nl = _buffer.indexOf('\n');
-      if (prompt >= 0 && (nl < 0 || prompt < nl)) {
+      if (prompt != null && (nl < 0 || prompt.start < nl)) {
         _buffer =
-            _buffer.substring(0, prompt) +
-            _buffer.substring(prompt + kSudoPrompt.length);
+            _buffer.substring(0, prompt.start) +
+            _buffer.substring(prompt.end);
         hits.add(const SudoPrompt());
         continue;
       }
@@ -182,7 +191,7 @@ class PtyShell implements ShellSession {
 
     arm();
     try {
-      final (code, prompts) = await _exec('sudo -v', (n) {
+      final (code, prompts) = await _exec('sudo -p $kSudoPrompt -v', (n) {
         arm();
         if (n == 1) {
           _proc.stdin.add([...utf8.encode(password), 10]);
