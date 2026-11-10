@@ -2,6 +2,13 @@
 set -u
 ticket="${FAKE_SUDO_STATE:?}/ticket"
 
+# -p PROMPT antes da ação, como o launcher chama (sudo -p MARCADOR -v).
+custom_prompt=''
+if [[ ${1:-} == -p ]]; then
+  custom_prompt="${2-}"
+  shift 2
+fi
+
 case "${1:-}" in
   -k)
     rm -f "$ticket"
@@ -13,7 +20,12 @@ case "${1:-}" in
     ;;
   -v)
     [[ -f $ticket ]] && exit 0
-    prompt="${SUDO_PROMPT:-[sudo] password: }"
+    if [[ ${FAKE_SUDO_RS:-0} == 1 ]]; then
+      # sudo-rs: ignora o SUDO_PROMPT e embrulha o -p.
+      prompt="[sudo: ${custom_prompt:-authenticate}] Password: "
+    else
+      prompt="${custom_prompt:-${SUDO_PROMPT:-[sudo] password: }}"
+    fi
     [[ ${FAKE_SUDO_ALT_PROMPT:-0} == 1 ]] && prompt='Verification code: '
     for _ in 1 2 3; do
       printf '%s' "$prompt" >/dev/tty

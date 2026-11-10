@@ -30,6 +30,24 @@ void main() {
       expect(s.feed('DO__').single, isA<SudoPrompt>());
     });
 
+    test('prompt do sudo-rs com -p é consumido inteiro', () {
+      final s = MarkerScanner();
+      final hits = s.feed('[sudo: __PN_SUDO__] Senha: \r\n');
+      expect(hits.first, isA<SudoPrompt>());
+      expect(
+        hits.whereType<OutputLine>().where((l) => l.text.isNotEmpty),
+        isEmpty,
+      );
+    });
+
+    test('prompt padrão do sudo-rs conta como prompt', () {
+      final s = MarkerScanner();
+      expect(
+        s.feed('[sudo: authenticate] Password: ').single,
+        isA<SudoPrompt>(),
+      );
+    });
+
     test('linhas limpas e marcador colado em saída sem \\n', () {
       final s = MarkerScanner();
       final hits = s.feed('\x1B[32mok\x1B[0m\r\nparcial');
@@ -193,6 +211,23 @@ void main() {
       final s = await start(password: pw);
       expect(await s.unlockSudo(pw), SudoResult.ok);
       expect(lines.where((l) => l.contains('pa ss')), isEmpty);
+    });
+
+    test('sudo-rs, que ignora o SUDO_PROMPT, libera com a senha', () async {
+      final s = await start(extra: {'FAKE_SUDO_RS': '1'});
+      expect(
+        await s.unlockSudo('segredo', timeout: const Duration(seconds: 3)),
+        SudoResult.ok,
+      );
+      expect(File('${state.path}/ticket').existsSync(), isTrue);
+      expect(lines.where((l) => l.contains('segredo')), isEmpty);
+      expect(lines.where((l) => l.contains('sudo:')), isEmpty);
+    });
+
+    test('sudo-rs com senha errada', () async {
+      final s = await start(extra: {'FAKE_SUDO_RS': '1'});
+      expect(await s.unlockSudo('errada'), SudoResult.wrongPassword);
+      expect((await s.run('true')).exitCode, 0);
     });
 
     test('senha errada e a sessão continua utilizável', () async {
